@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Song } from '../api/types';
+import { generateId } from '../utils/idGen';
 import type { RepeatMode } from './queueStore';
 
 export type JamRole = 'solo' | 'jam';
@@ -46,7 +47,7 @@ interface JamState {
 export const useJamStore = create<JamState>()(
   persist(
     (set, get) => ({
-      clientId: crypto.randomUUID(),
+      clientId: generateId(),
       role: 'solo',
       roomId: null,
       isCreator: false,

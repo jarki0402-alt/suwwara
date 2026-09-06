@@ -26,6 +26,11 @@ interface QueueState {
   currentSong: () => Song | null;
   /** Looks ahead to whatever advanceOnEnded() would play next, without changing position — used to prefetch its audio while the current track is still playing. */
   peekNext: () => Song | null;
+  /** Same idea as peekNext, generalized to look `count` tracks ahead instead of
+   * just one — used to prefetch further into the queue without ever mutating
+   * position. Stops early (returns fewer than `count`) if the queue runs out
+   * or would wrap back to the currently playing track. */
+  peekUpcoming: (count: number) => Song[];
   clear: () => void;
 }
 
@@ -172,6 +177,25 @@ export const useQueueStore = create<QueueState>()(
           nextPosition = 0;
         }
         return songAt(queue, order, nextPosition);
+      },
+
+      peekUpcoming: (count) => {
+        const { queue, order, position, repeatMode } = get();
+        if (order.length === 0 || repeatMode === 'one') return [];
+        const results: Song[] = [];
+        let pos = position;
+        for (let i = 0; i < count; i++) {
+          pos += 1;
+          if (pos >= order.length) {
+            if (repeatMode !== 'all') break;
+            pos = 0;
+          }
+          if (pos === position) break; // wrapped all the way around a short queue
+          const song = songAt(queue, order, pos);
+          if (!song) break;
+          results.push(song);
+        }
+        return results;
       },
 
       clear: () => set({ queue: [], order: [], position: 0 }),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Song } from '../api/types';
-import { prefetchAudio } from '../api/musicClient';
+import { prefetchAudioFull, prefetchAudioResolveOnly } from '../api/musicClient';
 import { cacheSongs } from '../api/songCache';
 import { audioEngine } from '../audio-engine/AudioEngine';
 import { useAudioEngine } from '../audio-engine/useAudioEngine';
@@ -47,6 +47,11 @@ const TRANSITION_FADE_SEC = 0.35;
 // radio-style queue flowing continuously (like any other streaming app) instead
 // of ever visibly running out and stopping.
 const EXTEND_QUEUE_THRESHOLD = 3;
+// How many upcoming tracks to keep warm. Only the very next one gets a full
+// audio-byte prefetch (genuinely costs the same server work as playing it —
+// see prefetchAudioFull's own doc comment for why that's capped to just one);
+// the rest only get the cheap yt-dlp-resolve-only warm-up.
+const PREFETCH_LOOKAHEAD = 3;
 
 /**
  * Orchestration layer wiring queueStore/settingsStore to the AudioEngine and
@@ -62,7 +67,7 @@ export function usePlaybackController() {
   const advanceOnEnded = useQueueStore((s) => s.advanceOnEnded);
   const next = useQueueStore((s) => s.next);
   const previous = useQueueStore((s) => s.previous);
-  const peekNext = useQueueStore((s) => s.peekNext);
+  const peekUpcoming = useQueueStore((s) => s.peekUpcoming);
 
   const dataSaver = useSettingsStore((s) => s.dataSaver);
   const volume = useSettingsStore((s) => s.volume);
@@ -230,11 +235,14 @@ export function usePlaybackController() {
 
   useEffect(() => {
     if (!currentSong) return;
-    const upcoming = peekNext();
-    if (upcoming && upcoming.id !== currentSong.id) {
-      prefetchAudio(upcoming.id, dataSaver ? 'low' : 'high');
-    }
-    // Re-runs whenever the current track (or the queue shape around it) changes, so the *next* track is always the one being kept warm.
+    const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id);
+    const quality = dataSaver ? 'low' : 'high';
+    const [nextUp, ...furtherOut] = upcoming;
+    if (nextUp) prefetchAudioFull(nextUp.id, quality);
+    for (const song of furtherOut) prefetchAudioResolveOnly(song.id, quality);
+    // Re-runs whenever the current track (or the queue shape around it) changes — reorders,
+    // additions from search, radio auto-extend, a Jam edit from someone else — so the
+    // upcoming tracks being kept warm always match whatever's actually coming next.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.id, order, position, repeatMode, dataSaver]);
 

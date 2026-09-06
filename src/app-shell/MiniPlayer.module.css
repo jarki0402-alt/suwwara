@@ -1,0 +1,150 @@
+.wrapper {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* Matches BottomNav's own safe-area-reserving height below. */
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+  height: var(--mini-player-height);
+  z-index: var(--z-mini-player);
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  gap: var(--space-2);
+}
+
+.progressTrack {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Read-only here (no onSeekFraction passed) — never intercept taps meant for
+     the play/art button underneath, regardless of ProgressBar's touch target size. */
+  pointer-events: none;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: var(--space-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.art {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-floating);
+}
+
+.text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitle {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.actionButton {
+  border: none;
+  background: none;
+  color: var(--color-text-primary);
+  padding: var(--space-2);
+  cursor: pointer;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+.actionButtonActive {
+  color: var(--color-accent);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (min-width: 960px) {
+  .wrapper {
+    left: var(--sidebar-width);
+    bottom: 0;
+    height: 76px;
+    padding: 0 var(--space-5);
+    /* Spotify-style 3-column layout: song info left, transport centered in the
+       whole bar (not just "after the text"), symmetric empty column on the right
+       keeps the center column mathematically centered. */
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: var(--space-4);
+  }
+
+  .main {
+    justify-self: start;
+    max-width: 360px;
+  }
+
+  .desktopOnly {
+    display: flex;
+  }
+
+  .actions {
+    justify-self: center;
+    gap: var(--space-4);
+  }
+
+  .playButton {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--color-text-primary);
+    color: var(--color-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--transition-fast);
+  }
+
+  .playButton:hover {
+    transform: scale(1.05);
+  }
+}

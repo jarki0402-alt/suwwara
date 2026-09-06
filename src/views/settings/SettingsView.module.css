@@ -1,0 +1,139 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-4) var(--space-5);
+}
+
+.pageTitle {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  padding: 0 var(--space-2);
+}
+
+.card {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.row,
+.rowButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.row:last-child,
+.rowButton:last-child {
+  border-bottom: none;
+}
+
+.rowButton {
+  width: 100%;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.rowButton:active {
+  background: var(--color-accent-soft);
+}
+
+.iconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rowTitle {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.rowSubtitle {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.rowControl {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.linkButton {
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: var(--space-2);
+}
+
+.storageBarTrack {
+  margin: 0 var(--space-4);
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.storageBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-strong));
+  border-radius: var(--radius-full);
+  transition: width var(--transition-base);
+}
+
+.storageCaption {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.appInfo {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary);
+  padding: var(--space-2) var(--space-4);
+}

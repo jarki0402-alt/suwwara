@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: ./server
+    restart: unless-stopped
+    environment:
+      - PORT=8787
+    ports:
+      # Published to the host (not just the internal Docker network) on purpose: this
+      # lets audio streaming be pointed at directly, bypassing a Cloudflare-proxied
+      # hostname entirely if you want to keep heavy audio traffic off Cloudflare's edge
+      # (see the frontend's /api/ proxy in nginx.conf for the alternative — routing
+      # everything, audio included, through one origin).
+      - "8787:8787"
+
+  frontend:
+    build:
+      context: .
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"

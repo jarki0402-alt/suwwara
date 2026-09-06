@@ -1,0 +1,148 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  /* Above --z-sheet (20) and --z-toast (30) — this is a modal the user is actively
+     acting on, always the topmost layer regardless of what opened it. */
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn var(--transition-base);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet {
+  width: 100%;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-elevated);
+  animation: slideUp var(--transition-slow);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 960px) {
+  .overlay {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sheet {
+    width: min(400px, 92vw);
+    max-height: 80vh;
+    border-radius: var(--radius-lg);
+    animation: fadeIn var(--transition-base);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-3);
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.closeButton {
+  border: none;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-full);
+  padding: var(--space-2);
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
+.createRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: none;
+  background: none;
+  padding: var(--space-3) var(--space-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-accent-strong);
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.createIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.list {
+  overflow-y: auto;
+  padding-top: var(--space-2);
+}
+
+.empty {
+  padding: var(--space-5) var(--space-2);
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 0.85rem;
+}
+
+.playlistRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border: none;
+  background: none;
+  padding: var(--space-3) var(--space-2);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--color-text-primary);
+}
+
+.playlistRow:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.playlistName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlistMeta {
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary);
+}

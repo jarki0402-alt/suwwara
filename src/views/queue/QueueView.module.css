@@ -1,0 +1,66 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* Extra top clearance so the title doesn't sit flush against the status bar /
+     notch — this sheet covers the full screen with no other chrome above it. */
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.closeButton {
+  border: none;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-full);
+  padding: var(--space-2);
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
+.controlsRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pillActive {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.empty {
+  padding: var(--space-6) var(--space-2);
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 0.9rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}

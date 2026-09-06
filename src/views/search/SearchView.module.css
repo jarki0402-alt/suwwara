@@ -1,0 +1,173 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-4) var(--space-5);
+}
+
+.pageTitle {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-full);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  transition: border-color var(--transition-fast);
+}
+
+.searchBox:focus-within {
+  border-color: var(--color-accent);
+}
+
+.input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  /* 16px is the iOS Safari threshold — anything smaller makes it auto-zoom the
+     whole page in when this input is focused, which then has to be manually
+     zoomed back out. */
+  font-size: 1rem;
+  color: var(--color-text-primary);
+}
+
+.input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.state {
+  padding: var(--space-7) var(--space-2);
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 0.9rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.searchAnchor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.suggestions {
+  /* Sits in normal flow, directly above the matching-songs results list, so a
+     tap can go straight from a suggestion to a song below it without the two
+     ever occupying the same space (previously this floated absolutely over
+     the results, and since it's almost always shorter than the results list,
+     the uncovered rows peeked out from under it, reading as one overlapping
+     mess). Capped at MAX_SUGGESTIONS items so it doesn't grow unpredictably. */
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestionRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: none;
+  background: none;
+  padding: var(--space-3) var(--space-2);
+  font-size: 0.88rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.suggestionRow:active {
+  background: var(--color-bg-elevated);
+}
+
+.browseState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.recentSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.recentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionLabel {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.clearButton {
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--space-1);
+}
+
+.recentList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.recentItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.recentButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: none;
+  background: none;
+  padding: var(--space-2);
+  font-size: 0.88rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.recentButton > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recentRemove {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-tertiary);
+  padding: var(--space-2);
+  cursor: pointer;
+}

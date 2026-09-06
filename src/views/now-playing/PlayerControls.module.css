@@ -1,0 +1,87 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sideButton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  width: 44px;
+  height: 44px;
+  padding: var(--space-2);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.sideButtonActive {
+  color: var(--color-accent);
+}
+
+.activeDot {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transform: translateX(-50%) scale(0);
+  transition: transform var(--transition-fast);
+}
+
+.sideButtonActive .activeDot {
+  transform: translateX(-50%) scale(1);
+}
+
+.transportGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.transportButton {
+  border: none;
+  background: none;
+  color: var(--color-text-primary);
+  padding: var(--space-2);
+  cursor: pointer;
+}
+
+.playButton {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-elevated);
+  transition: transform var(--transition-fast);
+}
+
+.playButton:active {
+  transform: scale(0.94);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

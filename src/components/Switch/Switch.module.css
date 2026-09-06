@@ -1,0 +1,28 @@
+.track {
+  width: 44px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  border: none;
+  padding: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast);
+}
+
+.trackOn {
+  background: var(--color-accent);
+}
+
+.thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform var(--transition-fast);
+}
+
+.thumbOn {
+  transform: translateX(18px);
+}

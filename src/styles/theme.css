@@ -1,0 +1,74 @@
+/*
+ * Theme resolution, in order:
+ *  1. :root (light palette — the default)
+ *  2. @media (prefers-color-scheme: dark), guarded by :not([data-theme="light"]) so an
+ *     explicit "light" choice always wins over a dark OS setting
+ *  3. :root[data-theme="dark"] — explicit "dark" choice, wins regardless of OS setting
+ * [data-theme] is applied to <html> by useThemeSync (src/hooks/useThemeSync.ts) based on
+ * settingsStore's theme preference; "system" leaves the attribute unset so step 2 alone decides.
+ */
+:root {
+  color-scheme: light dark;
+
+  --color-bg: #ffffff;
+  --color-bg-elevated: #f6f5f9;
+  --color-bg-overlay: rgba(255, 255, 255, 0.9);
+  --color-text-primary: #16161a;
+  --color-text-secondary: #6b6b76;
+  --color-text-tertiary: #9a9aa5;
+  --color-border: rgba(22, 22, 26, 0.08);
+
+  --color-accent: #7c3aed;
+  --color-accent-strong: #6d28d9;
+  --color-accent-soft: rgba(124, 58, 237, 0.12);
+  --color-danger: #e5484d;
+  --color-success: #30a46c;
+
+  --color-skeleton-base: rgba(22, 22, 26, 0.06);
+  --color-skeleton-highlight: rgba(22, 22, 26, 0.12);
+
+  --shadow-elevated: 0 8px 24px rgba(22, 22, 26, 0.1);
+  --shadow-floating: 0 4px 20px rgba(22, 22, 26, 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #0b0b0f;
+    --color-bg-elevated: #17171d;
+    --color-bg-overlay: rgba(11, 11, 15, 0.9);
+    --color-text-primary: #f5f4f8;
+    --color-text-secondary: #a8a8b3;
+    --color-text-tertiary: #6f6f7a;
+    --color-border: rgba(245, 244, 248, 0.09);
+
+    --color-accent: #a78bfa;
+    --color-accent-strong: #c4b5fd;
+    --color-accent-soft: rgba(167, 139, 250, 0.18);
+
+    --color-skeleton-base: rgba(245, 244, 248, 0.06);
+    --color-skeleton-highlight: rgba(245, 244, 248, 0.14);
+
+    --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --shadow-floating: 0 4px 20px rgba(0, 0, 0, 0.55);
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #0b0b0f;
+  --color-bg-elevated: #17171d;
+  --color-bg-overlay: rgba(11, 11, 15, 0.9);
+  --color-text-primary: #f5f4f8;
+  --color-text-secondary: #a8a8b3;
+  --color-text-tertiary: #6f6f7a;
+  --color-border: rgba(245, 244, 248, 0.09);
+
+  --color-accent: #a78bfa;
+  --color-accent-strong: #c4b5fd;
+  --color-accent-soft: rgba(167, 139, 250, 0.18);
+
+  --color-skeleton-base: rgba(245, 244, 248, 0.06);
+  --color-skeleton-highlight: rgba(245, 244, 248, 0.14);
+
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-floating: 0 4px 20px rgba(0, 0, 0, 0.55);
+}

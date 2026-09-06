@@ -1,0 +1,20 @@
+.likedArt,
+.placeholderArt {
+  width: 136px;
+  height: 136px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-floating);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.likedArt {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
+  color: #ffffff;
+}
+
+.placeholderArt {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-tertiary);
+}

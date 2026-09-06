@@ -1,0 +1,31 @@
+.shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  /* Matches BottomNav/MiniPlayer's own safe-area-reserving sizing above. */
+  padding-bottom: calc(var(--mini-player-height) + var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-4));
+}
+
+@media (min-width: 960px) {
+  .content {
+    /* Without a cap, every view's content stretched to whatever the window's
+       full width happened to be — fine at 1280px, absurd at a 3000px+ display.
+       max-width includes the sidebar's own reserved padding (border-box), so
+       centering here still lines up with the space actually next to the sidebar.
+       width:100% is required alongside margin:auto here — .content is a flex
+       item (.shell is flex-direction:column), and a flex item with auto margins
+       on the cross axis shrinks to fit its content instead of stretching, which
+       silently collapsed every view down to its narrowest child's width. */
+    width: 100%;
+    max-width: calc(1400px + var(--sidebar-width));
+    margin: 0 auto;
+    padding-left: var(--sidebar-width);
+    padding-bottom: calc(var(--mini-player-height) + var(--space-5));
+  }
+}

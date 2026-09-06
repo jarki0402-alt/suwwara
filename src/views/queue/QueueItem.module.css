@@ -1,0 +1,107 @@
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1) var(--space-1) 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.row.active {
+  background: var(--color-accent-soft);
+}
+
+.row.dragging {
+  z-index: 5;
+  box-shadow: var(--shadow-floating);
+  background: var(--color-bg-elevated);
+}
+
+.handle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 40px;
+  border: none;
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.row.dragging .handle {
+  cursor: grabbing;
+  color: var(--color-accent);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-floating);
+}
+
+.text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row.active .title {
+  color: var(--color-accent-strong);
+}
+
+.subtitle {
+  font-size: 0.74rem;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconButton {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.iconButton:disabled {
+  opacity: 0.3;
+  cursor: default;
+}

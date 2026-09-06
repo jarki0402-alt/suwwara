@@ -1,0 +1,57 @@
+.grid {
+  width: 100%;
+  display: grid;
+  /* Explicit breakpoints instead of repeat(auto-fill, minmax(...)) — that
+     approach turned out to have a real gotcha: per spec, auto-fill counts
+     repetitions using minmax()'s *max* bound when it's a definite length (not
+     the min, which is what "as many as fit" suggests) — so minmax(140px, 200px)
+     at a 358px mobile width computed floor(370/212)=1 column, not the 2 you'd
+     expect. Verified directly (computed gridTemplateColumns) before and after
+     this fix. Fixed breakpoints are fully predictable and easy to verify. */
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+@media (min-width: 600px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1300px) {
+  .grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.tile {
+  /* min-width: 0 overrides the grid item default (min-width: auto), which was
+     letting a tile's own text content (e.g. "Dance/Electronic" not wrapping)
+     force its whole track wider than the 140-200px the grid asked for — auto-fill
+     then had room for only one such oversized column instead of two normal ones. */
+  min-width: 0;
+  aspect-ratio: 2 / 1.1;
+  max-height: 110px;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  box-shadow: var(--shadow-floating);
+  transition: transform var(--transition-fast);
+}
+
+.tile:active {
+  transform: scale(0.97);
+}

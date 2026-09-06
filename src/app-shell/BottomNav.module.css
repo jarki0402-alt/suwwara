@@ -1,0 +1,93 @@
+.nav {
+  /* Reserves env(safe-area-inset-bottom) so the tab labels clear the home-indicator
+     gesture area on iPhones without a Home button — the platform-correct approach.
+     Note: iOS 26 has a widely-reported bug (developer.apple.com/forums/thread/797124,
+     among others) where standalone PWAs can show inconsistent/incorrect safe-area
+     behavior at the bottom edge regardless of what a page's CSS asks for — verified
+     this app's CSS ships correct (checked the built output directly), so a residual
+     gap on affected iOS 26.x devices is Apple's bug to fix, not something correctable
+     from here. */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--color-border);
+  z-index: var(--z-mini-player);
+}
+
+.brand {
+  display: none;
+}
+
+.tabButton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: none;
+  color: var(--color-text-tertiary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabActive {
+  color: var(--color-accent);
+}
+
+@media (min-width: 960px) {
+  .nav {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    left: 0;
+    width: var(--sidebar-width);
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: var(--space-1);
+    padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-3) var(--space-4);
+    border-top: none;
+    border-right: 1px solid var(--color-border);
+    backdrop-filter: none;
+    background: var(--color-bg);
+  }
+
+  .brand {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--color-text-primary);
+    padding: 0 var(--space-3) var(--space-5);
+  }
+
+  .tabButton {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+
+  .tabButton:hover {
+    background: var(--color-accent-soft);
+    color: var(--color-text-primary);
+  }
+
+  .tabActive {
+    background: var(--color-accent-soft);
+  }
+}

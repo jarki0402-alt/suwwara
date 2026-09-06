@@ -1,0 +1,29 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.heading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0 var(--space-4);
+}
+
+.scroller {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding: 0 var(--space-4) var(--space-2);
+  scrollbar-width: none;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.empty {
+  padding: 0 var(--space-4);
+  color: var(--color-text-tertiary);
+  font-size: 0.85rem;
+}

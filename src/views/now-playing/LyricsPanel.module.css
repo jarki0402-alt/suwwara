@@ -1,0 +1,61 @@
+.state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-tertiary);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.syncedWrapper {
+  height: 100%;
+  overflow-y: auto;
+  /* Generous top/bottom padding so even the first and last lines have enough
+     scroll room to reach dead-center (see the centering math in LyricsPanel.tsx) —
+     too little here and the opening/closing lines would clamp short of center. */
+  padding: 38vh var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  mask-image: linear-gradient(to bottom, transparent, black 14%, black 78%, transparent);
+  scrollbar-width: none;
+}
+
+.syncedWrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.line {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-base), transform var(--transition-base), opacity var(--transition-base);
+  text-align: left;
+  transform-origin: left center;
+  opacity: 0.55;
+}
+
+.activeLine {
+  color: var(--color-text-primary);
+  transform: scale(1.06);
+  opacity: 1;
+}
+
+.plainWrapper {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.plainText {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+  text-align: center;
+}

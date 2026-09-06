@@ -1,0 +1,75 @@
+.track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 20px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  transition: height var(--transition-fast);
+}
+
+.track:hover::before,
+.track.dragging::before {
+  height: 6px;
+}
+
+.fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 0%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  pointer-events: none;
+  transition: height var(--transition-fast);
+}
+
+.track:hover .fill,
+.track.dragging .fill {
+  height: 6px;
+}
+
+.thumb {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: transform var(--transition-fast);
+}
+
+.track:hover .thumb,
+.track.dragging .thumb {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* Read-only usage (e.g. MiniPlayer) — no touch target/thumb needed, just the thin line
+   at its original size, so it doesn't visually collide with content sitting right below it. */
+.compact {
+  height: 4px;
+  cursor: default;
+}
+
+.compact .thumb {
+  display: none;
+}

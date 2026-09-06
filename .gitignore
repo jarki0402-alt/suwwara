@@ -12,10 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Per-deploy docker-compose build args (e.g. VITE_AUDIO_BASE_URL) — lives only
-# on whichever host actually needs it, never committed.
-.env
-
 .claude
 
 # Editor directories and files

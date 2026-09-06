@@ -4,14 +4,6 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-# Optional: only needed when audio traffic is deliberately split onto its own
-# origin (e.g. a Cloudflare "DNS only" subdomain bypassing their proxy for the
-# heavy byte traffic — see src/api/musicClient.ts). Passed as a build arg
-# (not an .env file) specifically so it's set per-deploy via docker-compose's
-# own host-level .env, never baked into the repo or picked up by local/dev
-# builds unless explicitly provided.
-ARG VITE_AUDIO_BASE_URL=""
-ENV VITE_AUDIO_BASE_URL=${VITE_AUDIO_BASE_URL}
 RUN npm run build
 
 # ---- runtime: serve the static build with nginx ----

@@ -16,13 +16,6 @@ services:
   frontend:
     build:
       context: .
-      args:
-        # Empty by default (same-origin audio, today's behavior) — set
-        # VITE_AUDIO_BASE_URL in a host-level .env file (see README) to split
-        # audio traffic onto its own domain instead. That .env file is
-        # git/dockerignored on purpose: it's a per-deploy setting, not
-        # something the repo or local/dev builds should carry.
-        VITE_AUDIO_BASE_URL: ${VITE_AUDIO_BASE_URL:-}
     restart: unless-stopped
     depends_on:
       - backend

@@ -2,13 +2,6 @@ import { MusicApiError } from './types';
 
 const DEFAULT_TIMEOUT_MS = 12000;
 
-// Only set when audio traffic is deliberately routed to a separate origin
-// from the rest of the API (e.g. a subdomain kept off Cloudflare's proxied
-// network specifically for the heavy audio-byte traffic, while search/details/
-// etc. stay on the main proxied domain) — defaults to '' so audio requests
-// stay same-origin, identical to every other endpoint here, when unset.
-const AUDIO_BASE_URL = (import.meta.env.VITE_AUDIO_BASE_URL as string | undefined) ?? '';
-
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -55,7 +48,7 @@ export async function apiGet<T>(path: string, params: Record<string, string | nu
 
 /** Builds the URL our AudioEngine's <audio> element should point at for a given song. */
 export function buildAudioUrl(songId: string, quality: 'high' | 'low'): string {
-  return `${AUDIO_BASE_URL}/api/audio/${encodeURIComponent(songId)}?quality=${quality}`;
+  return `/api/audio/${encodeURIComponent(songId)}?quality=${quality}`;
 }
 
 /**
@@ -66,7 +59,7 @@ export function buildAudioUrl(songId: string, quality: 'high' | 'low'): string {
  * buffering delay when a song ends or the user hits next.
  */
 export function prefetchAudio(songId: string, quality: 'high' | 'low'): void {
-  const url = `${AUDIO_BASE_URL}/api/audio/${encodeURIComponent(songId)}/resolve?quality=${quality}`;
+  const url = `/api/audio/${encodeURIComponent(songId)}/resolve?quality=${quality}`;
   fetch(new URL(url, window.location.origin), { keepalive: true }).catch(() => {
     // Best-effort warm-up only — a failed prefetch just means the normal
     // on-demand resolution path runs later, same as before this existed.

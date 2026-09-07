@@ -139,6 +139,14 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
           // this writing it errors outright with "The page needs to be reloaded"
           // regardless of IP — pure dead weight in the fallback chain right now.)
           '--extractor-args', 'youtube:player_client=android,web',
+          // Real account session cookies (Netscape format, exported per the yt-dlp wiki:
+          // https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies) —
+          // this is what actually gets past "Sign in to confirm you're not a bot" once an
+          // IP is flagged, since it authenticates as a real user instead of an anonymous
+          // datacenter connection. Mounted read-only from the repo root; see docker-compose.yml.
+          // Use a dedicated/secondary Google account, not a personal main one — cookies
+          // expire periodically and need re-exporting when that happens.
+          '--cookies', '/app/cookies.txt',
           '--print', '%(url)s', '--print', '%(ext)s', '--no-warnings', '--socket-timeout', '20', url,
         ],
         { timeout: 25000, maxBuffer: 4 * 1024 * 1024 },

@@ -38,6 +38,15 @@ services:
       - PGDATABASE=suwwara
       - PGUSER=suwwara
       - PGPASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      # YouTube session cookies (Netscape format), gitignored — required for yt-dlp to
+      # get past "Sign in to confirm you're not a bot" once an IP gets flagged. Create
+      # this file (even an empty placeholder) BEFORE first `docker compose up`, or
+      # Docker will bind-mount an empty directory here instead of a file. See
+      # server/src/youtube/stream.ts and the yt-dlp wiki on exporting cookies.
+      # Read-WRITE (not :ro) on purpose — yt-dlp writes refreshed session cookies back
+      # to this file after use, which is what makes them last longer before expiring.
+      - ./cookies.txt:/app/cookies.txt
     ports:
       # Published to the host (not just the internal Docker network) on purpose: this
       # lets audio streaming be pointed at directly, bypassing a Cloudflare-proxied

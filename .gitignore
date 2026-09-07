@@ -17,6 +17,11 @@ dist-ssr
 # Secrets — see .env.example for the template
 .env
 
+# YouTube cookies (Netscape format) used to authenticate yt-dlp past
+# "Sign in to confirm you're not a bot" — see server/src/youtube/stream.ts.
+# Real session credentials, never committed.
+cookies.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

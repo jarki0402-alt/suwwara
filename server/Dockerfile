@@ -19,7 +19,7 @@ WORKDIR /app
 # py3-pip is removed after install to keep the final image lean; the already-
 # installed yt-dlp package only needs the python3 interpreter to run, not pip.
 RUN apk add --no-cache python3 py3-pip && \
-    pip3 install --no-cache-dir --break-system-packages yt-dlp && \
+    pip3 install --no-cache-dir --break-system-packages yt-dlp bgutil-ytdlp-pot-provider && \
     apk del py3-pip
 
 COPY package*.json ./

@@ -27,7 +27,17 @@ services:
         condition: service_healthy
     environment:
       - PORT=8787
-      - DATABASE_URL=postgres://suwwara:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/suwwara
+      # Passed as discrete fields (not one postgres://user:pass@host URL) on purpose —
+      # a password containing URL-reserved characters (#, %, @, etc.) silently breaks
+      # URL parsing (this bit us with a real password once, see the git history for
+      # this line). postgres npm package accepts an options object instead, so
+      # server/src/db/client.ts builds the connection from these directly, no
+      # URL-encoding needed regardless of what's in the password.
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGDATABASE=suwwara
+      - PGUSER=suwwara
+      - PGPASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     ports:
       # Published to the host (not just the internal Docker network) on purpose: this
       # lets audio streaming be pointed at directly, bypassing a Cloudflare-proxied

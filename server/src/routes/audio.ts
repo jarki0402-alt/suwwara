@@ -107,7 +107,12 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
       return;
     }
 
-    const upstreamHeaders: Record<string, string> = {};
+    const upstreamHeaders: Record<string, string> = {
+      // YouTube commonly ignores Range requests and serves the full file as 200 OK
+      // if the request looks like a bot (e.g. Node.js default fetch User-Agent).
+      // Spoofing a real browser ensures we get the 206 Partial Content we asked for.
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    };
     if (rangeHeader) upstreamHeaders.Range = rangeHeader;
 
     const upstream = await fetch(audio.url, { headers: upstreamHeaders });

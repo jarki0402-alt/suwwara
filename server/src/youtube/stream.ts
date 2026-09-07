@@ -46,8 +46,17 @@ const EXT_TO_MIME: Record<string, string> = {
 function formatSelector(quality: AudioQuality): string {
   // m4a/AAC is preferred over webm/opus because Safari (iOS/macOS) has no
   // native WebM/Opus support in <audio> — picking m4a keeps playback working
-  // across every target browser, not just Chromium-based ones.
-  return quality === 'low' ? 'worstaudio[ext=m4a]/worstaudio' : 'bestaudio[ext=m4a]/bestaudio';
+  // across every target browser, not just Chromium-based ones. The extra
+  // fallback tiers (past plain bestaudio/worstaudio) exist because YouTube's
+  // "SABR-only" rollout has started stripping *all* separate audio-only
+  // streams for some player clients/sessions — when that happens, falling
+  // through to a muxed video+audio format is the only way to still get sound
+  // at all (wastes some bandwidth on a hidden video track, but degrades
+  // instead of failing outright). See yt-dlp issue #12482 — this is an
+  // actively moving target on YouTube's side, not something fixable here for good.
+  return quality === 'low'
+    ? 'worstaudio[ext=m4a]/worstaudio/worst[ext=mp4]/worst'
+    : 'bestaudio[ext=m4a]/bestaudio/best[ext=mp4]/best';
 }
 
 async function getCached(videoId: string, quality: AudioQuality): Promise<ResolvedAudio | null> {
@@ -118,7 +127,20 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
     ({ stdout } = await limit(() =>
       execFileAsync(
         'yt-dlp',
-        ['-f', formatSelector(quality), '--print', '%(url)s', '--print', '%(ext)s', '--no-warnings', '--socket-timeout', '20', url],
+        [
+          '-f', formatSelector(quality),
+          // Cloud/datacenter IPs (this VM's included) increasingly get YouTube's
+          // web-client "Sign in to confirm you're not a bot" check. android tried
+          // first as it commonly avoids that check with no cookies/account needed;
+          // web as fallback since android is currently subject to YouTube's
+          // "SABR-only" experiment stripping its audio-only formats for some
+          // sessions (see formatSelector's comment) — whichever client actually
+          // yields a usable stream wins. (tv client deliberately excluded: as of
+          // this writing it errors outright with "The page needs to be reloaded"
+          // regardless of IP — pure dead weight in the fallback chain right now.)
+          '--extractor-args', 'youtube:player_client=android,web',
+          '--print', '%(url)s', '--print', '%(ext)s', '--no-warnings', '--socket-timeout', '20', url,
+        ],
         { timeout: 25000, maxBuffer: 4 * 1024 * 1024 },
       ),
     ));

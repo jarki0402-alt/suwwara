@@ -29,12 +29,12 @@ const CACHE_TTL_MS = 3 * 60 * 60 * 1000;
 // restart, so a Postgres round-trip would just be slower for no benefit.
 const inFlight = new Map<string, Promise<ResolvedAudio>>();
 
-// At most 3 yt-dlp processes run at once, regardless of how many resolve
-// requests land concurrently — e2-micro's burstable vCPU has a limited credit
-// pool, and letting every simultaneous cache-miss spawn its own process is
-// what starves everything else on the box (nginx, Postgres, other users'
-// already-cached requests) during a burst instead of just queuing politely.
-const limit = pLimit(3);
+// At most 1 yt-dlp process runs at once. On an e2-micro (1 vCPU, 1GB RAM) with
+// the headless Chrome POT provider, running multiple instances concurrently
+// causes extreme CPU context switching and RAM swapping, blowing up resolution
+// time from 3s to 10s+. Limiting to 1 ensures the active track gets 100% of
+// the CPU and finishes quickly, while background prefetches wait in line.
+const limit = pLimit(1);
 
 const EXT_TO_MIME: Record<string, string> = {
   m4a: 'audio/mp4',

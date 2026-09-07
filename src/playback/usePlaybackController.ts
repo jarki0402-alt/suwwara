@@ -51,7 +51,7 @@ const EXTEND_QUEUE_THRESHOLD = 3;
 // audio-byte prefetch (genuinely costs the same server work as playing it —
 // see prefetchAudioFull's own doc comment for why that's capped to just one);
 // the rest only get the cheap yt-dlp-resolve-only warm-up.
-const PREFETCH_LOOKAHEAD = 3;
+const PREFETCH_LOOKAHEAD = 1;
 
 /**
  * Orchestration layer wiring queueStore/settingsStore to the AudioEngine and

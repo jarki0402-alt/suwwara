@@ -25,6 +25,16 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-08 (optimasi performa e2-micro, fix buffering lambat 10s di PWA iOS/Android)
+
+User melaporkan keterlambatan resolusi audio yang sangat parah (7-10 detik) saat memutar lagu baru, dan lag/loading ekstrem ("muter-muter 10 detikan") saat memutar lagu yang sama kedua kalinya di HP, padahal sudah di-cache.
+
+**Akar masalah 1 (Backend Thrashing):** VM gratisan GCP e2-micro (1 vCPU, 1GB RAM) tersedak hebat karena melayani 4 proses `yt-dlp` (yang masing-masing memanggil headless Chrome BotGuard lewat `bgutil-provider`) secara paralel setiap kali user klik lagu baru. Hal ini disebabkan oleh `PREFETCH_LOOKAHEAD` frontend yang bernilai 3, digabung dengan limit konkurensi backend `pLimit(3)`. Akibatnya, terjadi *Context Switching* ekstrem dan swap memori yang menaikkan delay resolusi dari 3 detik jadi 10+ detik.
+**Fix 1:** Backend dibatasi paksa menjadi `pLimit(1)` agar 1 lagu dapat fokus 100% daya CPU untuk selesai cepat (~3 detik). `PREFETCH_LOOKAHEAD` disetel ke nilai "sweet spot" `2` agar tidak serakah tetapi tetap menyediakan transisi lancar ke lagu berikutnya.
+
+**Akar masalah 2 (YouTube memblokir Range Request karena User-Agent bot):** Di iOS (dan kadang Android), browser suka meminta lagu secara dicicil dengan header HTTP `Range` (misal: bytes=0-1000). Saat menerima request ini, backend proxy kita (`audio.ts`) melakukan `fetch` ke URL YouTube asli. Namun, karena tidak ada header `User-Agent` yang diset, YouTube mendeteksi koneksi ini sebagai `node.js` bot dan **MENGABAIKAN** header Range, lalu melempar full audio file (sebesar 10MB) dengan status `200 OK`. Akibatnya, VM terpaksa harus mendownload dan menyimpan 10MB ke dalam RAM (yang memakan waktu 10 detik penuh!) sebelum bisa melayani cicilan pertama ke HP user.
+**Fix 2:** Header `User-Agent: Mozilla/5.0... Chrome...` ditambahkan secara statis pada saat backend melakukan `fetch` ke YouTube. YouTube kini merespons dengan benar (`206 Partial Content`), sehingga "muter-muter lambat 10 detik di HP walau lagu sudah cache" lenyap seketika, mengembalikan delay menjadi instan (0 detik) untuk lagu cache.
+
 ## Perubahan terbaru — 2026-09-05 (AKHIRNYA ketemu akar masalah sebenarnya, dibuktikan langsung dari device asli — iOS WebKit salah hitung durasi file, bukan bug jaringan/cache)
 
 Panel diagnostik dari entri sebelumnya berhasil — user kirim screenshot dari iPhone-nya SENDIRI pas bug lagi kejadian, dan datanya jelas banget: `song.duration: 178.00` (metadata benar) vs `element.duration: 355.94` — **persis 2× lipat** (178×2=356). Dikonfirmasi ulang lewat Playwright: LAGU YANG SAMA PERSIS (video ID sama, backend sama) dites di desktop Chromium, hasilnya `177.98` — BENAR, sesuai metadata, gak ada penggandaan sama sekali.

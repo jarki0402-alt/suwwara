@@ -70,13 +70,24 @@ async function setCached(videoId: string, quality: AudioQuality, audio: Resolved
 
 export async function resolveAudio(videoId: string, quality: AudioQuality): Promise<ResolvedAudio> {
   const cacheKey = `${videoId}:${quality}`;
+  const startedAt = Date.now();
 
   const cached = await getCached(videoId, quality);
-  if (cached) return cached;
+  if (cached) {
+    // eslint-disable-next-line no-console
+    console.log(`[audio] ${videoId} (${quality}) — CACHE HIT in ${Date.now() - startedAt}ms`);
+    return cached;
+  }
 
   const pending = inFlight.get(cacheKey);
-  if (pending) return pending;
+  if (pending) {
+    // eslint-disable-next-line no-console
+    console.log(`[audio] ${videoId} (${quality}) — joined in-flight resolve already running`);
+    return pending;
+  }
 
+  // eslint-disable-next-line no-console
+  console.log(`[audio] ${videoId} (${quality}) — CACHE MISS, spawning yt-dlp (queue depth: ${limit.pendingCount}, active: ${limit.activeCount})`);
   const resolution = resolveAudioUncached(videoId, quality).finally(() => {
     inFlight.delete(cacheKey);
   });
@@ -84,6 +95,8 @@ export async function resolveAudio(videoId: string, quality: AudioQuality): Prom
 
   const audio = await resolution;
   await setCached(videoId, quality, audio);
+  // eslint-disable-next-line no-console
+  console.log(`[audio] ${videoId} (${quality}) — resolved in ${Date.now() - startedAt}ms total`);
   return audio;
 }
 

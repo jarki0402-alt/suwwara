@@ -1,5 +1,7 @@
+import { ConfirmPairSheet } from '../components/ConfirmPairSheet/ConfirmPairSheet';
 import { JamSheet } from '../components/JamSheet/JamSheet';
 import { JoinJamSheet } from '../components/JoinJamSheet/JoinJamSheet';
+import { PairDeviceSheet } from '../components/PairDeviceSheet/PairDeviceSheet';
 import { useJamSync } from '../jam/useJamSync';
 import { PlaybackProvider } from '../playback/PlaybackContext';
 import { useUiStore } from '../stores/uiStore';
@@ -15,6 +17,10 @@ export function AppShell() {
   const closeJamSheet = useUiStore((state) => state.closeJamSheet);
   const joinJamRoomId = useUiStore((state) => state.joinJamRoomId);
   const closeJoinJamSheet = useUiStore((state) => state.closeJoinJamSheet);
+  const isPairingSheetOpen = useUiStore((state) => state.isPairingSheetOpen);
+  const closePairingSheet = useUiStore((state) => state.closePairingSheet);
+  const incomingPairCode = useUiStore((state) => state.incomingPairCode);
+  const closeIncomingPair = useUiStore((state) => state.closeIncomingPair);
 
   return (
     <PlaybackProvider>
@@ -27,6 +33,8 @@ export function AppShell() {
         <NowPlayingView />
         <JamSheet isOpen={isJamSheetOpen} onClose={closeJamSheet} />
         {joinJamRoomId && <JoinJamSheet isOpen roomId={joinJamRoomId} onClose={closeJoinJamSheet} />}
+        <PairDeviceSheet isOpen={isPairingSheetOpen} onClose={closePairingSheet} />
+        {incomingPairCode && <ConfirmPairSheet isOpen code={incomingPairCode} onClose={closeIncomingPair} />}
       </div>
     </PlaybackProvider>
   );

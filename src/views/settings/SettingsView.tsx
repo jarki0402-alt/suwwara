@@ -14,6 +14,7 @@ export function SettingsView() {
   const jamRole = useJamStore((state) => state.role);
   const jamMemberCount = useJamStore((state) => state.memberCount);
   const openJamSheet = useUiStore((state) => state.openJamSheet);
+  const openPairingSheet = useUiStore((state) => state.openPairingSheet);
 
   const handleClearHistory = () => {
     clearHistory();
@@ -39,6 +40,19 @@ export function SettingsView() {
             subtitle={jamRole === 'jam' ? `Aktif — ${jamMemberCount} orang dengerin bareng` : 'Dengerin lagu bareng teman, real-time.'}
             onClick={openJamSheet}
             control={<span className={styles.linkButton}>{jamRole === 'jam' ? 'Kelola' : 'Mulai'}</span>}
+          />
+        </div>
+      </div>
+
+      <div className={styles.section}>
+        <span className={styles.sectionTitle}>Akun</span>
+        <div className={styles.card}>
+          <SettingsRow
+            icon="database"
+            title="Hubungkan Device Lain"
+            subtitle="Sinkronkan playlist & lagu favorit lewat kode QR — tanpa email, tanpa password."
+            onClick={openPairingSheet}
+            control={<span className={styles.linkButton}>Hubungkan</span>}
           />
         </div>
       </div>

@@ -1,9 +1,12 @@
 import cors from 'cors';
 import express from 'express';
+import { migrate } from './db/client';
 import { audioRouter } from './routes/audio';
+import { authRouter } from './routes/auth';
 import { browseRouter } from './routes/browse';
 import { detailsRouter } from './routes/details';
 import { jamRouter } from './routes/jam';
+import { libraryRouter } from './routes/library';
 import { searchRouter } from './routes/search';
 import { similarRouter } from './routes/similar';
 import { trendingRouter } from './routes/trending';
@@ -20,12 +23,23 @@ app.use('/api', trendingRouter);
 app.use('/api', similarRouter);
 app.use('/api', browseRouter);
 app.use('/api', jamRouter);
+app.use('/api', authRouter);
+app.use('/api', libraryRouter);
 
 app.get('/', (_req, res) => {
   res.json({ status: 'ok', service: 'suwwara-music-backend' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+async function start(): Promise<void> {
+  await migrate();
+  app.listen(PORT, '0.0.0.0', () => {
+    // eslint-disable-next-line no-console
+    console.log(`Suwwara music backend listening on http://0.0.0.0:${PORT}`);
+  });
+}
+
+start().catch((error) => {
   // eslint-disable-next-line no-console
-  console.log(`Suwwara music backend listening on http://0.0.0.0:${PORT}`);
+  console.error('Failed to start: could not reach/migrate Postgres.', error);
+  process.exit(1);
 });

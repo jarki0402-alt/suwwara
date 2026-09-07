@@ -1,10 +1,33 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=suwwara
+      - POSTGRES_USER=suwwara
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - suwwara-postgres-data:/var/lib/postgresql/data
+    # No `ports:` on purpose — only reachable from other containers on this
+    # compose network (i.e. only `backend`), never exposed to the host or the
+    # public internet. See the Suwwara architecture blueprint for why this
+    # matters: Vercel never touches this database at all.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U suwwara -d suwwara"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./server
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       - PORT=8787
+      - DATABASE_URL=postgres://suwwara:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/suwwara
     ports:
       # Published to the host (not just the internal Docker network) on purpose: this
       # lets audio streaming be pointed at directly, bypassing a Cloudflare-proxied
@@ -21,3 +44,6 @@ services:
       - backend
     ports:
       - "8080:80"
+
+volumes:
+  suwwara-postgres-data:

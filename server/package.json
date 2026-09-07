@@ -15,6 +15,8 @@
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "p-limit": "^6.2.0",
+    "postgres": "^3.4.5",
     "youtube-sr": "^4.3.12",
     "ytmusic-api": "^5.3.1"
   },

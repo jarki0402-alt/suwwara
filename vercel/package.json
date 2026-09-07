@@ -1,0 +1,14 @@
+{
+  "name": "suwwara-search-edge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Suwwara search/browse/details/similar/trending — stateless YouTube Music metadata, deployed to Vercel so it never competes with the GCP box's audio-resolve CPU.",
+  "dependencies": {
+    "youtube-sr": "^4.3.12",
+    "ytmusic-api": "^5.3.1"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.2.0",
+    "typescript": "^5.6.0"
+  }
+}

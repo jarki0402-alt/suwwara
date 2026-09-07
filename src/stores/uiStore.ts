@@ -9,6 +9,9 @@ interface UiState {
   isJamSheetOpen: boolean;
   /** Non-null while the "Gabung Jam?" prompt (opened via a `?jam=<roomId>` link) is showing. */
   joinJamRoomId: string | null;
+  isPairingSheetOpen: boolean;
+  /** Non-null while the "Hubungkan device ini?" confirm prompt (opened via a `?pair=<code>` link) is showing. */
+  incomingPairCode: string | null;
   setView: (view: ViewName) => void;
   openNowPlaying: () => void;
   closeNowPlaying: () => void;
@@ -18,6 +21,10 @@ interface UiState {
   closeJamSheet: () => void;
   openJoinJamSheet: (roomId: string) => void;
   closeJoinJamSheet: () => void;
+  openPairingSheet: () => void;
+  closePairingSheet: () => void;
+  openIncomingPair: (code: string) => void;
+  closeIncomingPair: () => void;
 }
 
 /** Always boots to Home — avoids resuming into a Now Playing sheet with nothing loaded. */
@@ -27,6 +34,8 @@ export const useUiStore = create<UiState>((set) => ({
   isQueueOpen: false,
   isJamSheetOpen: false,
   joinJamRoomId: null,
+  isPairingSheetOpen: false,
+  incomingPairCode: null,
   setView: (view) => set({ currentView: view }),
   openNowPlaying: () => set({ isNowPlayingOpen: true }),
   closeNowPlaying: () => set({ isNowPlayingOpen: false, isQueueOpen: false }),
@@ -36,4 +45,8 @@ export const useUiStore = create<UiState>((set) => ({
   closeJamSheet: () => set({ isJamSheetOpen: false }),
   openJoinJamSheet: (roomId) => set({ joinJamRoomId: roomId }),
   closeJoinJamSheet: () => set({ joinJamRoomId: null }),
+  openPairingSheet: () => set({ isPairingSheetOpen: true }),
+  closePairingSheet: () => set({ isPairingSheetOpen: false }),
+  openIncomingPair: (code) => set({ incomingPairCode: code }),
+  closeIncomingPair: () => set({ incomingPairCode: null }),
 }));

@@ -124,6 +124,8 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
     ));
   } catch (error) {
     const message = (error as { stderr?: string; message: string }).stderr || (error as Error).message;
+    // eslint-disable-next-line no-console
+    console.error(`[audio] ${videoId} (${quality}) — yt-dlp FAILED: ${message}`);
     throw new Error(`yt-dlp failed to resolve audio for ${videoId}: ${message}`);
   }
 

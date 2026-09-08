@@ -33,7 +33,8 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
           <Icon name="previous" size={28} />
         </button>
         <button type="button" className={styles.playButton} onClick={onTogglePlay} aria-label={isPlaying ? 'Jeda' : 'Putar'}>
-          <Icon name={isBuffering ? 'spinner' : isPlaying ? 'pause' : 'play'} size={28} className={isBuffering ? styles.spinning : undefined} />
+          {/* Buffering is functionally treated as 'Pause' visually so it doesn't look like an error or lag */}
+          <Icon name={isPlaying || isBuffering ? 'pause' : 'play'} size={28} />
         </button>
         <button type="button" className={styles.transportButton} onClick={onNext} aria-label="Lagu berikutnya">
           <Icon name="next" size={28} />

@@ -253,7 +253,7 @@ export function usePlaybackController() {
     const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id);
     const quality = dataSaver ? 'low' : 'high';
     const [nextUp, ...furtherOut] = upcoming;
-    if (nextUp) prefetchAudioFull(nextUp.id, quality);
+    if (nextUp) audioEngine.preloadNextTrack(nextUp, dataSaver);
     for (const song of furtherOut) prefetchAudioResolveOnly(song.id, quality);
     // Re-runs whenever the current track (or the queue shape around it) changes — reorders,
     // additions from search, radio auto-extend, a Jam edit from someone else — so the

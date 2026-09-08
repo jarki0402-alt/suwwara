@@ -60,6 +60,7 @@ class AudioEngine {
   private activeIndex: 0 | 1 = 0;
   private volume = 1;
   private currentSong: Song | null = null;
+  private preloadedUrl: string | null = null;
   private crossfadeTimeoutId: ReturnType<typeof setTimeout> | null = null;
   /**
    * Bumped by every loadTrack()/crossfadeTo() call and captured as `requestId`
@@ -276,6 +277,48 @@ class AudioEngine {
     this.updateSnapshot({ status: 'loading', duration: song.duration, error: null });
     setGainImmediate(gain, context, options.fadeInSec ? 0 : this.volume);
 
+    // If we've already natively preloaded this exact URL into the inactive element,
+    // we should have theoretically swapped activeIndex and just played it (handled
+    // via crossfadeTo usually). But if loadTrack is called instead, and we happen
+    // to have it preloaded in the ACTIVE element (rare, but possible if preloadedUrl
+    // matched and we swapped), we just play it.
+    // However, preloadNextTrack explicitly preloads into the INACTIVE element.
+    // So if it's in the inactive element, loadTrack should just swap.
+    // Wait, loadTrack does a hard cut using the *currently active* element.
+    // If it's preloaded in the inactive element, we should just use that element!
+    const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
+    if (this.preloadedUrl === url && elements[inactiveIndex].src.endsWith(url)) {
+      const oldActiveIndex = this.activeIndex;
+      this.activeIndex = inactiveIndex;
+      this.preloadedUrl = null;
+      // We swapped elements. Stop the old one.
+      elements[oldActiveIndex].pause();
+      elements[oldActiveIndex].removeAttribute('src');
+      elements[oldActiveIndex].load();
+      // Use the newly active one
+      const newElement = elements[this.activeIndex];
+      const newGain = gains[this.activeIndex];
+      setGainImmediate(newGain, context, options.fadeInSec ? 0 : this.volume);
+      
+      await waitForEvent(newElement, 'canplay', CANPLAY_TIMEOUT_MS);
+      if (requestId !== this.playRequestId) return;
+      this.updateSnapshot({ duration: song.duration || newElement.duration });
+      
+      if (options.autoplay !== false) {
+        await newElement.play();
+        if (requestId !== this.playRequestId) return;
+        if (options.fadeInSec) {
+          scheduleFadeIn(newGain, context, this.volume, options.fadeInSec);
+        } else {
+          setGainImmediate(newGain, context, this.volume);
+        }
+      } else {
+        this.updateSnapshot({ status: 'paused' });
+      }
+      return;
+    }
+
+    this.preloadedUrl = null;
     element.src = url;
     element.load();
     await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
@@ -473,8 +516,14 @@ class AudioEngine {
     const incomingElement = elements[incomingIndex];
     const incomingGain = gains[incomingIndex];
 
-    incomingElement.src = url;
-    incomingElement.load();
+    if (this.preloadedUrl === url && incomingElement.src.endsWith(url)) {
+      // Already preloaded natively by preloadNextTrack!
+      this.preloadedUrl = null;
+    } else {
+      this.preloadedUrl = null;
+      incomingElement.src = url;
+      incomingElement.load();
+    }
     setGainImmediate(incomingGain, context, 0);
 
     try {
@@ -519,6 +568,27 @@ class AudioEngine {
       outgoingElement.load();
       this.crossfadeTimeoutId = null;
     }, durationSec * 1000 + 100);
+  }
+
+  /**
+   * Preloads the next track into the inactive Web Audio element.
+   * This forces the mobile browser (iOS Safari / Android Chrome) to natively buffer 
+   * the media stream in the background using the OS's prioritized media downloader, 
+   * bypassing the JS `fetch()` background throttling that usually starves mobile PWAs.
+   */
+  preloadNextTrack(song: Song, dataSaver = false): void {
+    if (!this.elements) return;
+    const url = resolveAudioUrl(song.id, dataSaver);
+    if (this.preloadedUrl === url) return;
+
+    const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
+    const inactiveElement = this.elements[inactiveIndex];
+    
+    // Set the src and force a load. The element is already user-activated (see unlock()),
+    // so the browser will honor this background load.
+    this.preloadedUrl = url;
+    inactiveElement.src = url;
+    inactiveElement.load();
   }
 
   subscribe(listener: AudioEngineListener): () => void {

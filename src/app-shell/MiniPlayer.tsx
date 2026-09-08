@@ -70,9 +70,8 @@ export function MiniPlayer() {
           aria-label={isPlaying ? 'Jeda' : 'Putar'}
         >
           <Icon
-            name={isBuffering ? 'spinner' : isPlaying ? 'pause' : 'play'}
+            name={isPlaying || isBuffering ? 'pause' : 'play'}
             size={22}
-            className={isBuffering ? styles.spinning : undefined}
           />
         </button>
         <button type="button" className={styles.actionButton} onClick={handleNext} aria-label="Lagu berikutnya">

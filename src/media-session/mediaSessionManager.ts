@@ -51,14 +51,16 @@ export function setMediaSessionPositionState(duration: number, position: number,
   }
 }
 
-// Deliberately NOT registering seekforward/seekbackward: that was tried (aliasing them
-// to next/previous) as a workaround for a *reported* iOS quirk where lock screens show
-// 10-second skip buttons instead of previous/next-track ones — but on this app's actual
-// test device, registering seekforward/seekbackward at all was what MADE iOS switch to
-// showing 10s skip icons; previoustrack/nexttrack alone were already displaying and
-// working correctly as proper track-skip buttons. Real-device behavior overrides
-// research here — don't reintroduce these without re-confirming on a real device first.
-const HANDLED_ACTIONS: MediaSessionAction[] = ['play', 'pause', 'previoustrack', 'nexttrack', 'seekto'];
+// Deliberately NOT registering seekforward/seekbackward.
+// Furthermore, registering 'seekto' on iOS Safari explicitly causes the lock screen
+// to replace the 'previoustrack' and 'nexttrack' buttons with 15s/10s skip buttons
+// because it assumes the media is a long-form podcast or audiobook. To preserve the
+// proper |>> and <<| track skip buttons, we must NOT register 'seekto' on iOS.
+const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+const HANDLED_ACTIONS: MediaSessionAction[] = ['play', 'pause', 'previoustrack', 'nexttrack'];
+if (!isIOS) {
+  HANDLED_ACTIONS.push('seekto');
+}
 
 export function bindMediaSessionHandlers(handlers: MediaSessionHandlers): () => void {
   if (!isSupported()) return () => {};

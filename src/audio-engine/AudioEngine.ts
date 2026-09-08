@@ -578,6 +578,12 @@ class AudioEngine {
    */
   preloadNextTrack(song: Song, dataSaver = false): void {
     if (!this.elements) return;
+    // Do NOT preload into the inactive element if we are currently in the middle of
+    // loading a real track transition (crossfadeTo/loadTrack) — the inactive element
+    // is actively being used by that transition, and touching it here would overwrite
+    // the song the user just clicked with the one *after* it!
+    if (this.snapshot.status === 'loading') return;
+
     const url = resolveAudioUrl(song.id, dataSaver);
     if (this.preloadedUrl === url) return;
 

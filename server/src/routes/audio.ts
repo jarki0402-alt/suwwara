@@ -39,6 +39,23 @@ function getCachedBuffer(cacheKey: string): FullBufferEntry | null {
   return entry;
 }
 
+// Both in-memory audio buffer caches below only ever check staleness lazily (on
+// read) — nothing ever proactively removes an expired or excess entry. On this
+// VM's 1GB RAM, left unchecked that's an unbounded leak: every distinct track
+// ever played adds a buffer that sits in memory forever, whether or not it's
+// still within its TTL. A cheap periodic sweep plus a hard cap on the windowed
+// cache (the one that grows on every single play, not just the rare
+// Range-ignoring-upstream edge case) keeps memory bounded regardless of how
+// many different songs get played over a long-running container's lifetime.
+const MAX_WINDOW_CACHE_ENTRIES = 15; // 15 * WINDOW_SIZE_BYTES (4MB) = 60MB worst case.
+
+function evictExpired<T extends { expiresAt: number }>(cache: Map<string, T>): void {
+  const now = Date.now();
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(key);
+  }
+}
+
 interface WindowBufferEntry {
   start: number;
   buffer: Buffer;
@@ -74,6 +91,28 @@ function sliceFromWindow(window: WindowBufferEntry, range: { start: number; end:
   const localEnd = range.end !== null ? range.end - window.start : window.buffer.length - 1;
   return window.buffer.subarray(localStart, localEnd + 1);
 }
+
+function setCachedWindow(cacheKey: string, entry: WindowBufferEntry): void {
+  windowCache.delete(cacheKey); // re-insert so this key becomes the most-recently-set for eviction order below.
+  windowCache.set(cacheKey, entry);
+  // Map iteration/insertion order means the first key here is the least-recently-set —
+  // a good enough approximation of LRU at this scale without extra bookkeeping.
+  while (windowCache.size > MAX_WINDOW_CACHE_ENTRIES) {
+    const oldestKey = windowCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    windowCache.delete(oldestKey);
+  }
+}
+
+// Sweeps both buffer caches every 5 minutes so memory used by tracks nobody's
+// listening to anymore gets reclaimed promptly instead of waiting for someone
+// to happen to request that exact cache key again after it's already expired.
+// unref() so this timer never keeps the process alive on its own (relevant for
+// tests and graceful shutdown).
+setInterval(() => {
+  evictExpired(fullBufferCache);
+  evictExpired(windowCache);
+}, 5 * 60 * 1000).unref();
 
 function sendRangeFromBuffer(res: Response, entry: FullBufferEntry, range: { start: number; end: number | null }): void {
   const totalLength = entry.buffer.length;
@@ -196,7 +235,7 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
     if (range && upstream.status === 206) {
       const buffer = Buffer.from(await upstream.arrayBuffer());
       const total = upstream.headers.get('content-range')?.split('/')[1] ?? '*';
-      windowCache.set(cacheKey, { start: range.start, buffer, mimeType: audio.mimeType, total, expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
+      setCachedWindow(cacheKey, { start: range.start, buffer, mimeType: audio.mimeType, total, expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
       const requestedEnd = range.end !== null ? Math.min(range.end, range.start + buffer.length - 1) : range.start + buffer.length - 1;
       const slice = buffer.subarray(0, requestedEnd - range.start + 1);
       res.status(206);

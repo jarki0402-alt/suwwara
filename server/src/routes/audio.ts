@@ -273,6 +273,10 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
     }
 
     const nodeStream = Readable.fromWeb(upstream.body as unknown as WebReadableStream);
+    nodeStream.on('error', (err) => {
+      // Ignore stream errors (like socket closed during playback), just prevent process crash
+      console.warn('Audio stream warning:', err.message);
+    });
     nodeStream.pipe(res);
     req.on('close', () => nodeStream.destroy());
   } catch (error) {

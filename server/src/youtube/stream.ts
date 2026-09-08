@@ -129,21 +129,19 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
         'yt-dlp',
         [
           '-f', formatSelector(quality),
-          // Cloud/datacenter IPs (this VM's included) increasingly get YouTube's
-          // web-client "Sign in to confirm you're not a bot" check. android tried
-          // first as it commonly avoids that check with no cookies/account needed;
-          // web as fallback since android is currently subject to YouTube's
-          // "SABR-only" experiment stripping its audio-only formats for some
-          // sessions (see formatSelector's comment) — whichever client actually
-          // yields a usable stream wins. (tv client deliberately excluded: as of
-          // this writing it errors outright with "The page needs to be reloaded"
-          // regardless of IP — pure dead weight in the fallback chain right now.)
-          '--extractor-args', 'youtube:player_client=android,web',
+          // By NOT specifying a hardcoded youtube:player_client here, we allow yt-dlp
+          // to use its own internal fallback chain (which frequently updates, e.g.
+          // utilizing the 'visionos' or 'web_creator' clients). Hardcoding 'android,web'
+          // causes "Sign in to confirm you're not a bot" on datacenters because those
+          // specific clients are now strictly gated by BotGuard.
           // Use PO Token Provider plugin (bgutil-ytdlp-pot-provider) hosted on a
           // separate local docker container to dynamically generate PO tokens for
           // yt-dlp. This completely avoids "Sign in to confirm you're not a bot"
           // errors on datacenter IPs without requiring any personal YouTube accounts.
           '--extractor-args', 'youtubepot-bgutilhttp:base_url=http://bgutil-provider:4416',
+          // Enable NodeJS as the JS runtime for deciphering signatures. Newer yt-dlp
+          // versions default to deno and complain if it's missing.
+          '--js-runtimes', 'node',
           '--print', '%(url)s', '--print', '%(ext)s', '--no-warnings', '--socket-timeout', '20', url,
         ],
         { timeout: 25000, maxBuffer: 4 * 1024 * 1024 },

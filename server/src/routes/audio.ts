@@ -1,7 +1,7 @@
-import { Router, type Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { Readable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
-import { resolveAudio, type AudioQuality } from '../youtube/stream';
+import { resolveAudio, type AudioQuality, type ResolvedAudio } from '../youtube/stream';
 
 export const audioRouter = Router();
 
@@ -137,6 +137,95 @@ function sendRangeFromBuffer(res: Response, entry: FullBufferEntry, range: { sta
   res.end(slice);
 }
 
+// Backpressure-aware write: without this, a loop that keeps calling res.write()
+// as fast as upstream fetches resolve could pile up unbounded amounts of
+// unflushed audio in Node's internal buffer if the client (or its network) is
+// slower than upstream — a real risk to chase down separately given this app
+// runs on a 1GB RAM VM (see the window/full-buffer cache bounding above for the
+// same concern). Waiting for 'drain' whenever write() reports its internal
+// buffer is full keeps memory bounded by the client's actual consumption rate.
+function writeChunk(res: Response, chunk: Buffer): Promise<void> {
+  return new Promise((resolve) => {
+    if (res.write(chunk)) resolve();
+    else res.once('drain', () => resolve());
+  });
+}
+
+/**
+ * Serves a request that has NO Range header at all as one continuous, ordinary
+ * 200 OK stream — but fetches the underlying audio from upstream in the same
+ * short-lived WINDOW_SIZE_BYTES chunks the explicit-Range path below already
+ * uses, one after another, and stitches them into that single outgoing
+ * response. See the call site for why answering a Range-less request with an
+ * unsolicited 206 (tried and reverted) isn't safe, and why a single raw
+ * upstream connection held open for the whole track (the original bug) isn't
+ * either — this is what lets both sides get what they each expect: YouTube
+ * only ever sees short, bounded fetches; the client only ever sees one normal,
+ * spec-correct full-body response.
+ */
+async function streamStitchedFull(
+  req: Request,
+  res: Response,
+  audio: ResolvedAudio,
+  cacheKey: string,
+  upstreamHeaders: Record<string, string>,
+): Promise<void> {
+  let aborted = false;
+  req.on('close', () => {
+    aborted = true;
+  });
+
+  const first = await fetch(audio.url, { headers: { ...upstreamHeaders, Range: `bytes=0-${WINDOW_SIZE_BYTES - 1}` } });
+
+  if (first.status !== 206) {
+    // Upstream ignores Range entirely for this track — same discovery the
+    // explicit-Range path below makes and caches; here there's nothing left to
+    // stitch, the whole file is already in hand in one fetch.
+    const buffer = Buffer.from(await first.arrayBuffer());
+    fullBufferCache.set(cacheKey, { buffer, mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS });
+    if (aborted) return;
+    res.status(200);
+    res.setHeader('Content-Type', audio.mimeType);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Content-Length', String(buffer.length));
+    res.end(buffer);
+    return;
+  }
+
+  const total = Number(first.headers.get('content-range')?.split('/')[1] ?? '0');
+  let buffer = Buffer.from(await first.arrayBuffer());
+  if (aborted) return;
+
+  res.status(200);
+  res.setHeader('Content-Type', audio.mimeType);
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  if (total > 0) res.setHeader('Content-Length', String(total));
+
+  setCachedWindow(cacheKey, { start: 0, buffer, mimeType: audio.mimeType, total: String(total || '*'), expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
+  await writeChunk(res, buffer);
+
+  let start = buffer.length;
+  while (!aborted && total > 0 && start < total) {
+    const end = Math.min(start + WINDOW_SIZE_BYTES - 1, total - 1);
+    let upstream: globalThis.Response;
+    try {
+      upstream = await fetch(audio.url, { headers: { ...upstreamHeaders, Range: `bytes=${start}-${end}` } });
+    } catch {
+      break; // Network hiccup mid-stream — fall through to end the response cleanly rather than hanging it.
+    }
+    if (aborted || upstream.status !== 206) break;
+    buffer = Buffer.from(await upstream.arrayBuffer());
+    if (aborted || buffer.length === 0) break;
+    setCachedWindow(cacheKey, { start, buffer, mimeType: audio.mimeType, total: String(total), expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
+    await writeChunk(res, buffer);
+    start += buffer.length;
+  }
+
+  if (!aborted) res.end();
+}
+
 /**
  * Resolves (and caches) the playable URL for a track without streaming any
  * audio bytes — called by the frontend as soon as the *current* track starts
@@ -178,10 +267,20 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
     const range = rangeHeader ? parseRangeHeader(rangeHeader) : null;
 
     // Already know upstream ignores Range for this track (detected on an earlier
-    // request) — slice straight from the cached full buffer instead of re-fetching.
+    // request) — slice straight from the cached full buffer instead of re-fetching,
+    // in whichever shape this particular request actually asked for.
     const cachedBuffer = getCachedBuffer(cacheKey);
-    if (cachedBuffer && range) {
-      sendRangeFromBuffer(res, cachedBuffer, range);
+    if (cachedBuffer) {
+      if (range) {
+        sendRangeFromBuffer(res, cachedBuffer, range);
+      } else {
+        res.status(200);
+        res.setHeader('Content-Type', cachedBuffer.mimeType);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Content-Length', String(cachedBuffer.buffer.length));
+        res.end(cachedBuffer.buffer);
+      }
       return;
     }
 
@@ -216,12 +315,36 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
     if (!upstreamHeaders['User-Agent']) {
       upstreamHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     }
+
+    if (!rangeHeader) {
+      // iOS Safari's native <audio> element routinely issues its very first request
+      // (and sometimes later ones) for a track with NO Range header at all — unlike
+      // Chrome/Android, which send one from the start. It expects an ordinary,
+      // unsolicited 200 OK full-body response back. Answering that with a 206
+      // "here's just the first 256KB window" (an earlier version of this fix) is a
+      // spec violation — RFC 7233 only allows a 206 in reply to an actual Range
+      // request — and risks Safari treating that first window as the entire file and
+      // going silent the instant it ends, i.e. the exact "berhenti di detik 30" bug
+      // this exists to fix, just moved one step over instead of actually fixed. A
+      // single raw upstream connection held open for the whole track (the original
+      // bug, before either fix) isn't safe either — YouTube's anti-bot system severs
+      // anything held open past ~30s (see the User-Agent/PO-token comment above).
+      // streamStitchedFull reconciles both constraints: YouTube only ever sees the
+      // same short, bounded fetches the explicit-Range path below already uses;
+      // Safari only ever sees one normal, spec-correct 200 OK body.
+      await streamStitchedFull(req, res, audio, cacheKey, upstreamHeaders);
+      return;
+    }
+
     // Ask upstream for a much bigger window starting at the requested byte than the
     // client itself asked for (see windowCache's comment) — the client still only
     // gets back the slice it actually requested, below.
-    if (rangeHeader && range) {
+    if (range) {
       upstreamHeaders.Range = `bytes=${range.start}-${range.start + WINDOW_SIZE_BYTES - 1}`;
-    } else if (rangeHeader) {
+    } else {
+      // Client sent a Range header we couldn't parse (parseRangeHeader only handles
+      // "bytes=<start>-<end?>") — pass it upstream verbatim as a last resort rather
+      // than silently dropping it.
       upstreamHeaders.Range = rangeHeader;
     }
 

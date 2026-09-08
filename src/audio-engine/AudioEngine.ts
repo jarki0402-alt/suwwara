@@ -530,7 +530,7 @@ class AudioEngine {
 
     const requestId = ++this.playRequestId;
     const { context, elements, gains } = this.ensureGraph();
-    if (context.state === 'suspended') await context.resume();
+    if (context && context.state === 'suspended') await context.resume();
     if (requestId !== this.playRequestId) return;
 
     // Without this, the snapshot kept reporting the outgoing track's stale 'playing'
@@ -555,7 +555,7 @@ class AudioEngine {
       incomingElement.src = url;
       incomingElement.load();
     }
-    if (incomingGain) setGainImmediate(incomingGain, context, 0);
+    if (incomingGain && context) setGainImmediate(incomingGain, context, 0);
 
     try {
       await waitForEvent(incomingElement, 'canplay', CANPLAY_TIMEOUT_MS);
@@ -576,7 +576,7 @@ class AudioEngine {
       // branch returns before ever reaching either — without this, the old track kept
       // playing at full volume underneath whatever loadTrack() below starts next, the
       // exact "dua lagu kedengeran bareng pas skip" overlap bug.
-      if (outgoingGain) setGainImmediate(outgoingGain, context, 0);
+      if (outgoingGain && context) setGainImmediate(outgoingGain, context, 0);
       elements[outgoingIndex].pause();
       this.activeIndex = incomingIndex;
       this.currentSong = song;
@@ -588,8 +588,8 @@ class AudioEngine {
     this.currentSong = song;
     this.updateSnapshot({ status: 'playing', duration: song.duration || incomingElement.duration, error: null });
 
-    if (outgoingGain) scheduleFadeOut(outgoingGain, context, durationSec);
-    if (incomingGain) scheduleFadeIn(incomingGain, context, this.volume, durationSec);
+    if (outgoingGain && context) scheduleFadeOut(outgoingGain, context, durationSec);
+    if (incomingGain && context) scheduleFadeIn(incomingGain, context, this.volume, durationSec);
 
     this.cancelPendingCrossfade();
     this.crossfadeTimeoutId = setTimeout(() => {

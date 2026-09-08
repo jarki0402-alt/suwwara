@@ -140,8 +140,9 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
           // errors on datacenter IPs without requiring any personal YouTube accounts.
           '--extractor-args', 'youtubepot-bgutilhttp:base_url=http://bgutil-provider:4416',
           // Enable NodeJS as the JS runtime for deciphering signatures. Newer yt-dlp
-          // versions default to deno and complain if it's missing.
-          '--js-runtimes', 'node',
+          // versions default to deno and complain if it's missing. We provide the absolute
+          // path because yt-dlp sometimes fails to locate it in the Alpine PATH.
+          '--js-runtimes', 'node:/usr/local/bin/node',
           '--print', '%(url)s', '--print', '%(ext)s', '--no-warnings', '--socket-timeout', '20', url,
         ],
         { timeout: 25000, maxBuffer: 4 * 1024 * 1024 },

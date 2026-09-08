@@ -39,6 +39,42 @@ function getCachedBuffer(cacheKey: string): FullBufferEntry | null {
   return entry;
 }
 
+interface WindowBufferEntry {
+  start: number;
+  buffer: Buffer;
+  mimeType: string;
+  total: string;
+  expiresAt: number;
+}
+
+// Mobile browsers request audio in many small Range chunks (see fullBufferCache's
+// comment above) — measured live against production, each one of those was costing
+// ~0.7s because every single chunk re-triggered a fresh fetch to googlevideo.com,
+// even for a track whose URL was already resolved and cached. That per-chunk network
+// round trip (not client bandwidth) was the actual bottleneck. Fix: whenever we go
+// upstream for a Range request, ask for a much bigger window than the client actually
+// requested (at typical audio bitrates this covers most of a track in one fetch) and
+// cache it — subsequent nearby chunk requests for the same track are then sliced
+// straight from memory with zero additional network round trips. What we send back to
+// the *client* is still exactly the slice they asked for (same Content-Range/Length as
+// before) — only the upstream fetch size changed, so this can't reintroduce the
+// duplicate-content WebKit bug that fullBufferCache above exists to guard against.
+const WINDOW_SIZE_BYTES = 4 * 1024 * 1024;
+const WINDOW_CACHE_TTL_MS = 10 * 60 * 1000;
+const windowCache = new Map<string, WindowBufferEntry>();
+
+function getCachedWindow(cacheKey: string): WindowBufferEntry | null {
+  const entry = windowCache.get(cacheKey);
+  if (!entry || entry.expiresAt <= Date.now()) return null;
+  return entry;
+}
+
+function sliceFromWindow(window: WindowBufferEntry, range: { start: number; end: number | null }): Buffer {
+  const localStart = range.start - window.start;
+  const localEnd = range.end !== null ? range.end - window.start : window.buffer.length - 1;
+  return window.buffer.subarray(localStart, localEnd + 1);
+}
+
 function sendRangeFromBuffer(res: Response, entry: FullBufferEntry, range: { start: number; end: number | null }): void {
   const totalLength = entry.buffer.length;
   const start = range.start;
@@ -107,13 +143,39 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
       return;
     }
 
+    // Already have a window covering this exact range from an earlier chunk request
+    // for this track — serve it straight from memory, no upstream fetch at all.
+    const cachedWindow = getCachedWindow(cacheKey);
+    if (cachedWindow && range) {
+      const windowEnd = cachedWindow.start + cachedWindow.buffer.length - 1;
+      const requestedEnd = range.end ?? range.start;
+      if (range.start >= cachedWindow.start && requestedEnd <= windowEnd) {
+        const slice = sliceFromWindow(cachedWindow, range);
+        res.status(206);
+        res.setHeader('Content-Type', cachedWindow.mimeType);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.setHeader('Content-Range', `bytes ${range.start}-${range.start + slice.length - 1}/${cachedWindow.total}`);
+        res.setHeader('Content-Length', String(slice.length));
+        res.end(slice);
+        return;
+      }
+    }
+
     const upstreamHeaders: Record<string, string> = {
       // YouTube commonly ignores Range requests and serves the full file as 200 OK
       // if the request looks like a bot (e.g. Node.js default fetch User-Agent).
       // Spoofing a real browser ensures we get the 206 Partial Content we asked for.
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     };
-    if (rangeHeader) upstreamHeaders.Range = rangeHeader;
+    // Ask upstream for a much bigger window starting at the requested byte than the
+    // client itself asked for (see windowCache's comment) — the client still only
+    // gets back the slice it actually requested, below.
+    if (rangeHeader && range) {
+      upstreamHeaders.Range = `bytes=${range.start}-${range.start + WINDOW_SIZE_BYTES - 1}`;
+    } else if (rangeHeader) {
+      upstreamHeaders.Range = rangeHeader;
+    }
 
     const upstream = await fetch(audio.url, { headers: upstreamHeaders });
 
@@ -126,6 +188,24 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
       const entry: FullBufferEntry = { buffer, mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS };
       fullBufferCache.set(cacheKey, entry);
       sendRangeFromBuffer(res, entry, range);
+      return;
+    }
+
+    // Upstream honored the (widened) Range and sent back a proper window — cache it,
+    // then fall through to send the client exactly the slice it originally asked for.
+    if (range && upstream.status === 206) {
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      const total = upstream.headers.get('content-range')?.split('/')[1] ?? '*';
+      windowCache.set(cacheKey, { start: range.start, buffer, mimeType: audio.mimeType, total, expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
+      const requestedEnd = range.end !== null ? Math.min(range.end, range.start + buffer.length - 1) : range.start + buffer.length - 1;
+      const slice = buffer.subarray(0, requestedEnd - range.start + 1);
+      res.status(206);
+      res.setHeader('Content-Type', audio.mimeType);
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Content-Range', `bytes ${range.start}-${requestedEnd}/${total}`);
+      res.setHeader('Content-Length', String(slice.length));
+      res.end(slice);
       return;
     }
 

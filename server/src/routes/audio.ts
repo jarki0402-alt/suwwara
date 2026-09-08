@@ -152,75 +152,114 @@ function writeChunk(res: Response, chunk: Buffer): Promise<void> {
 }
 
 /**
- * Serves a request that has NO Range header at all as one continuous, ordinary
- * 200 OK stream — but fetches the underlying audio from upstream in the same
- * short-lived WINDOW_SIZE_BYTES chunks the explicit-Range path below already
- * uses, one after another, and stitches them into that single outgoing
- * response. See the call site for why answering a Range-less request with an
- * unsolicited 206 (tried and reverted) isn't safe, and why a single raw
- * upstream connection held open for the whole track (the original bug) isn't
- * either — this is what lets both sides get what they each expect: YouTube
- * only ever sees short, bounded fetches; the client only ever sees one normal,
- * spec-correct full-body response.
+ * Unified chunk-stitching streamer that solves three problems at once:
+ * 1. Bypasses YouTube's 30-second anti-bot timeout by making multiple short, bounded (256KB) upstream requests instead of holding one long connection open.
+ * 2. Satisfies iOS Safari's range-less probe requests by returning a continuous 200 OK stream.
+ * 3. Satisfies iOS Safari's open-ended Range requests (e.g. `bytes=262144-`) by returning a continuous 206 Partial Content stream without truncating it early, which avoids the "audio stops at 30 seconds" bug.
  */
-async function streamStitchedFull(
+async function streamStitched(
   req: Request,
   res: Response,
   audio: ResolvedAudio,
   cacheKey: string,
   upstreamHeaders: Record<string, string>,
+  range: { start: number; end: number | null },
+  isRangeLess: boolean
 ): Promise<void> {
   let aborted = false;
   req.on('close', () => {
     aborted = true;
   });
 
-  const first = await fetch(audio.url, { headers: { ...upstreamHeaders, Range: `bytes=0-${WINDOW_SIZE_BYTES - 1}` } });
+  let currentStart = range.start;
+  const requestedEnd = range.end;
+  let totalSize: number | null = null;
+  let isFirstResponse = true;
 
-  if (first.status !== 206) {
-    // Upstream ignores Range entirely for this track — same discovery the
-    // explicit-Range path below makes and caches; here there's nothing left to
-    // stitch, the whole file is already in hand in one fetch.
-    const buffer = Buffer.from(await first.arrayBuffer());
-    fullBufferCache.set(cacheKey, { buffer, mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS });
-    if (aborted) return;
-    res.status(200);
-    res.setHeader('Content-Type', audio.mimeType);
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.setHeader('Content-Length', String(buffer.length));
-    res.end(buffer);
-    return;
-  }
+  while (!aborted) {
+    let buffer: Buffer;
+    let totalStr = '*';
 
-  const total = Number(first.headers.get('content-range')?.split('/')[1] ?? '0');
-  let buffer = Buffer.from(await first.arrayBuffer());
-  if (aborted) return;
+    const cachedWindow = getCachedWindow(cacheKey);
+    // Check if currentStart falls within the cached window
+    if (cachedWindow && currentStart >= cachedWindow.start && currentStart < cachedWindow.start + cachedWindow.buffer.length) {
+      const sliceStart = currentStart - cachedWindow.start;
+      buffer = cachedWindow.buffer.subarray(sliceStart);
+      totalStr = cachedWindow.total;
+    } else {
+      const end = requestedEnd !== null 
+        ? Math.min(currentStart + WINDOW_SIZE_BYTES - 1, requestedEnd) 
+        : currentStart + WINDOW_SIZE_BYTES - 1;
+      
+      let upstream: globalThis.Response;
+      try {
+        upstream = await fetch(audio.url, { headers: { ...upstreamHeaders, Range: `bytes=${currentStart}-${end}` } });
+      } catch {
+        break; // Network hiccup mid-stream
+      }
 
-  res.status(200);
-  res.setHeader('Content-Type', audio.mimeType);
-  res.setHeader('Accept-Ranges', 'bytes');
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-  if (total > 0) res.setHeader('Content-Length', String(total));
+      if (aborted) break;
 
-  setCachedWindow(cacheKey, { start: 0, buffer, mimeType: audio.mimeType, total: String(total || '*'), expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
-  await writeChunk(res, buffer);
+      if (upstream.status !== 206) {
+        // Upstream ignored the Range header completely.
+        if (isFirstResponse) {
+          const fullBuf = Buffer.from(await upstream.arrayBuffer());
+          fullBufferCache.set(cacheKey, { buffer: fullBuf, mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS });
+          if (aborted) return;
+          if (isRangeLess) {
+            res.status(200);
+            res.setHeader('Content-Type', audio.mimeType);
+            res.setHeader('Accept-Ranges', 'bytes');
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            res.setHeader('Content-Length', String(fullBuf.length));
+            res.end(fullBuf);
+          } else {
+            sendRangeFromBuffer(res, fullBufferCache.get(cacheKey)!, range);
+          }
+        }
+        return;
+      }
 
-  let start = buffer.length;
-  while (!aborted && total > 0 && start < total) {
-    const end = Math.min(start + WINDOW_SIZE_BYTES - 1, total - 1);
-    let upstream: globalThis.Response;
-    try {
-      upstream = await fetch(audio.url, { headers: { ...upstreamHeaders, Range: `bytes=${start}-${end}` } });
-    } catch {
-      break; // Network hiccup mid-stream — fall through to end the response cleanly rather than hanging it.
+      buffer = Buffer.from(await upstream.arrayBuffer());
+      if (buffer.length === 0) break;
+
+      totalStr = upstream.headers.get('content-range')?.split('/')[1] ?? '*';
+      setCachedWindow(cacheKey, { start: currentStart, buffer, mimeType: audio.mimeType, total: totalStr, expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
     }
-    if (aborted || upstream.status !== 206) break;
-    buffer = Buffer.from(await upstream.arrayBuffer());
-    if (aborted || buffer.length === 0) break;
-    setCachedWindow(cacheKey, { start, buffer, mimeType: audio.mimeType, total: String(total), expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
+
+    if (totalStr !== '*') totalSize = parseInt(totalStr, 10);
+
+    // If we fetched more than the client requested (e.g. from cache), slice it down.
+    if (requestedEnd !== null && currentStart + buffer.length - 1 > requestedEnd) {
+      buffer = buffer.subarray(0, requestedEnd - currentStart + 1);
+    }
+
+    if (isFirstResponse) {
+      const finalEnd = requestedEnd !== null ? requestedEnd : (totalSize !== null ? totalSize - 1 : '*');
+      const contentLength = totalSize !== null 
+        ? (requestedEnd !== null ? requestedEnd - range.start + 1 : totalSize - range.start)
+        : null;
+
+      if (isRangeLess) {
+        res.status(200);
+        if (contentLength !== null) res.setHeader('Content-Length', String(contentLength));
+      } else {
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${range.start}-${finalEnd}/${totalStr}`);
+        if (contentLength !== null) res.setHeader('Content-Length', String(contentLength));
+      }
+
+      res.setHeader('Content-Type', audio.mimeType);
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      isFirstResponse = false;
+    }
+
     await writeChunk(res, buffer);
-    start += buffer.length;
+    currentStart += buffer.length;
+
+    if (requestedEnd !== null && currentStart > requestedEnd) break;
+    if (totalSize !== null && currentStart >= totalSize) break;
   }
 
   if (!aborted) res.end();
@@ -247,15 +286,6 @@ audioRouter.get('/audio/:videoId/resolve', async (req, res) => {
   }
 });
 
-/**
- * Proxies (not redirects to) the resolved googlevideo.com audio bytes.
- * This matters for two reasons: (1) those URLs are commonly IP-locked to
- * whichever server resolved them, so the browser fetching them directly
- * would get a 403; (2) it keeps CORS simple since the browser only ever
- * talks to our own origin. Range requests are forwarded upstream and the
- * upstream's 206/Content-Range response is relayed back so <audio> seeking
- * works correctly.
- */
 audioRouter.get('/audio/:videoId', async (req, res) => {
   const { videoId } = req.params;
   const quality: AudioQuality = req.query.quality === 'low' ? 'low' : 'high';
@@ -264,14 +294,14 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
   try {
     const audio = await resolveAudio(videoId, quality);
     const rangeHeader = req.headers.range;
-    const range = rangeHeader ? parseRangeHeader(rangeHeader) : null;
+    // If no Range header, we default to starting from 0 (open-ended).
+    const range = rangeHeader ? (parseRangeHeader(rangeHeader) ?? { start: 0, end: null }) : { start: 0, end: null };
+    const isRangeLess = !rangeHeader;
 
-    // Already know upstream ignores Range for this track (detected on an earlier
-    // request) — slice straight from the cached full buffer instead of re-fetching,
-    // in whichever shape this particular request actually asked for.
+    // Already know upstream ignores Range for this track? Slice from full buffer.
     const cachedBuffer = getCachedBuffer(cacheKey);
     if (cachedBuffer) {
-      if (range) {
+      if (!isRangeLess) {
         sendRangeFromBuffer(res, cachedBuffer, range);
       } else {
         res.status(200);
@@ -284,31 +314,6 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
       return;
     }
 
-    // Already have a window covering this exact range from an earlier chunk request
-    // for this track — serve it straight from memory, no upstream fetch at all.
-    const cachedWindow = getCachedWindow(cacheKey);
-    if (cachedWindow && range) {
-      const windowEnd = cachedWindow.start + cachedWindow.buffer.length - 1;
-      const requestedEnd = range.end ?? range.start;
-      if (range.start >= cachedWindow.start && requestedEnd <= windowEnd) {
-        const slice = sliceFromWindow(cachedWindow, range);
-        res.status(206);
-        res.setHeader('Content-Type', cachedWindow.mimeType);
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        res.setHeader('Content-Range', `bytes ${range.start}-${range.start + slice.length - 1}/${cachedWindow.total}`);
-        res.setHeader('Content-Length', String(slice.length));
-        res.end(slice);
-        return;
-      }
-    }
-
-    // Instead of hardcoding a Chrome User-Agent, we MUST pass exactly the same
-    // HTTP headers that yt-dlp negotiated during extraction (especially the User-Agent
-    // and sometimes Authorization/Cookie headers if present).
-    // If we use a PO token for a specific client (e.g. visionos) but fetch the
-    // audio using a mismatched User-Agent, YouTube's anti-bot system will detect
-    // the anomaly and sever the connection after exactly 30 seconds.
     const upstreamHeaders: Record<string, string> = {
       ...(audio.httpHeaders || {}),
     };
@@ -316,92 +321,7 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
       upstreamHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     }
 
-    if (!rangeHeader) {
-      // iOS Safari's native <audio> element routinely issues its very first request
-      // (and sometimes later ones) for a track with NO Range header at all — unlike
-      // Chrome/Android, which send one from the start. It expects an ordinary,
-      // unsolicited 200 OK full-body response back. Answering that with a 206
-      // "here's just the first 256KB window" (an earlier version of this fix) is a
-      // spec violation — RFC 7233 only allows a 206 in reply to an actual Range
-      // request — and risks Safari treating that first window as the entire file and
-      // going silent the instant it ends, i.e. the exact "berhenti di detik 30" bug
-      // this exists to fix, just moved one step over instead of actually fixed. A
-      // single raw upstream connection held open for the whole track (the original
-      // bug, before either fix) isn't safe either — YouTube's anti-bot system severs
-      // anything held open past ~30s (see the User-Agent/PO-token comment above).
-      // streamStitchedFull reconciles both constraints: YouTube only ever sees the
-      // same short, bounded fetches the explicit-Range path below already uses;
-      // Safari only ever sees one normal, spec-correct 200 OK body.
-      await streamStitchedFull(req, res, audio, cacheKey, upstreamHeaders);
-      return;
-    }
-
-    // Ask upstream for a much bigger window starting at the requested byte than the
-    // client itself asked for (see windowCache's comment) — the client still only
-    // gets back the slice it actually requested, below.
-    if (range) {
-      upstreamHeaders.Range = `bytes=${range.start}-${range.start + WINDOW_SIZE_BYTES - 1}`;
-    } else {
-      // Client sent a Range header we couldn't parse (parseRangeHeader only handles
-      // "bytes=<start>-<end?>") — pass it upstream verbatim as a last resort rather
-      // than silently dropping it.
-      upstreamHeaders.Range = rangeHeader;
-    }
-
-    const upstream = await fetch(audio.url, { headers: upstreamHeaders });
-
-    // Mismatch: we asked for a specific byte range but upstream sent the whole file
-    // back anyway (200, not 206) — see the comment above fullBufferCache for why this
-    // can't just be relayed as-is. Buffer it once, cache it, and serve exactly the
-    // slice the client actually asked for.
-    if (range && upstream.status !== 206) {
-      const buffer = Buffer.from(await upstream.arrayBuffer());
-      const entry: FullBufferEntry = { buffer, mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS };
-      fullBufferCache.set(cacheKey, entry);
-      sendRangeFromBuffer(res, entry, range);
-      return;
-    }
-
-    // Upstream honored the (widened) Range and sent back a proper window — cache it,
-    // then fall through to send the client exactly the slice it originally asked for.
-    if (range && upstream.status === 206) {
-      const buffer = Buffer.from(await upstream.arrayBuffer());
-      const total = upstream.headers.get('content-range')?.split('/')[1] ?? '*';
-      setCachedWindow(cacheKey, { start: range.start, buffer, mimeType: audio.mimeType, total, expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
-      const requestedEnd = range.end !== null ? Math.min(range.end, range.start + buffer.length - 1) : range.start + buffer.length - 1;
-      const slice = buffer.subarray(0, requestedEnd - range.start + 1);
-      res.status(206);
-      res.setHeader('Content-Type', audio.mimeType);
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      res.setHeader('Content-Range', `bytes ${range.start}-${requestedEnd}/${total}`);
-      res.setHeader('Content-Length', String(slice.length));
-      res.end(slice);
-      return;
-    }
-
-    res.status(upstream.status);
-    res.setHeader('Content-Type', audio.mimeType);
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-
-    const contentRange = upstream.headers.get('content-range');
-    if (contentRange) res.setHeader('Content-Range', contentRange);
-    const contentLength = upstream.headers.get('content-length');
-    if (contentLength) res.setHeader('Content-Length', contentLength);
-
-    if (!upstream.body) {
-      res.end();
-      return;
-    }
-
-    const nodeStream = Readable.fromWeb(upstream.body as unknown as WebReadableStream);
-    nodeStream.on('error', (err) => {
-      // Ignore stream errors (like socket closed during playback), just prevent process crash
-      console.warn('Audio stream warning:', err.message);
-    });
-    nodeStream.pipe(res);
-    req.on('close', () => nodeStream.destroy());
+    await streamStitched(req, res, audio, cacheKey, upstreamHeaders, range, isRangeLess);
   } catch (error) {
     res.status(502).json({ error: 'Failed to resolve/proxy audio.', message: (error as Error).message });
   }

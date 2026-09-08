@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Song } from '../api/types';
-import { prefetchAudioFull, prefetchAudioResolveOnly } from '../api/musicClient';
+import { prefetchAudioResolveOnly } from '../api/musicClient';
 import { cacheSongs } from '../api/songCache';
 import { audioEngine } from '../audio-engine/AudioEngine';
 import { useAudioEngine } from '../audio-engine/useAudioEngine';

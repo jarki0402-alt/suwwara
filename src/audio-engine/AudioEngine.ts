@@ -4,6 +4,8 @@ import { scheduleFadeIn, scheduleFadeOut, setGainImmediate } from './crossfade';
 import type { AudioEngineListener, LoadTrackOptions, PlaybackState } from './types';
 import { AudioEngineError } from './types';
 
+const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
 const CANPLAY_TIMEOUT_MS = 15000;
 
 function waitForEvent(target: HTMLMediaElement, event: 'canplay', timeoutMs: number): Promise<void> {
@@ -56,7 +58,7 @@ class AudioEngine {
 
   private context: AudioContext | null = null;
   private elements: [HTMLAudioElement, HTMLAudioElement] | null = null;
-  private gains: [GainNode, GainNode] | null = null;
+  private gains: [GainNode | null, GainNode | null] | null = null;
   private activeIndex: 0 | 1 = 0;
   private volume = 1;
   private currentSong: Song | null = null;
@@ -89,15 +91,19 @@ class AudioEngine {
 
   private constructor() {}
 
-  private ensureGraph(): { context: AudioContext; elements: [HTMLAudioElement, HTMLAudioElement]; gains: [GainNode, GainNode] } {
-    if (this.context && this.elements && this.gains) {
+  private ensureGraph(): { context: AudioContext | null; elements: [HTMLAudioElement, HTMLAudioElement]; gains: [GainNode | null, GainNode | null] } {
+    if (this.elements && this.gains) {
       return { context: this.context, elements: this.elements, gains: this.gains };
     }
 
     const AudioContextCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const context = new AudioContextCtor();
+    // iOS WebKit has severe bugs with MediaElementAudioSourceNode (silences audio
+    // randomly in background, breaks on screen lock). We bypass Web Audio API completely
+    // on iOS and just use raw <audio> tags. Crossfading degrades to hard cuts, but
+    // background playback becomes perfectly stable.
+    const context = isIOS ? null : new AudioContextCtor();
 
-    const makeChain = (): { element: HTMLAudioElement; gain: GainNode } => {
+    const makeChain = (): { element: HTMLAudioElement; gain: GainNode | null } => {
       const element = new Audio();
       element.preload = 'auto';
       element.crossOrigin = 'anonymous';
@@ -115,7 +121,11 @@ class AudioEngine {
       element.style.height = '0';
       element.style.opacity = '0';
       element.style.pointerEvents = 'none';
-      document.body.appendChild(element);
+      if (typeof document !== 'undefined') {
+        document.body.appendChild(element);
+      }
+
+      if (!context) return { element, gain: null };
 
       const source = context.createMediaElementSource(element);
       const gain = context.createGain();
@@ -134,7 +144,7 @@ class AudioEngine {
 
     this.bindElementEvents(0, chainA.element);
     this.bindElementEvents(1, chainB.element);
-    this.bindLifecycleRecovery(context);
+    if (context) this.bindLifecycleRecovery(context);
 
     return { context, elements: this.elements, gains: this.gains };
   }
@@ -244,7 +254,7 @@ class AudioEngine {
    */
   async unlock(): Promise<void> {
     const { context, elements } = this.ensureGraph();
-    if (context.state === 'suspended') {
+    if (context && context.state === 'suspended') {
       await context.resume();
     }
     if (this.elementsPrimed) return;
@@ -264,7 +274,7 @@ class AudioEngine {
   async loadTrack(song: Song, options: LoadTrackOptions = {}): Promise<void> {
     const requestId = ++this.playRequestId;
     const { context, elements, gains } = this.ensureGraph();
-    if (context.state === 'suspended') await context.resume();
+    if (context && context.state === 'suspended') await context.resume();
     if (requestId !== this.playRequestId) return; // superseded while the context was resuming
 
     const url = resolveAudioUrl(song.id, options.dataSaver ?? false);
@@ -275,7 +285,11 @@ class AudioEngine {
     const gain = gains[this.activeIndex];
 
     this.updateSnapshot({ status: 'loading', duration: song.duration, error: null });
-    setGainImmediate(gain, context, options.fadeInSec ? 0 : this.volume);
+    if (gain && context) {
+      setGainImmediate(gain, context, options.fadeInSec ? 0 : this.volume);
+    } else {
+      element.volume = this.volume;
+    }
 
     // If we've already natively preloaded this exact URL into the inactive element,
     // we should have theoretically swapped activeIndex and just played it (handled
@@ -298,7 +312,11 @@ class AudioEngine {
       // Use the newly active one
       const newElement = elements[this.activeIndex];
       const newGain = gains[this.activeIndex];
-      setGainImmediate(newGain, context, options.fadeInSec ? 0 : this.volume);
+      if (newGain && context) {
+        setGainImmediate(newGain, context, options.fadeInSec ? 0 : this.volume);
+      } else {
+        newElement.volume = this.volume;
+      }
       
       await waitForEvent(newElement, 'canplay', CANPLAY_TIMEOUT_MS);
       if (requestId !== this.playRequestId) return;
@@ -307,10 +325,12 @@ class AudioEngine {
       if (options.autoplay !== false) {
         await newElement.play();
         if (requestId !== this.playRequestId) return;
-        if (options.fadeInSec) {
+        if (options.fadeInSec && newGain && context) {
           scheduleFadeIn(newGain, context, this.volume, options.fadeInSec);
-        } else {
+        } else if (newGain && context) {
           setGainImmediate(newGain, context, this.volume);
+        } else {
+          newElement.volume = this.volume;
         }
       } else {
         this.updateSnapshot({ status: 'paused' });
@@ -336,10 +356,12 @@ class AudioEngine {
     if (options.autoplay !== false) {
       await element.play();
       if (requestId !== this.playRequestId) return;
-      if (options.fadeInSec) {
+      if (options.fadeInSec && gain && context) {
         scheduleFadeIn(gain, context, this.volume, options.fadeInSec);
-      } else {
+      } else if (gain && context) {
         setGainImmediate(gain, context, this.volume);
+      } else {
+        element.volume = this.volume;
       }
     } else {
       // Without this, a track loaded with autoplay explicitly withheld (used
@@ -389,13 +411,17 @@ class AudioEngine {
     if (wasPlaying) {
       await element.play();
       if (requestId !== this.playRequestId) return;
-      setGainImmediate(gain, context, this.volume);
+      if (gain && context) {
+        setGainImmediate(gain, context, this.volume);
+      } else {
+        element.volume = this.volume;
+      }
     }
   }
 
   async play(): Promise<void> {
     const { context, elements } = this.ensureGraph();
-    if (context.state === 'suspended') await context.resume();
+    if (context && context.state === 'suspended') await context.resume();
     await elements[this.activeIndex].play();
   }
 
@@ -430,8 +456,12 @@ class AudioEngine {
 
   setVolume(volume: number): void {
     this.volume = Math.min(Math.max(volume, 0), 1);
-    if (!this.context || !this.gains) return;
-    setGainImmediate(this.gains[this.activeIndex], this.context, this.volume);
+    if (this.context && this.gains) {
+      const gain = this.gains[this.activeIndex];
+      if (gain) setGainImmediate(gain, this.context, this.volume);
+    } else if (this.elements) {
+      this.elements[this.activeIndex].volume = this.volume;
+    }
   }
 
   getVolume(): number {
@@ -492,7 +522,8 @@ class AudioEngine {
    * a requirement for basic playback to keep working.
    */
   async crossfadeTo(song: Song, durationSec: number, dataSaver = false): Promise<void> {
-    if (durationSec <= 0) {
+    // If Web Audio API is disabled (e.g. iOS fallback), crossfades must degrade to a hard cut.
+    if (durationSec <= 0 || !this.context) {
       await this.loadTrack(song, { dataSaver, autoplay: true });
       return;
     }
@@ -524,7 +555,7 @@ class AudioEngine {
       incomingElement.src = url;
       incomingElement.load();
     }
-    setGainImmediate(incomingGain, context, 0);
+    if (incomingGain) setGainImmediate(incomingGain, context, 0);
 
     try {
       await waitForEvent(incomingElement, 'canplay', CANPLAY_TIMEOUT_MS);
@@ -545,7 +576,7 @@ class AudioEngine {
       // branch returns before ever reaching either — without this, the old track kept
       // playing at full volume underneath whatever loadTrack() below starts next, the
       // exact "dua lagu kedengeran bareng pas skip" overlap bug.
-      setGainImmediate(outgoingGain, context, 0);
+      if (outgoingGain) setGainImmediate(outgoingGain, context, 0);
       elements[outgoingIndex].pause();
       this.activeIndex = incomingIndex;
       this.currentSong = song;
@@ -557,8 +588,8 @@ class AudioEngine {
     this.currentSong = song;
     this.updateSnapshot({ status: 'playing', duration: song.duration || incomingElement.duration, error: null });
 
-    scheduleFadeOut(outgoingGain, context, durationSec);
-    scheduleFadeIn(incomingGain, context, this.volume, durationSec);
+    if (outgoingGain) scheduleFadeOut(outgoingGain, context, durationSec);
+    if (incomingGain) scheduleFadeIn(incomingGain, context, this.volume, durationSec);
 
     this.cancelPendingCrossfade();
     this.crossfadeTimeoutId = setTimeout(() => {

@@ -1,15 +1,12 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import pLimit from 'p-limit';
 import { sql } from '../db/client';
-
-const execFileAsync = promisify(execFile);
 
 export type AudioQuality = 'high' | 'low';
 
 export interface ResolvedAudio {
   url: string;
   mimeType: string;
+  httpHeaders?: Record<string, string>;
 }
 
 // googlevideo.com URLs are IP-locked to whichever machine resolved them (this
@@ -36,44 +33,21 @@ const inFlight = new Map<string, Promise<ResolvedAudio>>();
 // the CPU and finishes quickly, while background prefetches wait in line.
 const limit = pLimit(1);
 
-const EXT_TO_MIME: Record<string, string> = {
-  m4a: 'audio/mp4',
-  webm: 'audio/webm',
-  opus: 'audio/opus',
-  mp3: 'audio/mpeg',
-};
-
-function formatSelector(quality: AudioQuality): string {
-  // m4a/AAC is preferred over webm/opus because Safari (iOS/macOS) has no
-  // native WebM/Opus support in <audio> — picking m4a keeps playback working
-  // across every target browser, not just Chromium-based ones. The extra
-  // fallback tiers (past plain bestaudio/worstaudio) exist because YouTube's
-  // "SABR-only" rollout has started stripping *all* separate audio-only
-  // streams for some player clients/sessions — when that happens, falling
-  // through to a muxed video+audio format is the only way to still get sound
-  // at all (wastes some bandwidth on a hidden video track, but degrades
-  // instead of failing outright). See yt-dlp issue #12482 — this is an
-  // actively moving target on YouTube's side, not something fixable here for good.
-  return quality === 'low'
-    ? 'worstaudio[ext=m4a]/worstaudio/worst[ext=mp4]/worst'
-    : 'bestaudio[ext=m4a]/bestaudio/best[ext=mp4]/best';
-}
-
 async function getCached(videoId: string, quality: AudioQuality): Promise<ResolvedAudio | null> {
-  const [row] = await sql<{ url: string; mime_type: string }[]>`
-    select url, mime_type from audio_cache
+  const [row] = await sql<{ url: string; mime_type: string; http_headers: any }[]>`
+    select url, mime_type, http_headers from audio_cache
     where video_id = ${videoId} and quality = ${quality} and expires_at > now()
   `;
-  return row ? { url: row.url, mimeType: row.mime_type } : null;
+  return row ? { url: row.url, mimeType: row.mime_type, httpHeaders: row.http_headers } : null;
 }
 
 async function setCached(videoId: string, quality: AudioQuality, audio: ResolvedAudio): Promise<void> {
   const expiresAt = new Date(Date.now() + CACHE_TTL_MS);
   await sql`
-    insert into audio_cache (video_id, quality, url, mime_type, expires_at)
-    values (${videoId}, ${quality}, ${audio.url}, ${audio.mimeType}, ${expiresAt})
+    insert into audio_cache (video_id, quality, url, mime_type, http_headers, expires_at)
+    values (${videoId}, ${quality}, ${audio.url}, ${audio.mimeType}, ${audio.httpHeaders ? sql.json(audio.httpHeaders) : null}, ${expiresAt})
     on conflict (video_id, quality)
-    do update set url = excluded.url, mime_type = excluded.mime_type, expires_at = excluded.expires_at
+    do update set url = excluded.url, mime_type = excluded.mime_type, http_headers = excluded.http_headers, expires_at = excluded.expires_at
   `;
 }
 
@@ -110,57 +84,36 @@ export async function resolveAudio(videoId: string, quality: AudioQuality): Prom
 }
 
 /**
- * Shells out to the yt-dlp CLI (not a JS extraction library) to resolve a
- * playable audio URL. This project deliberately does NOT use npm packages
- * like ytdl-core/play-dl for this step — both were found to be broken
- * against YouTube's current player as of this build (verified live: they
- * throw "Failed to find any playable formats" even for a stable, unrelated
- * test video), because neither has been updated in over a year. yt-dlp is
- * the one extractor in this space that stays patched against YouTube's
- * frequent changes, with releases every few weeks — but it must be installed
- * separately on the host running this backend (`brew install yt-dlp`).
+ * Shells out to the yt-dlp Python microservice to resolve a playable audio URL.
+ * Using a constantly running Python microservice avoids the massive multi-second 
+ * cold-start penalty of spawning the yt-dlp CLI and Python VM from scratch for every request.
  */
 async function resolveAudioUncached(videoId: string, quality: AudioQuality): Promise<ResolvedAudio> {
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
-  let stdout: string;
   try {
-    ({ stdout } = await limit(() =>
-      execFileAsync(
-        'yt-dlp',
-        [
-          '-f', formatSelector(quality),
-          // By NOT specifying a hardcoded youtube:player_client here, we allow yt-dlp
-          // to use its own internal fallback chain (which frequently updates, e.g.
-          // utilizing the 'visionos' or 'web_creator' clients). Hardcoding 'android,web'
-          // causes "Sign in to confirm you're not a bot" on datacenters because those
-          // specific clients are now strictly gated by BotGuard.
-          // Use PO Token Provider plugin (bgutil-ytdlp-pot-provider) hosted on a
-          // separate local docker container to dynamically generate PO tokens for
-          // yt-dlp. This completely avoids "Sign in to confirm you're not a bot"
-          // errors on datacenter IPs without requiring any personal YouTube accounts.
-          '--extractor-args', 'youtubepot-bgutilhttp:base_url=http://bgutil-provider:4416',
-          // Enable NodeJS as the JS runtime for deciphering signatures. Newer yt-dlp
-          // versions default to deno and complain if it's missing. We provide the absolute
-          // path because yt-dlp sometimes fails to locate it in the Alpine PATH.
-          '--js-runtimes', 'node:/usr/local/bin/node',
-          '--print', '%(url)s', '--print', '%(ext)s', '--no-warnings', '--socket-timeout', '20', url,
-        ],
-        { timeout: 25000, maxBuffer: 4 * 1024 * 1024 },
-      ),
-    ));
+    const response = await limit(() =>
+      fetch('http://ytdlp-service:8000/resolve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ video_id: videoId, quality })
+      })
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`ytdlp-service returned ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json() as any;
+    return {
+      url: data.url,
+      mimeType: data.mimeType,
+      httpHeaders: data.httpHeaders,
+    };
   } catch (error) {
-    const message = (error as { stderr?: string; message: string }).stderr || (error as Error).message;
     // eslint-disable-next-line no-console
-    console.error(`[audio] ${videoId} (${quality}) — yt-dlp FAILED: ${message}`);
-    throw new Error(`yt-dlp failed to resolve audio for ${videoId}: ${message}`);
+    console.error(`[audio] ${videoId} (${quality}) — yt-dlp microservice FAILED: ${(error as Error).message}`);
+    throw new Error(`yt-dlp microservice failed to resolve audio for ${videoId}: ${(error as Error).message}`);
   }
-
-  const lines = stdout.trim().split('\n').filter(Boolean);
-  const [streamUrl, ext] = lines;
-  if (!streamUrl) throw new Error(`yt-dlp returned no stream URL for video ${videoId}.`);
-
-  return {
-    url: streamUrl,
-    mimeType: EXT_TO_MIME[ext] ?? 'audio/mp4',
-  };
 }

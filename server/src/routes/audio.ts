@@ -204,12 +204,18 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
       }
     }
 
+    // Instead of hardcoding a Chrome User-Agent, we MUST pass exactly the same
+    // HTTP headers that yt-dlp negotiated during extraction (especially the User-Agent
+    // and sometimes Authorization/Cookie headers if present).
+    // If we use a PO token for a specific client (e.g. visionos) but fetch the
+    // audio using a mismatched User-Agent, YouTube's anti-bot system will detect
+    // the anomaly and sever the connection after exactly 30 seconds.
     const upstreamHeaders: Record<string, string> = {
-      // YouTube commonly ignores Range requests and serves the full file as 200 OK
-      // if the request looks like a bot (e.g. Node.js default fetch User-Agent).
-      // Spoofing a real browser ensures we get the 206 Partial Content we asked for.
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      ...(audio.httpHeaders || {}),
     };
+    if (!upstreamHeaders['User-Agent']) {
+      upstreamHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    }
     // Ask upstream for a much bigger window starting at the requested byte than the
     // client itself asked for (see windowCache's comment) — the client still only
     // gets back the slice it actually requested, below.

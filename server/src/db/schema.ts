@@ -39,6 +39,7 @@ create table if not exists audio_cache (
   quality text not null,
   url text not null,
   mime_type text not null,
+  http_headers jsonb,
   expires_at timestamptz not null,
   primary key (video_id, quality)
 );

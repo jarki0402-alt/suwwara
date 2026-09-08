@@ -47,6 +47,13 @@ services:
       # everything, audio included, through one origin).
       - "8787:8787"
 
+  ytdlp-service:
+    build:
+      context: ./server/ytdlp-service
+    restart: unless-stopped
+    depends_on:
+      - bgutil-provider
+
   bgutil-provider:
     image: brainicism/bgutil-ytdlp-pot-provider:latest
     restart: unless-stopped

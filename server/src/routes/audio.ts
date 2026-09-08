@@ -47,7 +47,7 @@ function getCachedBuffer(cacheKey: string): FullBufferEntry | null {
 // cache (the one that grows on every single play, not just the rare
 // Range-ignoring-upstream edge case) keeps memory bounded regardless of how
 // many different songs get played over a long-running container's lifetime.
-const MAX_WINDOW_CACHE_ENTRIES = 15; // 15 * WINDOW_SIZE_BYTES (4MB) = 60MB worst case.
+const MAX_WINDOW_CACHE_ENTRIES = 60; // 60 * WINDOW_SIZE_BYTES (256KB) = 15MB worst case.
 
 function evictExpired<T extends { expiresAt: number }>(cache: Map<string, T>): void {
   const now = Date.now();
@@ -76,7 +76,10 @@ interface WindowBufferEntry {
 // the *client* is still exactly the slice they asked for (same Content-Range/Length as
 // before) — only the upstream fetch size changed, so this can't reintroduce the
 // duplicate-content WebKit bug that fullBufferCache above exists to guard against.
-const WINDOW_SIZE_BYTES = 4 * 1024 * 1024;
+// We keep the window size relatively small (256KB) instead of 4MB so that Node.js
+// doesn't block the client for seconds waiting for a large buffer to download from
+// YouTube (especially since YouTube throttles connections to 1x playback speed).
+const WINDOW_SIZE_BYTES = 256 * 1024;
 const WINDOW_CACHE_TTL_MS = 10 * 60 * 1000;
 const windowCache = new Map<string, WindowBufferEntry>();
 

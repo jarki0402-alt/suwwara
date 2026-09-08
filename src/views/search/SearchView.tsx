@@ -192,7 +192,9 @@ export function SearchView() {
         <p className={styles.state}>Tidak ada hasil untuk &ldquo;{query}&rdquo;.</p>
       )}
 
-      {!isLoading && !error && !showBrowseState && results.length > 0 && <SearchResultsList songs={results} />}
+      {!isLoading && !error && !showBrowseState && results.length > 0 && (
+        <SearchResultsList songs={results} isCommitted={hasCommitted} />
+      )}
     </div>
   );
 }

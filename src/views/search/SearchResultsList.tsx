@@ -48,7 +48,7 @@ function SearchResultRow({ song }: { song: Song }) {
   );
 }
 
-export function SearchResultsList({ songs }: { songs: Song[] }) {
+export function SearchResultsList({ songs, isCommitted }: { songs: Song[]; isCommitted: boolean }) {
   const dataSaver = useSettingsStore((state) => state.dataSaver);
   const topResultId = songs[0]?.id;
 
@@ -61,10 +61,23 @@ export function SearchResultsList({ songs }: { songs: Song[] }) {
   // server/src/youtube/stream.ts) on this 1-vCPU VM, so speculatively
   // resolving more candidates risks queuing *behind* whichever one the user
   // actually taps instead of helping it.
+  //
+  // `isCommitted` gates this for a real reason, not just tidiness: `songs`
+  // updates on every debounced keystroke as a live-typing preview (see
+  // SearchView's runDebouncedSearch), each with a potentially different #1
+  // result. Without this gate, someone typing a longer title with a couple of
+  // natural pauses fires a fresh prefetch per pause — several distinct videos
+  // queuing up one after another behind that single-concurrency limiter,
+  // ahead of whatever they actually click. That's a real regression this hit
+  // in practice (searches that should resolve in ~2-3s took 15-20s once
+  // multiple stale prefetches were queued ahead of the real click). Gating on
+  // a *committed* search (Enter / suggestion / recent-search / category tap)
+  // means this can only ever queue one extra item, for a result set the user
+  // actually asked to see.
   useEffect(() => {
-    if (!topResultId) return;
+    if (!topResultId || !isCommitted) return;
     prefetchAudioResolveOnly(topResultId, dataSaver ? 'low' : 'high');
-  }, [topResultId, dataSaver]);
+  }, [topResultId, isCommitted, dataSaver]);
 
   return (
     <div className={styles.list}>

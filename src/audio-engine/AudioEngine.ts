@@ -310,6 +310,46 @@ class AudioEngine {
     }
   }
 
+  /**
+   * Emergency fallback for a mid-song rebuffer on a bad connection: reloads the
+   * *currently playing* track at low quality (smaller/cheaper to buffer) from
+   * wherever it stalled, instead of leaving the user stuck waiting on the
+   * original high-quality stream. Deliberately reuses the same active element
+   * rather than crossfading to the other one — this is a same-song emergency
+   * recovery, not a track change, and reusing crossfadeTo's dual-element
+   * machinery here would risk reintroducing the exact race conditions its own
+   * comments describe fighting off. A brief silent gap during the reload is an
+   * accepted trade — the alternative is staying stuck buffering indefinitely.
+   * One-directional on purpose: never auto-upgrades back to high quality mid-
+   * song, since seamlessly detecting "the connection recovered" and swapping
+   * back without a glitch is a much harder problem than degrading once when
+   * things are already visibly broken.
+   */
+  async reloadAtLowerQuality(): Promise<void> {
+    const song = this.currentSong;
+    if (!song || !this.elements) return;
+
+    const requestId = ++this.playRequestId;
+    const { context, elements, gains } = this.ensureGraph();
+    const element = elements[this.activeIndex];
+    const gain = gains[this.activeIndex];
+    const resumeAt = element.currentTime;
+    const wasPlaying = !element.paused;
+
+    this.updateSnapshot({ status: 'loading' });
+    element.src = resolveAudioUrl(song.id, true);
+    element.load();
+    await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
+    if (requestId !== this.playRequestId) return; // superseded by a real track change meanwhile
+
+    element.currentTime = resumeAt;
+    if (wasPlaying) {
+      await element.play();
+      if (requestId !== this.playRequestId) return;
+      setGainImmediate(gain, context, this.volume);
+    }
+  }
+
   async play(): Promise<void> {
     const { context, elements } = this.ensureGraph();
     if (context.state === 'suspended') await context.resume();

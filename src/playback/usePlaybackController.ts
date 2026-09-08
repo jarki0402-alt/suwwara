@@ -28,6 +28,15 @@ const STALL_GRACE_MS = 4000;
 // suspend (screen lock/unlock) self-heals in under a second; this is specifically for
 // the "resume() silently never works" dead end.
 const SILENT_PLAYBACK_GRACE_MS = 8000;
+// How long a track that's ALREADY been playing can sit rebuffering (status
+// 'loading' again, not the initial load) before we treat it as a bad-connection
+// stall and drop to low quality from the same position — see
+// AudioEngine.reloadAtLowerQuality(). Long enough that a brief, normal rebuffer
+// blip doesn't trigger a quality drop for no reason; short enough that someone
+// on a genuinely struggling connection isn't left staring at a spinner for
+// nearly as long as the original ~10-20s cold-resolve problem this exists to
+// avoid recreating mid-song.
+const REBUFFER_QUALITY_DROP_MS = 5000;
 // A track that fails to load/play at all used to just sit there dead — the error
 // toast explained why, but the queue never moved on like every other streaming app
 // does when a track can't play. Capped so a genuine total outage doesn't rapid-fire
@@ -98,6 +107,12 @@ export function usePlaybackController() {
   // (possibly late) native 'ended' event could otherwise both fire for it.
   const advancedForSongIdRef = useRef<string | null>(null);
   const consecutiveErrorsRef = useRef(0);
+  // Tracks which song id has already reached 'playing' at least once, and which
+  // song id has already had its one allowed quality-drop attempt — both reset
+  // implicitly by comparing against currentSong.id, so a new track always gets
+  // a clean slate. See the rebuffer-quality-drop effect below.
+  const hasPlayedSongIdRef = useRef<string | null>(null);
+  const qualityDroppedSongIdRef = useRef<string | null>(null);
   // Guards the "tap to resume audio" prompt below so a still-blocked remote
   // play doesn't spam a fresh toast every time a heartbeat re-evaluates it.
   const jamPlayPromptShownRef = useRef(false);
@@ -254,7 +269,33 @@ export function usePlaybackController() {
     });
     // A successful load resets the failure streak — only *consecutive* failures should count.
     if (engineState.status === 'playing') consecutiveErrorsRef.current = 0;
-  }, [engineState.status, engineState.error, setPlaybackStatus]);
+    if (engineState.status === 'playing' && currentSong) hasPlayedSongIdRef.current = currentSong.id;
+  }, [engineState.status, engineState.error, currentSong, setPlaybackStatus]);
+
+  // Mid-song rebuffer on a bad connection: status flips back to 'loading' (the
+  // <audio> element's native 'waiting' event, see AudioEngine.bindElementEvents)
+  // for a track that's already played at least once — as opposed to the very
+  // same 'loading' status a track's *initial* load also reports, which
+  // hasPlayedSongIdRef guards against reacting to here. Waits
+  // REBUFFER_QUALITY_DROP_MS before acting so a normal brief stall doesn't
+  // trigger it, and only ever fires once per song (qualityDroppedSongIdRef) —
+  // if it's still struggling at low quality, there's nothing lower left to
+  // fall back to, so the existing stall/error watchdogs take over as before.
+  useEffect(() => {
+    if (engineState.status !== 'loading' || !currentSong) return;
+    if (hasPlayedSongIdRef.current !== currentSong.id) return;
+    if (qualityDroppedSongIdRef.current === currentSong.id) return;
+    if (dataSaver) return; // already the lowest tier — nothing left to drop to.
+
+    const timeoutId = setTimeout(() => {
+      qualityDroppedSongIdRef.current = currentSong.id;
+      audioEngine.reloadAtLowerQuality().catch(() => {
+        // Best-effort recovery — if it fails, the existing stall/error watchdogs
+        // above still apply exactly as if this attempt had never happened.
+      });
+    }, REBUFFER_QUALITY_DROP_MS);
+    return () => clearTimeout(timeoutId);
+  }, [engineState.status, currentSong, dataSaver]);
 
   useEffect(() => {
     if (engineState.status !== 'playing' || !currentSong) return;

@@ -1,6 +1,4 @@
 import { Router, type Request, type Response } from 'express';
-import { Readable } from 'node:stream';
-import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { resolveAudio, type AudioQuality, type ResolvedAudio } from '../youtube/stream';
 
 export const audioRouter = Router();
@@ -87,12 +85,6 @@ function getCachedWindow(cacheKey: string): WindowBufferEntry | null {
   const entry = windowCache.get(cacheKey);
   if (!entry || entry.expiresAt <= Date.now()) return null;
   return entry;
-}
-
-function sliceFromWindow(window: WindowBufferEntry, range: { start: number; end: number | null }): Buffer {
-  const localStart = range.start - window.start;
-  const localEnd = range.end !== null ? range.end - window.start : window.buffer.length - 1;
-  return window.buffer.subarray(localStart, localEnd + 1);
 }
 
 function setCachedWindow(cacheKey: string, entry: WindowBufferEntry): void {

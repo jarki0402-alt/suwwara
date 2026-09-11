@@ -169,15 +169,45 @@ async function streamStitched(
   let isFirstResponse = true;
 
   while (!aborted) {
-    let buffer: Buffer;
-    let totalStr = '*';
-
     const cachedWindow = getCachedWindow(cacheKey);
     // Check if currentStart falls within the cached window
     if (cachedWindow && currentStart >= cachedWindow.start && currentStart < cachedWindow.start + cachedWindow.buffer.length) {
       const sliceStart = currentStart - cachedWindow.start;
-      buffer = cachedWindow.buffer.subarray(sliceStart);
-      totalStr = cachedWindow.total;
+      let buffer = cachedWindow.buffer.subarray(sliceStart);
+      let totalStr = cachedWindow.total;
+      if (totalStr !== '*') totalSize = parseInt(totalStr, 10);
+
+      // If we fetched more than the client requested (e.g. from cache), slice it down.
+      if (requestedEnd !== null && currentStart + buffer.length - 1 > requestedEnd) {
+        buffer = buffer.subarray(0, requestedEnd - currentStart + 1);
+      }
+
+      if (isFirstResponse) {
+        const finalEnd = requestedEnd !== null ? requestedEnd : (totalSize !== null ? totalSize - 1 : '*');
+        const contentLength = totalSize !== null 
+          ? (requestedEnd !== null ? requestedEnd - range.start + 1 : totalSize - range.start)
+          : null;
+
+        if (isRangeLess) {
+          res.status(200);
+          if (contentLength !== null) res.setHeader('Content-Length', String(contentLength));
+        } else {
+          res.status(206);
+          res.setHeader('Content-Range', `bytes ${range.start}-${finalEnd}/${totalStr}`);
+          if (contentLength !== null) res.setHeader('Content-Length', String(contentLength));
+        }
+
+        res.setHeader('Content-Type', audio.mimeType);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        isFirstResponse = false;
+      }
+
+      await writeChunk(res, buffer);
+      currentStart += buffer.length;
+
+      if (requestedEnd !== null && currentStart > requestedEnd) break;
+      if (totalSize !== null && currentStart >= totalSize) break;
     } else {
       const end = requestedEnd !== null 
         ? Math.min(currentStart + WINDOW_SIZE_BYTES - 1, requestedEnd) 
@@ -195,63 +225,83 @@ async function streamStitched(
       if (upstream.status !== 206) {
         // Upstream ignored the Range header completely.
         if (isFirstResponse) {
-          const fullBuf = Buffer.from(await upstream.arrayBuffer());
-          fullBufferCache.set(cacheKey, { buffer: fullBuf, mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS });
-          if (aborted) return;
-          if (isRangeLess) {
-            res.status(200);
-            res.setHeader('Content-Type', audio.mimeType);
-            res.setHeader('Accept-Ranges', 'bytes');
-            res.setHeader('Cache-Control', 'public, max-age=3600');
-            res.setHeader('Content-Length', String(fullBuf.length));
-            res.end(fullBuf);
-          } else {
-            sendRangeFromBuffer(res, fullBufferCache.get(cacheKey)!, range);
+          res.status(200);
+          res.setHeader('Content-Type', audio.mimeType);
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          const cl = upstream.headers.get('content-length');
+          if (cl) res.setHeader('Content-Length', cl);
+          isFirstResponse = false;
+
+          if (!upstream.body) return;
+
+          const chunks: Buffer[] = [];
+          for await (const chunk of upstream.body as unknown as AsyncIterable<Uint8Array>) {
+            if (aborted) break;
+            const buf = Buffer.from(chunk);
+            chunks.push(buf);
+            await writeChunk(res, buf);
+          }
+          if (!aborted) {
+            fullBufferCache.set(cacheKey, { buffer: Buffer.concat(chunks), mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS });
           }
         }
         return;
       }
 
-      buffer = Buffer.from(await upstream.arrayBuffer());
-      if (buffer.length === 0) break;
+      if (!upstream.body) break;
 
-      totalStr = upstream.headers.get('content-range')?.split('/')[1] ?? '*';
-      setCachedWindow(cacheKey, { start: currentStart, buffer, mimeType: audio.mimeType, total: totalStr, expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
-    }
+      let totalStr = upstream.headers.get('content-range')?.split('/')[1] ?? '*';
+      if (totalStr !== '*') totalSize = parseInt(totalStr, 10);
 
-    if (totalStr !== '*') totalSize = parseInt(totalStr, 10);
+      if (isFirstResponse) {
+        const finalEnd = requestedEnd !== null ? requestedEnd : (totalSize !== null ? totalSize - 1 : '*');
+        const contentLength = totalSize !== null 
+          ? (requestedEnd !== null ? requestedEnd - range.start + 1 : totalSize - range.start)
+          : null;
 
-    // If we fetched more than the client requested (e.g. from cache), slice it down.
-    if (requestedEnd !== null && currentStart + buffer.length - 1 > requestedEnd) {
-      buffer = buffer.subarray(0, requestedEnd - currentStart + 1);
-    }
+        if (isRangeLess) {
+          res.status(200);
+          if (contentLength !== null) res.setHeader('Content-Length', String(contentLength));
+        } else {
+          res.status(206);
+          res.setHeader('Content-Range', `bytes ${range.start}-${finalEnd}/${totalStr}`);
+          if (contentLength !== null) res.setHeader('Content-Length', String(contentLength));
+        }
 
-    if (isFirstResponse) {
-      const finalEnd = requestedEnd !== null ? requestedEnd : (totalSize !== null ? totalSize - 1 : '*');
-      const contentLength = totalSize !== null 
-        ? (requestedEnd !== null ? requestedEnd - range.start + 1 : totalSize - range.start)
-        : null;
-
-      if (isRangeLess) {
-        res.status(200);
-        if (contentLength !== null) res.setHeader('Content-Length', String(contentLength));
-      } else {
-        res.status(206);
-        res.setHeader('Content-Range', `bytes ${range.start}-${finalEnd}/${totalStr}`);
-        if (contentLength !== null) res.setHeader('Content-Length', String(contentLength));
+        res.setHeader('Content-Type', audio.mimeType);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        isFirstResponse = false;
       }
 
-      res.setHeader('Content-Type', audio.mimeType);
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      isFirstResponse = false;
+      const windowStart = currentStart;
+      const chunks: Buffer[] = [];
+
+      for await (const chunk of upstream.body as unknown as AsyncIterable<Uint8Array>) {
+        if (aborted) break;
+        const buf = Buffer.from(chunk);
+        chunks.push(buf);
+
+        let toWrite = buf;
+        if (requestedEnd !== null && currentStart + toWrite.length - 1 > requestedEnd) {
+          toWrite = toWrite.subarray(0, requestedEnd - currentStart + 1);
+        }
+
+        await writeChunk(res, toWrite);
+        currentStart += toWrite.length;
+
+        if (requestedEnd !== null && currentStart > requestedEnd) break;
+      }
+
+      const fullBuf = Buffer.concat(chunks);
+      if (fullBuf.length > 0) {
+        setCachedWindow(cacheKey, { start: windowStart, buffer: fullBuf, mimeType: audio.mimeType, total: totalStr, expiresAt: Date.now() + WINDOW_CACHE_TTL_MS });
+      }
+
+      if (requestedEnd !== null && currentStart > requestedEnd) break;
+      if (totalSize !== null && currentStart >= totalSize) break;
     }
-
-    await writeChunk(res, buffer);
-    currentStart += buffer.length;
-
-    if (requestedEnd !== null && currentStart > requestedEnd) break;
-    if (totalSize !== null && currentStart >= totalSize) break;
   }
 
   if (!aborted) res.end();

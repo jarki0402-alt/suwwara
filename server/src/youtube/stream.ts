@@ -1,7 +1,7 @@
-import pLimit from 'p-limit';
 import { sql } from '../db/client';
 
 export type AudioQuality = 'high' | 'low';
+export type ResolvePriority = 'high' | 'low';
 
 export interface ResolvedAudio {
   url: string;
@@ -31,7 +31,67 @@ const inFlight = new Map<string, Promise<ResolvedAudio>>();
 // causes extreme CPU context switching and RAM swapping, blowing up resolution
 // time from 3s to 10s+. Limiting to 1 ensures the active track gets 100% of
 // the CPU and finishes quickly, while background prefetches wait in line.
-const limit = pLimit(1);
+//
+// A plain FIFO queue (the original p-limit(1) this replaced) meant a track the
+// user actually just clicked could land behind an already-queued background
+// prefetch for a track further down the queue that nobody's about to hear yet
+// — exactly the moment a delay is most noticeable. This two-lane priority
+// queue keeps the concurrency cap at 1 (same RAM/CPU ceiling) but always drains
+// the 'high' lane (real playback — the track currently being loaded/crossfaded
+// to) before the 'low' lane (speculative resolve-only prefetch for tracks
+// further ahead). It can't interrupt a resolve that's already in flight — only
+// queue order — but that's the only case a strict FIFO queue could ever get
+// wrong here, so this closes it without touching the concurrency limit itself.
+class PriorityLimiter {
+  private active = 0;
+  private readonly high: Array<() => void> = [];
+  private readonly low: Array<() => void> = [];
+
+  constructor(private readonly maxConcurrency: number) {}
+
+  run<T>(priority: ResolvePriority, fn: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const task = (): void => {
+        this.active += 1;
+        fn()
+          .then(resolve, reject)
+          .finally(() => {
+            this.active -= 1;
+            this.dequeue();
+          });
+      };
+      (priority === 'high' ? this.high : this.low).push(task);
+      this.dequeue();
+    });
+  }
+
+  private dequeue(): void {
+    if (this.active >= this.maxConcurrency) return;
+    const next = this.high.shift() ?? this.low.shift();
+    next?.();
+  }
+
+  get pendingCount(): number {
+    return this.high.length + this.low.length;
+  }
+
+  get activeCount(): number {
+    return this.active;
+  }
+}
+
+const limit = new PriorityLimiter(1);
+
+// Cold yt-dlp resolutions (BotGuard PO-token handshake included) normally land
+// in a few seconds; this is a safety net, not the expected case. Without it, a
+// hung ytdlp-service/bgutil-provider call (e.g. its headless Chrome wedged)
+// left this fetch() pending forever — and since every resolve funnels through
+// the single-slot limiter above, one stuck request silently froze audio
+// resolution for every track, for every user, until the container restarted.
+// Set comfortably above ytdlp-service's own internal `socket_timeout: 20`
+// (server/ytdlp-service/main.py) so that timeout gets a chance to fire and
+// return a clean error first; this is the backstop for when it doesn't.
+const RESOLVE_TIMEOUT_MS = 25000;
 
 async function getCached(videoId: string, quality: AudioQuality): Promise<ResolvedAudio | null> {
   const [row] = await sql<{ url: string; mime_type: string; http_headers: any }[]>`
@@ -51,7 +111,15 @@ async function setCached(videoId: string, quality: AudioQuality, audio: Resolved
   `;
 }
 
-export async function resolveAudio(videoId: string, quality: AudioQuality): Promise<ResolvedAudio> {
+/**
+ * `priority` distinguishes a track that's actually about to be heard (the one
+ * being loaded/crossfaded to right now — pass 'high') from a track just being
+ * speculatively warmed up ahead of time (the resolve-only lookahead prefetch —
+ * pass 'low'). Both still share the same single-slot concurrency limiter
+ * (unchanged RAM/CPU ceiling); this only changes which one goes first when
+ * both are queued at once. See the PriorityLimiter comment above for why.
+ */
+export async function resolveAudio(videoId: string, quality: AudioQuality, priority: ResolvePriority = 'high'): Promise<ResolvedAudio> {
   const cacheKey = `${videoId}:${quality}`;
   const startedAt = Date.now();
 
@@ -70,8 +138,8 @@ export async function resolveAudio(videoId: string, quality: AudioQuality): Prom
   }
 
   // eslint-disable-next-line no-console
-  console.log(`[audio] ${videoId} (${quality}) — CACHE MISS, spawning yt-dlp (queue depth: ${limit.pendingCount}, active: ${limit.activeCount})`);
-  const resolution = resolveAudioUncached(videoId, quality).finally(() => {
+  console.log(`[audio] ${videoId} (${quality}) — CACHE MISS, spawning yt-dlp (priority: ${priority}, queue depth: ${limit.pendingCount}, active: ${limit.activeCount})`);
+  const resolution = resolveAudioUncached(videoId, quality, priority).finally(() => {
     inFlight.delete(cacheKey);
   });
   inFlight.set(cacheKey, resolution);
@@ -85,18 +153,19 @@ export async function resolveAudio(videoId: string, quality: AudioQuality): Prom
 
 /**
  * Shells out to the yt-dlp Python microservice to resolve a playable audio URL.
- * Using a constantly running Python microservice avoids the massive multi-second 
+ * Using a constantly running Python microservice avoids the massive multi-second
  * cold-start penalty of spawning the yt-dlp CLI and Python VM from scratch for every request.
  */
-async function resolveAudioUncached(videoId: string, quality: AudioQuality): Promise<ResolvedAudio> {
+async function resolveAudioUncached(videoId: string, quality: AudioQuality, priority: ResolvePriority): Promise<ResolvedAudio> {
   try {
-    const response = await limit(() =>
+    const response = await limit.run(priority, () =>
       fetch('http://ytdlp-service:8000/resolve', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ video_id: videoId, quality })
+        body: JSON.stringify({ video_id: videoId, quality }),
+        signal: AbortSignal.timeout(RESOLVE_TIMEOUT_MS),
       })
     );
 

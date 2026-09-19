@@ -1,6 +1,15 @@
 import { Router, type Request, type Response } from 'express';
 import { resolveAudio, type AudioQuality, type ResolvedAudio } from '../youtube/stream';
 
+// The resolve-only route below exists purely to warm the cache for a track
+// nobody's about to hear yet (frontend's lookahead prefetch); the plain audio
+// route is always either the track actually loading/crossfading right now, or
+// the very next one (natively preloaded by the <audio> element — see
+// AudioEngine.preloadNextTrack). See resolveAudio's own priority param and the
+// PriorityLimiter comment in youtube/stream.ts for what this changes.
+const RESOLVE_ONLY_PRIORITY = 'low';
+const PLAYBACK_PRIORITY = 'high';
+
 export const audioRouter = Router();
 
 function parseRangeHeader(header: string): { start: number; end: number | null } | null {
@@ -29,12 +38,28 @@ interface FullBufferEntry {
 // for a track, subsequent chunk requests slice the already-downloaded buffer instead of
 // re-fetching and re-buffering the entire file on every single request.
 const FULL_BUFFER_CACHE_TTL_MS = 10 * 60 * 1000;
+// This path only triggers for the rare upstream-ignores-Range case (unlike
+// windowCache below, which grows on every single play), but nothing stopped
+// it from growing unbounded between sweeps if several different tracks hit
+// that edge case within the same 5-minute window — a hard cap closes that gap
+// the same way windowCache's already does.
+const MAX_FULL_BUFFER_CACHE_ENTRIES = 20;
 const fullBufferCache = new Map<string, FullBufferEntry>();
 
 function getCachedBuffer(cacheKey: string): FullBufferEntry | null {
   const entry = fullBufferCache.get(cacheKey);
   if (!entry || entry.expiresAt <= Date.now()) return null;
   return entry;
+}
+
+function setCachedBuffer(cacheKey: string, entry: FullBufferEntry): void {
+  fullBufferCache.delete(cacheKey); // re-insert so this key becomes the most-recently-set for eviction order below.
+  fullBufferCache.set(cacheKey, entry);
+  while (fullBufferCache.size > MAX_FULL_BUFFER_CACHE_ENTRIES) {
+    const oldestKey = fullBufferCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    fullBufferCache.delete(oldestKey);
+  }
 }
 
 // Both in-memory audio buffer caches below only ever check staleness lazily (on
@@ -243,7 +268,7 @@ async function streamStitched(
             await writeChunk(res, buf);
           }
           if (!aborted) {
-            fullBufferCache.set(cacheKey, { buffer: Buffer.concat(chunks), mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS });
+            setCachedBuffer(cacheKey, { buffer: Buffer.concat(chunks), mimeType: audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS });
           }
         }
         return;
@@ -321,7 +346,7 @@ audioRouter.get('/audio/:videoId/resolve', async (req, res) => {
   const quality: AudioQuality = req.query.quality === 'low' ? 'low' : 'high';
 
   try {
-    await resolveAudio(videoId, quality);
+    await resolveAudio(videoId, quality, RESOLVE_ONLY_PRIORITY);
     res.status(204).end();
   } catch (error) {
     res.status(502).json({ error: 'Failed to resolve audio.', message: (error as Error).message });
@@ -334,7 +359,7 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
   const cacheKey = `${videoId}:${quality}`;
 
   try {
-    const audio = await resolveAudio(videoId, quality);
+    const audio = await resolveAudio(videoId, quality, PLAYBACK_PRIORITY);
     const rangeHeader = req.headers.range;
     // If no Range header, we default to starting from 0 (open-ended).
     const range = rangeHeader ? (parseRangeHeader(rangeHeader) ?? { start: 0, end: null }) : { start: 0, end: null };

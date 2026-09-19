@@ -23,5 +23,10 @@
   font-size: 1.9rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--color-text-primary);
+  background: var(--gradient-brand);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  width: fit-content;
 }

@@ -20,6 +20,8 @@
 .artWrapper {
   position: relative;
   display: block;
+  border-radius: var(--radius-md);
+  transition: box-shadow var(--transition-base);
 }
 
 .art {
@@ -27,6 +29,54 @@
   height: 136px;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-floating);
+  transition: transform var(--transition-base);
+}
+
+.playOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+@media (hover: hover) {
+  .card:hover .art {
+    transform: translateY(-4px);
+  }
+
+  .card:hover .artWrapper {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .card:hover .playOverlay {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (min-width: 960px) {
+  /* On mobile these sit in a horizontally-scrolling flex row, where a fixed
+     136px keeps every card the same size regardless of content. On desktop
+     they instead sit in RecentlyPlayedSection's wrapping grid — stretching to
+     fill the grid cell (rather than staying pinned at 136px) is what actually
+     uses the extra width a wide window has instead of just wrapping more
+     fixed-size tiles with wasted space in every row. */
+  .card {
+    width: 100%;
+  }
+
+  .art {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+  }
 }
 
 .rankBadge {

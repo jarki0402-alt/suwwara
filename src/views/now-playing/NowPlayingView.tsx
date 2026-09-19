@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { primaryArtistNames } from '../../api/mappers';
+import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
@@ -38,10 +38,13 @@ export function NowPlayingView() {
 
   const isPlaying = playbackState.status === 'playing';
   const isBuffering = playbackState.status === 'loading';
+  const ambientUrl = bestImageUrl(currentSong.image, '500x500');
 
   return (
     <div className={styles.overlay}>
       <div className={styles.sheet}>
+        {ambientUrl && <img src={ambientUrl} alt="" aria-hidden="true" className={styles.ambientBackdrop} />}
+        <div className={styles.ambientScrim} aria-hidden="true" />
         <div className={styles.topBar}>
           <button type="button" className={styles.iconButton} onClick={closeNowPlaying} aria-label="Tutup">
             <Icon name="chevron-down" size={22} />

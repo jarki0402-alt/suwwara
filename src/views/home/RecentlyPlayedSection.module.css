@@ -27,3 +27,20 @@
   color: var(--color-text-tertiary);
   font-size: 0.85rem;
 }
+
+@media (min-width: 960px) {
+  /* Desktop has real estate to spare — a single horizontally-scrolling strip
+     wastes most of the window's width. A wrapping grid uses all of it instead,
+     and each card (HorizontalSongCard) is already a fixed 136px width, so
+     auto-fill naturally fits as many columns as the viewport allows. */
+  .scroller {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+    overflow-x: visible;
+    padding: 0 var(--space-5) var(--space-2);
+  }
+
+  .heading {
+    padding: 0 var(--space-5);
+  }
+}

@@ -59,3 +59,26 @@
   color: var(--color-text-secondary);
   text-align: center;
 }
+
+@media (min-width: 960px) {
+  /* Now Playing's frame is fullscreen on desktop — lyrics are the one piece
+     of content meant to actually use that width (unlike the seek bar/
+     transport controls, which stay capped narrow), with bigger type to match
+     a proper fullscreen lyrics view instead of the same size as the mobile
+     sheet's narrow column. Still capped well short of the full viewport
+     width — an uncapped line length at 1440px+ would be unreadable, not
+     "more fullscreen". */
+  .syncedWrapper,
+  .plainWrapper {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .line {
+    font-size: 1.7rem;
+  }
+
+  .plainText {
+    font-size: 1.2rem;
+  }
+}

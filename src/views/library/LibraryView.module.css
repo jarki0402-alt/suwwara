@@ -33,7 +33,7 @@
 }
 
 .tabActive {
-  background: var(--color-accent);
+  background: var(--gradient-brand);
   color: #ffffff;
 }
 
@@ -48,6 +48,15 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-4);
+}
+
+@media (min-width: 960px) {
+  /* A fixed 2-column grid left most of a desktop-width window empty — this
+     wraps as many playlist tiles per row as actually fit instead. */
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: var(--space-5);
+  }
 }
 
 .createCard {
@@ -87,6 +96,14 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-floating);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+@media (hover: hover) {
+  .card:hover .cardArt {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-4px);
+  }
 }
 
 .art {

@@ -37,10 +37,19 @@
   font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.tabButton svg {
+  transition: transform var(--transition-fast);
 }
 
 .tabActive {
   color: var(--color-accent);
+}
+
+.tabActive svg {
+  transform: scale(1.12);
 }
 
 @media (min-width: 960px) {
@@ -79,15 +88,21 @@
     padding: var(--space-3);
     border-radius: var(--radius-md);
     font-size: 0.9rem;
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
   }
 
   .tabButton:hover {
     background: var(--color-accent-soft);
     color: var(--color-text-primary);
+    transform: translateX(2px);
   }
 
   .tabActive {
     background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+
+  .tabActive svg {
+    transform: none;
   }
 }

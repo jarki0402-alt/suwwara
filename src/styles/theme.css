@@ -21,6 +21,7 @@
   --color-accent: #7c3aed;
   --color-accent-strong: #6d28d9;
   --color-accent-soft: rgba(124, 58, 237, 0.12);
+  --color-accent-2: #ec4899;
   --color-danger: #e5484d;
   --color-success: #30a46c;
 
@@ -29,6 +30,13 @@
 
   --shadow-elevated: 0 8px 24px rgba(22, 22, 26, 0.1);
   --shadow-floating: 0 4px 20px rgba(22, 22, 26, 0.16);
+  --shadow-glow: 0 8px 30px rgba(124, 58, 237, 0.25);
+
+  /* Two-tone brand gradient — used sparingly for hero/highlight surfaces
+     (hero banner, active nav pill, play buttons) so it reads as an accent,
+     not the app's base palette. */
+  --gradient-brand: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  --gradient-scrim: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.55) 55%, rgba(0, 0, 0, 0.85) 100%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -44,12 +52,14 @@
     --color-accent: #a78bfa;
     --color-accent-strong: #c4b5fd;
     --color-accent-soft: rgba(167, 139, 250, 0.18);
+    --color-accent-2: #f472b6;
 
     --color-skeleton-base: rgba(245, 244, 248, 0.06);
     --color-skeleton-highlight: rgba(245, 244, 248, 0.14);
 
     --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45);
     --shadow-floating: 0 4px 20px rgba(0, 0, 0, 0.55);
+    --shadow-glow: 0 8px 30px rgba(167, 139, 250, 0.35);
   }
 }
 
@@ -65,10 +75,12 @@
   --color-accent: #a78bfa;
   --color-accent-strong: #c4b5fd;
   --color-accent-soft: rgba(167, 139, 250, 0.18);
+  --color-accent-2: #f472b6;
 
   --color-skeleton-base: rgba(245, 244, 248, 0.06);
   --color-skeleton-highlight: rgba(245, 244, 248, 0.14);
 
   --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45);
   --shadow-floating: 0 4px 20px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 8px 30px rgba(167, 139, 250, 0.35);
 }

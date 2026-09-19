@@ -1,4 +1,5 @@
 import { CollectionSection } from './CollectionSection';
+import { HeroBanner } from './HeroBanner';
 import { RecentlyPlayedSection } from './RecentlyPlayedSection';
 import { RecommendedSection } from './RecommendedSection';
 import { TopChartSection } from './TopChartSection';
@@ -20,6 +21,7 @@ export function HomeView() {
         <span className={styles.greeting}>{getGreeting()}</span>
         <span className={styles.brand}>Suwwara</span>
       </header>
+      <HeroBanner />
       <CollectionSection />
       <RecentlyPlayedSection />
       <TopChartSection />

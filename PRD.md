@@ -31,11 +31,13 @@ Pemutar musik pribadi bebas iklan (PWA, installable di HP/desktop) yang meresolu
 - Seek bar dengan drag-to-seek.
 - Lirik tersinkron otomatis (LRCLIB + parser LRC sendiri, [src/lyrics/](./src/lyrics/)), dibatasi 30fps dan berhenti total saat tab disembunyikan.
 - Kontrol volume.
+- Latar belakang immersive: cover album diblur+digelapkan jadi backdrop layar penuh (gaya Apple Music/Spotify), bukan warna solid — lihat [src/views/now-playing/NowPlayingView.tsx](./src/views/now-playing/NowPlayingView.tsx).
 
 ### Koleksi & personalisasi
 - Lagu disukai, playlist, riwayat putar, "baru diputar" ([src/stores/libraryStore.ts](./src/stores/libraryStore.ts), [src/stores/historyStore.ts](./src/stores/historyStore.ts)).
 - Mesin rekomendasi lokal berbasis histori putar ([src/recommendation/](./src/recommendation/)).
 - Trending global: campuran shelf kurasi YouTube Music + query cadangan.
+- Hero banner di Beranda: lagu #1 trending ditampilkan sebagai banner full-bleed dengan cover art diblur jadi latar + tombol play cepat ([src/views/home/HeroBanner.tsx](./src/views/home/HeroBanner.tsx)).
 
 ### Pencarian & jelajah
 - Hasil dari backend (`ytmusic-api`/`youtube-sr`), autocomplete saat mengetik, riwayat pencarian client-side.

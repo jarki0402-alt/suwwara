@@ -4,6 +4,18 @@
   gap: var(--space-2);
 }
 
+@media (min-width: 960px) {
+  /* Now Playing itself is fullscreen on desktop (see NowPlayingView.module.css),
+     but a seek bar stretched edge-to-edge across a wide monitor reads as
+     wrong/broken (a single drag gesture would cover way more time-per-pixel
+     than intended) — capped and centered here like the other narrow rows. */
+  .wrapper {
+    max-width: 640px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}
+
 .times {
   display: flex;
   justify-content: space-between;

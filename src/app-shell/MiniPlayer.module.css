@@ -43,7 +43,7 @@
   height: 42px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
-  box-shadow: var(--shadow-floating);
+  box-shadow: var(--shadow-glow);
 }
 
 .text {
@@ -81,6 +81,18 @@
   color: var(--color-text-primary);
   padding: var(--space-2);
   cursor: pointer;
+}
+
+.playButton {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-brand);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .desktopOnly {
@@ -136,15 +148,17 @@
     width: 40px;
     height: 40px;
     border-radius: var(--radius-full);
-    background: var(--color-text-primary);
-    color: var(--color-bg);
+    background: var(--gradient-brand);
+    color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform var(--transition-fast);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   }
 
   .playButton:hover {
-    transform: scale(1.05);
+    transform: scale(1.06);
+    box-shadow: var(--shadow-glow);
   }
 }

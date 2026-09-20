@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Response } from 'express';
-import { addToQueue, advanceOnEnded, cycleRepeat, next, playAtPosition, previous, removeFromQueue, reorder, setQueue, songAt, toggleShuffle } from './queueReducer';
+import { addToQueue, advanceOnEnded, cycleRepeat, next, playAtPosition, previous, removeFromQueue, reorder, setQueue, toggleShuffle } from './queueReducer';
 import type { JamIntent, RoomQueueState, RoomSnapshot, RoomTransportState } from './types';
 
 interface Member {

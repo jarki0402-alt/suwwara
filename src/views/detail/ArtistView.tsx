@@ -71,6 +71,7 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
   const openAlbum = useUiStore((state) => state.openAlbum);
   const openArtist = useUiStore((state) => state.openArtist);
   const [showAll, setShowAll] = useState(false);
+  const [bannerFailed, setBannerFailed] = useState(false);
   const allSongs = useLoaded<Song[]>(showAll ? `all:${data.artistId}` : 'all:idle', () =>
     showAll ? getArtistAllSongs(data.artistId) : Promise.resolve([]),
   );
@@ -82,7 +83,8 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
   return (
     <div className={styles.view}>
       <div className={styles.hero}>
-        {data.banner && <img className={styles.heroImage} src={data.banner} alt="" decoding="async" />}
+        {/* If the banner can't load, drop the <img> — the hero falls back to its plain background instead of a broken-image icon. */}
+        {data.banner && !bannerFailed && <img className={styles.heroImage} src={data.banner} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setBannerFailed(true)} />}
         <div className={styles.heroScrim} />
         <button type="button" className={styles.backButton} onClick={closeDetail} aria-label="Kembali">
           <Icon name="chevron-left" size={18} />

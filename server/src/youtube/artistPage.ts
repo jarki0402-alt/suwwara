@@ -75,6 +75,16 @@ function toAlbumSummary(album: RawAlbum): AlbumSummary {
   };
 }
 
+/**
+ * YouTube Music's release shelves also carry things that only look like albums: playlists made
+ * by other users (ids like `UC…`, owner as "artist", no year) — e.g. "Kompilasi Lagu Pop
+ * Indonesia 90an" showed up on Lewis Capaldi's page. A real release always has an `MPREb_…` id,
+ * which is also the only kind getAlbum can open; anything else would land on an empty page.
+ */
+function isRealRelease(album: AlbumSummary): boolean {
+  return ALBUM_ID_PATTERN.test(album.id);
+}
+
 function dedupeAlbums(albums: AlbumSummary[]): AlbumSummary[] {
   const seen = new Set<string>();
   return albums.filter((album) => (seen.has(album.id) ? false : (seen.add(album.id), true)));
@@ -111,8 +121,8 @@ export function getArtistPage(artistId: string): Promise<ArtistPage> {
       name: artist.name,
       banner: pickBanner(artist.thumbnails),
       topSongs,
-      albums: dedupeAlbums([...allAlbums, ...artist.topAlbums].map((album) => toAlbumSummary(album as RawAlbum))).sort(byYearDesc),
-      singles: dedupeAlbums(artist.topSingles.map((album) => toAlbumSummary(album as RawAlbum))).sort(byYearDesc),
+      albums: dedupeAlbums([...allAlbums, ...artist.topAlbums].map((album) => toAlbumSummary(album as RawAlbum)).filter(isRealRelease)).sort(byYearDesc),
+      singles: dedupeAlbums(artist.topSingles.map((album) => toAlbumSummary(album as RawAlbum)).filter(isRealRelease)).sort(byYearDesc),
       // "Similar artists" also comes back containing playlists (ids like `VLRD…`) — only real
       // artist channels are worth linking to.
       similarArtists: artist.similarArtists

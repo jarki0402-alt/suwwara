@@ -111,5 +111,5 @@ Lihat rincian lengkap di [ARCHITECTURE.md](./ARCHITECTURE.md#potensi-memory-leak
 
 - **Tidak ditemukan proses `yt-dlp`/ffmpeg yang di-spawn sebagai child process dari Node** — resolusi audio jalan di-*proses* Python (`ytdlp-service`), memanggil library `yt_dlp` langsung (bukan CLI), jadi tidak ada risiko zombie child process klasik di sisi Node.
 - ~~Risiko nyata bukan "zombie process", tapi "hang tanpa timeout"~~ → **sudah ditambal (2026-09-19)**, lihat item #1 di Enhancement Plan di atas.
-- ~~`fullBufferCache` tanpa hard cap~~ → **sudah ditambal (2026-09-19)** — sekarang dibatasi `MAX_FULL_BUFFER_CACHE_ENTRIES = 20`, sama pola eviction-nya dengan `windowCache`.
+- ~~`fullBufferCache` tanpa hard cap~~ → **sudah ditambal (2026-09-19)** — sekarang dibatasi `MAX_FULL_BUFFER_CACHE_ENTRIES = 20`, sama pola eviction-nya dengan `chunkCache`.
 - **Komponen paling boros RAM adalah `bgutil-provider` (headless Chrome)**, bukan bug di kode aplikasi — ini trade-off arsitektur (dibutuhkan untuk lolos BotGuard YouTube), bukan sesuatu yang bisa "diperbaiki" tanpa mengganti cara resolusi audio.

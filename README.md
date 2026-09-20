@@ -29,7 +29,7 @@ suwwara/
 │       ├── auth/         middleware device-id bearer token
 │       ├── pairing/      kode pairing QR short-lived (pola sama dengan room code Jam)
 │       ├── jam/          state room "Jam" in-memory + reducer antrean (mirror queueStore.ts)
-│       └── youtube/     resolusi audio via yt-dlp (cache di Postgres, limiter maks 3 proses bersamaan)
+│       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses) — `priorityLimiter.ts`
 ├── vercel/          proyek Vercel terpisah — search/browse/details/similar/trending (stateless, tanpa DB)
 │   ├── api/             Vercel Functions (file-based routing)
 │   └── lib/              logic YouTube Music, di-port apa adanya dari server/src/youtube/

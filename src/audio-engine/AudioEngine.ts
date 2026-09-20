@@ -287,6 +287,7 @@ class AudioEngine {
     if (requestId !== this.playRequestId) return; // superseded while the context was resuming
 
     const url = resolveAudioUrl(song.id, options.dataSaver ?? false);
+    const preloadUrl = url + (url.includes('?') ? '&' : '?') + 'priority=low';
 
     this.cancelPendingCrossfade();
     this.currentSong = song;
@@ -310,7 +311,8 @@ class AudioEngine {
     // Wait, loadTrack does a hard cut using the *currently active* element.
     // If it's preloaded in the inactive element, we should just use that element!
     const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
-    if (this.preloadedUrl === url && elements[inactiveIndex].src.endsWith(url)) {
+    if ((this.preloadedUrl === url || this.preloadedUrl === preloadUrl) && 
+        (elements[inactiveIndex].src.endsWith(url) || elements[inactiveIndex].src.endsWith(preloadUrl))) {
       const oldActiveIndex = this.activeIndex;
       this.activeIndex = inactiveIndex;
       this.preloadedUrl = null;
@@ -549,6 +551,7 @@ class AudioEngine {
     this.updateSnapshot({ status: 'loading', error: null });
 
     const url = resolveAudioUrl(song.id, dataSaver);
+    const preloadUrl = url + (url.includes('?') ? '&' : '?') + 'priority=low';
 
     const outgoingIndex = this.activeIndex;
     const incomingIndex: 0 | 1 = outgoingIndex === 0 ? 1 : 0;
@@ -556,7 +559,8 @@ class AudioEngine {
     const incomingElement = elements[incomingIndex];
     const incomingGain = gains[incomingIndex];
 
-    if (this.preloadedUrl === url && incomingElement.src.endsWith(url)) {
+    if ((this.preloadedUrl === url || this.preloadedUrl === preloadUrl) && 
+        (incomingElement.src.endsWith(url) || incomingElement.src.endsWith(preloadUrl))) {
       // Already preloaded natively by preloadNextTrack!
       this.preloadedUrl = null;
     } else {
@@ -603,9 +607,12 @@ class AudioEngine {
     this.cancelPendingCrossfade();
     this.crossfadeTimeoutId = setTimeout(() => {
       const outgoingElement = elements[outgoingIndex];
-      outgoingElement.pause();
-      outgoingElement.removeAttribute('src');
-      outgoingElement.load();
+      // Only clear if the element hasn't been repurposed for a new preload
+      if (!this.preloadedUrl || !outgoingElement.src.endsWith(this.preloadedUrl)) {
+        outgoingElement.pause();
+        outgoingElement.removeAttribute('src');
+        outgoingElement.load();
+      }
       this.crossfadeTimeoutId = null;
     }, durationSec * 1000 + 100);
   }
@@ -625,15 +632,17 @@ class AudioEngine {
     if (this.snapshot.status === 'loading') return;
 
     const url = resolveAudioUrl(song.id, dataSaver);
-    if (this.preloadedUrl === url) return;
+    const preloadUrl = url + (url.includes('?') ? '&' : '?') + 'priority=low';
+    
+    if (this.preloadedUrl === preloadUrl || this.preloadedUrl === url) return;
 
     const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
     const inactiveElement = this.elements[inactiveIndex];
     
     // Set the src and force a load. The element is already user-activated (see unlock()),
     // so the browser will honor this background load.
-    this.preloadedUrl = url;
-    inactiveElement.src = url;
+    this.preloadedUrl = preloadUrl;
+    inactiveElement.src = preloadUrl;
     inactiveElement.load();
   }
 

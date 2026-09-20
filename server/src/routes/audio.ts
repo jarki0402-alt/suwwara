@@ -356,10 +356,11 @@ audioRouter.get('/audio/:videoId/resolve', async (req, res) => {
 audioRouter.get('/audio/:videoId', async (req, res) => {
   const { videoId } = req.params;
   const quality: AudioQuality = req.query.quality === 'low' ? 'low' : 'high';
+  const priority = req.query.priority === 'low' ? RESOLVE_ONLY_PRIORITY : PLAYBACK_PRIORITY;
   const cacheKey = `${videoId}:${quality}`;
 
   try {
-    const audio = await resolveAudio(videoId, quality, PLAYBACK_PRIORITY);
+    const audio = await resolveAudio(videoId, quality, priority);
     const rangeHeader = req.headers.range;
     // If no Range header, we default to starting from 0 (open-ended).
     const range = rangeHeader ? (parseRangeHeader(rangeHeader) ?? { start: 0, end: null }) : { start: 0, end: null };

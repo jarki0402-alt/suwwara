@@ -25,6 +25,18 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-20 (fix delay transisi & prioritas antrean preload)
+
+Menindaklanjuti keluhan user soal "delay 3-8 detik pas klik lagu" dan "delay 2-5 detik pas next song".
+
+**Fix Delay 2-5 detik (Bug pembatalan preload 450ms)**:
+Di `src/audio-engine/AudioEngine.ts`, `usePlaybackController` memicu `preloadNextTrack` secara sinkron sesaat sebelum `crossfadeTimeoutId` (450ms) menghapus `src` dari elemen lama. Karena `preloadNextTrack` memakai elemen yang sama, proses unduhan di latar otomatis dibunuh oleh browser 450ms kemudian.
+Solusi: Di dalam callback `crossfadeTimeoutId`, ditambahkan pengecekan `!this.preloadedUrl || !outgoingElement.src.endsWith(this.preloadedUrl)` sebelum melakukan `removeAttribute('src')`.
+
+**Fix Delay 3-8 detik (Bug prioritas antrean PriorityLimiter)**:
+Frontend memicu `preloadNextTrack` lewat request ke `/api/audio/:videoId` yang oleh `server/src/routes/audio.ts` hardcoded sebagai `PLAYBACK_PRIORITY` (high). Akibatnya, preload di latar memonopoli antrean 1-concurrency backend. Jika user mengklik lagu baru, mereka harus menunggu preload selesai (3-8 detik) ditambah waktu tunggu lagunya sendiri.
+Solusi: Frontend sekarang melampirkan `&priority=low` ke URL preload. Endpoint backend diperbarui untuk mengurai query param ini dan memasukannya ke antrean `RESOLVE_ONLY_PRIORITY` (low). Antrean `high` dari klik manual sekarang otomatis menyalip antrean `low`.
+
 ## Perubahan terbaru — 2026-09-20 (Bar fullscreen dibuat simetris + volume slider diperpanjang, popup playlist native diganti dialog custom, grid playlist mobile dirapikan)
 
 Tiga bug/permintaan sekaligus dari review visual:

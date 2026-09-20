@@ -1,5 +1,7 @@
 import { resolveAudioUrl } from './bitrateResolver';
 
+const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
 const DB_NAME = 'suwwara-audio-cache';
 const STORE_NAME = 'tracks';
 const MAX_ENTRIES = 50;
@@ -30,6 +32,8 @@ function getDB(): Promise<IDBDatabase> {
 
 export const AudioCache = {
   async get(songId: string, dataSaver: boolean): Promise<string | null> {
+    if (isIOS) return null; // iOS WebKit fails to play blob: URLs reliably. Bypass.
+
     try {
       const db = await getDB();
       const quality = dataSaver ? 'low' : 'high';
@@ -68,6 +72,8 @@ export const AudioCache = {
   inFlight: new Map<string, Promise<void>>(),
 
   async prefetchAndCache(songId: string, dataSaver: boolean): Promise<void> {
+    if (isIOS) return; // Do not fill IndexedDB on iOS as we won't use it.
+
     const quality = dataSaver ? 'low' : 'high';
     const id = `${songId}:${quality}`;
 

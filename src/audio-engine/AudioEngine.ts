@@ -1,5 +1,6 @@
 import type { Song } from '../api/types';
 import { resolveAudioUrl } from './bitrateResolver';
+import { beginTrace, finishTrace, markTrace } from '../diagnostics/loadTraces';
 import { AudioCache } from './AudioCache';
 import { scheduleFadeIn, scheduleFadeOut, scheduleFadeTo, setGainImmediate } from './crossfade';
 import type { AudioEngineListener, LoadTrackOptions, PlaybackState } from './types';
@@ -225,6 +226,15 @@ class AudioEngine {
   private bindElementEvents(index: 0 | 1, element: HTMLAudioElement): void {
     const isActive = () => this.activeIndex === index;
 
+    // Timeline for Settings -> Diagnostik. Deliberately NOT gated by isActive(): while a
+    // track is being loaded into the spare element it isn't the active one yet.
+    for (const stage of ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'error'] as const) {
+      element.addEventListener(stage, () => markTrace(stage, element));
+    }
+    for (const starved of ['waiting', 'stalled'] as const) {
+      element.addEventListener(starved, () => markTrace('waiting', element));
+    }
+
     element.addEventListener('waiting', () => {
       if (!isActive()) return;
       this.updateSnapshot({ status: 'loading' });
@@ -335,6 +345,9 @@ class AudioEngine {
     this.transitionsInFlight += 1;
     try {
       await this.loadTrackImpl(song, options);
+    } catch (error) {
+      finishTrace(error instanceof Error && error.message.includes('Timed out') ? 'timeout' : 'error');
+      throw error;
     } finally {
       this.transitionsInFlight -= 1;
     }
@@ -390,6 +403,7 @@ class AudioEngine {
       // Use the newly active one
       const newElement = elements[this.activeIndex];
       const newGain = gains[this.activeIndex];
+      beginTrace(song, dataSaver ? 'low' : 'high', newElement, true);
       if (newGain && context) {
         setGainImmediate(newGain, context, options.fadeInSec ? 0 : this.volume);
       } else {
@@ -418,6 +432,7 @@ class AudioEngine {
 
     this.preloadedUrl = null;
     this.preloaded = null;
+    beginTrace(song, dataSaver ? 'low' : 'high', element, false);
     const oldSrc = element.src;
     element.src = url;
     element.load();
@@ -659,6 +674,9 @@ class AudioEngine {
     this.transitionsInFlight += 1;
     try {
       await this.crossfadeToImpl(song, durationSec, options);
+    } catch (error) {
+      finishTrace(error instanceof Error && error.message.includes('Timed out') ? 'timeout' : 'error');
+      throw error;
     } finally {
       this.transitionsInFlight -= 1;
     }
@@ -693,6 +711,7 @@ class AudioEngine {
     const usePreload = this.hasUsablePreload(song, dataSaver, incomingElement);
     if (usePreload) {
       // Already preloaded natively by preloadNextTrack!
+      beginTrace(song, dataSaver ? 'low' : 'high', incomingElement, true);
       this.preloadedUrl = null;
       this.preloaded = null;
     } else {
@@ -703,6 +722,7 @@ class AudioEngine {
       }
       this.preloadedUrl = null;
       this.preloaded = null;
+      beginTrace(song, dataSaver ? 'low' : 'high', incomingElement, false);
       const oldSrc = incomingElement.src;
       incomingElement.src = url;
       incomingElement.load();

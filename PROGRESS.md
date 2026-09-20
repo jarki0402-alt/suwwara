@@ -25,6 +25,23 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (iPhone masih lambat: ternyata masih jalan kode lama; diagnostik, update PWA, & berhenti skip-berantai)
+
+User melapor di iPhone masih delay 7-10 detik saat klik lagu pertama dan, kalau kelamaan, muncul "koneksi jelek" lalu lagu di-next berulang. **Temuan pertama**: commit optimasi 2026-09-20 belum pernah sampai ke GitHub (`git push` gagal karena kredensial gak tersedia di lingkungan kerja; `origin/main` masih di `75a1adc`) — jadi VPS/iPhone masih menjalankan kode lama yang persis punya gejala itu (timeout 8 dtk → fallback `low` → resolve baru yang antre → error → auto-skip). Belum ada bukti apa pun soal kode baru di HP asli.
+
+Supaya kasus seperti ini gak bisa terulang tanpa ketahuan, dan supaya angka dari HP asli bisa dibaca:
+- **Cap versi** di Pengaturan → Diagnostik (`__APP_BUILD__`, di-inject `vite.config.ts`): kelihatan build mana yang benar-benar jalan di HP.
+- **Update PWA yang beneran sampai** (`src/pwa/registerSW.ts`): PWA iOS di-*resume*, bukan di-reload, jadi cek service worker bawaan browser gak pernah jalan dan HP bisa berhari-hari di bundle lama; sekarang cek update tiap app kembali ke foreground + tiap jam, dan kalau belum ada lagu yang dimuat, update langsung diterapkan tanpa nunggu ketukan toast (kalau lagi ada lagu, toast "Muat ulang" seperti sebelumnya).
+- **Panel diagnostik** (`src/diagnostics/loadTraces.ts`, `DiagnosticsPanel.tsx`): tiap pemuatan lagu di HP itu dicatat tahapannya (mulai → metadata → siap → bunyi, jumlah "menunggu", hasil, kode error media, tipe koneksi bila tersedia) dan bisa disalin sebagai teks. Contoh nyata dari profil iPhone lokal: lagu baru `metadata` baru datang 2,0 dtk setelah `mulai` (tahap yang lambat di iOS), lagu berikutnya yang di-preload 0,0 dtk.
+- **Log server `[audio-slow]`** (hanya request dengan TTFB > 1,5 dtk atau total > 8 dtk, plus jenis perangkat iOS/Android/desktop): `docker compose logs backend | grep audio-slow` di VPS.
+
+Perilaku yang menjawab "next-next":
+- **Timeout gak lagi men-skip lagu** (solo maupun Jam): timeout bicara soal koneksi ini, bukan soal lagunya, lagu berikutnya nabrak tembok yang sama — begitulah satu start lambat berubah jadi antrean lari melewati tiga lagu tanpa satu pun bunyi. Toast "Coba lagi" tetap ada. Diverifikasi (Playwright): audio ditahan 30 dtk → toast muncul, lagu tetap, gak ada request lagu lain.
+- **Error non-timeout dicoba ulang sekali, senyap** sebelum toast/skip. Satu kegagalan ternyata melapor dua kali dengan pesan beda (event `error` elemen + rejection `loadTrack`), jadi timer retry dilepas dari cleanup efek dan pesan kedua diabaikan selama retry tertunda. Diverifikasi: satu 502 sesaat → lagu tetap bunyi (2,7 dtk), tanpa toast.
+- **Server retry sekali** untuk kegagalan jaringan/timeout satu chunk ke YouTube (sebelumnya satu chunk gagal langsung memutus respons dan iPhone menganggapnya media error).
+
+**Belum terjawab (butuh data dari HP asli)**: apakah 7-10 dtk di iPhone itu resolve dingin di VM (yt-dlp+Chrome di e2-micro), byte yang harus dibaca WebKit lewat jaringan seluler, atau keduanya. Tes cepat tanpa kode: putar lagu yang SAMA untuk kedua kalinya — kalau kedua kali ~1-2 dtk berarti yang lambat resolve dingin; kalau tetap 7-10 dtk berarti jalur byte/iOS. Lalu salin laporan dari Pengaturan → Diagnostik.
+
 ## Perubahan terbaru — 2026-09-20 (optimasi menyeluruh pemutaran & kelancaran: iPhone, desktop, Android)
 
 **Keputusan arah**: pembungkus native (Capacitor) **dibatalkan dan dihapus** (`ios/`, `capacitor.config.ts`, dependensi `@capacitor/*`). Alasan: (1) akun Apple gratis = app mati tiap 7 hari kecuali di-install ulang dari Mac, (2) yang bikin lambat ternyata **bukan** platform-nya tapi antrean di server (di bawah), dan native gak memperbaikinya, (3) satu-satunya manfaat native (audio background/lock screen lebih baik) belum terbukti dibutuhkan di PWA. Fokus tetap PWA.

@@ -142,6 +142,11 @@ const MAX_FULL_BODY_BYTES = 32 * 1024 * 1024;
 // 403/404/410 for the cached one. Once, deliberately: if the brand-new URL is refused too
 // the problem isn't a stale link, and retrying would only loop.
 const MAX_URL_REFRESHES_PER_FETCH = 1;
+// Same idea for a plain network failure/timeout on a chunk: one more attempt, no more.
+const MAX_NETWORK_RETRIES_PER_FETCH = 1;
+// A request slower than this is worth a log line (see the close handler in the route).
+const SLOW_TTFB_MS = 1500;
+const SLOW_TOTAL_MS = 8000;
 
 interface Chunk {
   buffer: Buffer;
@@ -225,11 +230,28 @@ async function fetchChunkUpstream(ctx: TrackContext, index: number): Promise<Chu
   const start = index * CHUNK_SIZE;
   const end = start + CHUNK_SIZE - 1;
 
-  for (let refreshes = 0; ; refreshes += 1) {
-    const upstream = await fetch(ctx.audio.url, {
-      headers: { ...buildUpstreamHeaders(ctx.audio), Range: `bytes=${start}-${end}` },
-      signal: AbortSignal.timeout(UPSTREAM_CHUNK_TIMEOUT_MS),
-    });
+  let refreshes = 0;
+  let networkRetries = 0;
+  for (;;) {
+    let upstream: globalThis.Response;
+    try {
+      upstream = await fetch(ctx.audio.url, {
+        headers: { ...buildUpstreamHeaders(ctx.audio), Range: `bytes=${start}-${end}` },
+        signal: AbortSignal.timeout(UPSTREAM_CHUNK_TIMEOUT_MS),
+      });
+    } catch (error) {
+      // A dropped connection or a timeout on one 256KB chunk is usually momentary. Failing
+      // here cuts the whole client response (see the catch in the route), which an iPhone
+      // reports as a media error and the app then treats as a broken track — so give it one
+      // more try before letting a blip turn into a skipped song.
+      if (networkRetries < MAX_NETWORK_RETRIES_PER_FETCH) {
+        networkRetries += 1;
+        // eslint-disable-next-line no-console
+        console.warn(`[audio] ${ctx.cacheKey} — chunk at byte ${start} failed (${(error as Error).message}), retrying`);
+        continue;
+      }
+      throw error;
+    }
 
     if (upstream.status === 206) {
       const buffer = Buffer.from(await upstream.arrayBuffer());
@@ -252,6 +274,7 @@ async function fetchChunkUpstream(ctx: TrackContext, index: number): Promise<Chu
       console.warn(`[audio] ${ctx.cacheKey} — upstream answered ${upstream.status} for the chunk at byte ${start}${refreshes < MAX_URL_REFRESHES_PER_FETCH ? ', re-resolving' : ', giving up'}`);
       await upstream.body?.cancel().catch(() => {});
       if (refreshes >= MAX_URL_REFRESHES_PER_FETCH) throw new Error(`upstream answered ${upstream.status}`);
+      refreshes += 1;
       await invalidateAudio(ctx.videoId, ctx.quality, ctx.audio.url);
       // Playback priority: this repairs a track someone is hearing right now. No abort
       // signal on purpose — the fetch is shared with other requests and read-ahead.
@@ -364,6 +387,7 @@ async function streamRange(
   ctx: TrackContext,
   range: { start: number; end: number | null },
   isRangeLess: boolean,
+  timing: { firstByteAt: number },
 ): Promise<void> {
   let aborted = false;
   res.once('close', () => {
@@ -413,6 +437,7 @@ async function streamRange(
       return;
     }
     await writeChunk(res, chunk.buffer.subarray(offset, sliceEnd));
+    if (timing.firstByteAt === 0) timing.firstByteAt = Date.now();
     position += sliceEnd - offset;
     readAhead(ctx, index, total);
   }
@@ -464,7 +489,21 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
   // tab) so a resolve still waiting in line for this request is dropped instead of
   // burning a slot for a track nobody is waiting for — see PriorityLimiter.
   const gone = new AbortController();
-  res.once('close', () => gone.abort());
+  const startedAt = Date.now();
+  const timing = { firstByteAt: 0 };
+  res.once('close', () => {
+    gone.abort();
+    // Only the requests worth looking at are logged — an iPhone makes ~14 per song and
+    // cancels most of them on purpose. This is what lets a slow start on a real phone be
+    // read off the server's log (docker compose logs backend | grep audio-slow).
+    const total = Date.now() - startedAt;
+    const ttfb = timing.firstByteAt ? timing.firstByteAt - startedAt : total;
+    if (ttfb < SLOW_TTFB_MS && total < SLOW_TOTAL_MS) return;
+    const ua = req.headers['user-agent'] ?? '';
+    const device = /iPhone|iPad|iPod/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : 'desktop';
+    // eslint-disable-next-line no-console
+    console.log(`[audio-slow] ${cacheKey} range=${req.headers.range ?? '-'} device=${device} ttfb=${ttfb}ms total=${total}ms finished=${res.writableFinished}`);
+  });
 
   try {
     const audio = await resolveAudio(videoId, quality, priority, gone.signal);
@@ -482,7 +521,7 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
 
     const ctx: TrackContext = { videoId, quality, cacheKey, audio, priority: priority === PLAYBACK_PRIORITY ? 'high' : 'low' };
     try {
-      await streamRange(res, ctx, range, isRangeLess);
+      await streamRange(res, ctx, range, isRangeLess, timing);
     } catch (error) {
       if (error instanceof RangeNotSatisfiableError && !res.headersSent) {
         res.status(416).end();

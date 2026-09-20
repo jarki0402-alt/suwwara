@@ -113,6 +113,9 @@ export function usePlaybackController() {
   // (possibly late) native 'ended' event could otherwise both fire for it.
   const advancedForSongIdRef = useRef<string | null>(null);
   const consecutiveErrorsRef = useRef(0);
+  // The one song id that has already had its quiet automatic retry (see the error effect).
+  const retriedSongIdRef = useRef<string | null>(null);
+  const retryPendingRef = useRef(false);
   // Tracks which song id has already reached 'playing' at least once, and which
   // song id has already had its one allowed quality-drop attempt — both reset
   // implicitly by comparing against currentSong.id, so a new track always gets
@@ -256,6 +259,30 @@ export function usePlaybackController() {
   useEffect(() => {
     if (!playerError || !currentSong) return;
     const songToRetry = currentSong;
+    const isTimeout = playerError.includes('Koneksi lambat');
+
+    // A failure that isn't a timeout (the element errored, the backend answered 502, the
+    // connection dropped mid-file) is very often transient — retry the same track once,
+    // quietly, before bothering the user or touching the queue.
+    //
+    // One failure reports itself twice with two different messages (the element's own
+    // 'error' event, then loadTrack's rejection), so this effect runs twice for it: the
+    // timer must not be tied to the effect (its cleanup would cancel the retry on the
+    // second run), and the duplicate must be ignored while a retry is pending.
+    if (!isTimeout && retriedSongIdRef.current !== songToRetry.id) {
+      retriedSongIdRef.current = songToRetry.id;
+      retryPendingRef.current = true;
+      setTimeout(() => {
+        retryPendingRef.current = false;
+        if (loadedSongIdRef.current !== songToRetry.id) return; // the user moved on to something else
+        audioEngine.loadTrack(songToRetry, { dataSaver, autoplay: true }).catch(() => {
+          setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
+        });
+      }, 800);
+      return;
+    }
+    if (retryPendingRef.current) return;
+
     showToast(playerError, {
       type: 'error',
       action: {
@@ -268,20 +295,24 @@ export function usePlaybackController() {
       },
     });
 
-    // A track that fails outright (bad connection, backend hiccup, timeout) used to
-    // just sit there dead after the toast — nothing ever moved the queue on. Now it
-    // auto-skips like every other streaming app does when a track can't play, capped
-    // at MAX_CONSECUTIVE_AUTO_SKIP so a genuine total outage doesn't rapid-fire
-    // through the whole queue instead of just failing visibly once.
+    // A timeout never skips: it says something about this connection, not about the track,
+    // and the next track would just hit the same wall — that is how a slow start turned
+    // into the queue racing through three songs, none of them ever playing. The toast
+    // offers a retry instead.
+    if (isTimeout) return;
+
+    // A track that fails outright (even after the quiet retry above) used to just sit
+    // there dead after the toast — nothing ever moved the queue on. Now it auto-skips
+    // like every other streaming app does when a track can't play, capped at
+    // MAX_CONSECUTIVE_AUTO_SKIP so a genuine total outage doesn't rapid-fire through the
+    // whole queue instead of just failing visibly once.
     if (consecutiveErrorsRef.current < MAX_CONSECUTIVE_AUTO_SKIP) {
       consecutiveErrorsRef.current += 1;
       // In a Jam an advance moves the queue for the whole room, so one member's bad
-      // connection must never trigger it (a timeout says nothing about the track, only
-      // about this device). A track that is genuinely broken fails for everyone
-      // though, and would otherwise wedge the room forever — so the creator alone
-      // (the server dedupes by song id) skips it, and only for a non-timeout failure.
-      const isTimeout = playerError.includes('Koneksi lambat');
-      if (jamRole === 'solo' || (jamIsCreator && !isTimeout)) {
+      // connection must never trigger it. A track that is genuinely broken fails for
+      // everyone though, and would otherwise wedge the room forever — so the creator
+      // alone (the server dedupes by song id) skips it.
+      if (jamRole === 'solo' || jamIsCreator) {
         runCompletionAdvance(songToRetry);
       }
     }
@@ -334,7 +365,10 @@ export function usePlaybackController() {
       error: engineState.error,
     });
     // A successful load resets the failure streak — only *consecutive* failures should count.
-    if (engineState.status === 'playing') consecutiveErrorsRef.current = 0;
+    if (engineState.status === 'playing') {
+      consecutiveErrorsRef.current = 0;
+      retriedSongIdRef.current = null;
+    }
     if (engineState.status === 'playing' && currentSong) hasPlayedSongIdRef.current = currentSong.id;
   }, [engineState.status, engineState.error, currentSong, setPlaybackStatus]);
 

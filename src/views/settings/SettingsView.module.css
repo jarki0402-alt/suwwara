@@ -137,3 +137,60 @@
   color: var(--color-text-tertiary);
   padding: var(--space-2) var(--space-4);
 }
+
+/* Diagnostik */
+.diagRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.85rem;
+}
+
+.diagLabel {
+  color: var(--color-text-secondary);
+}
+
+.diagValue {
+  font-variant-numeric: tabular-nums;
+}
+
+.diagEmpty {
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.diagList {
+  display: flex;
+  flex-direction: column;
+}
+
+.diagItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.diagTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagStages {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.diagActions {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+}

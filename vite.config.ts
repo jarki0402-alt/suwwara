@@ -4,6 +4,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    // Shown in Settings -> Diagnostik so it's obvious which build a phone is really running
+    // (an installed PWA keeps serving its cached bundle until it is updated).
+    __APP_BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'),
+  },
   test: {
     include: ['tests/**/*.test.ts'],
   },

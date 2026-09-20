@@ -4,6 +4,7 @@ import { useHistoryStore } from '../../stores/historyStore';
 import { useUiStore } from '../../stores/uiStore';
 import { CacheManager } from './CacheManager';
 import { DataSaverToggle } from './DataSaverToggle';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
 import { ThemeToggle } from './ThemeToggle';
@@ -58,6 +59,8 @@ export function SettingsView() {
       </div>
 
       <CacheManager />
+
+      <DiagnosticsPanel />
 
       <div className={styles.section}>
         <span className={styles.sectionTitle}>Data</span>

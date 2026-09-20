@@ -271,10 +271,13 @@ export function usePlaybackController() {
     // through the whole queue instead of just failing visibly once.
     if (consecutiveErrorsRef.current < MAX_CONSECUTIVE_AUTO_SKIP) {
       consecutiveErrorsRef.current += 1;
-      runCompletionAdvance(songToRetry);
+      // In a Jam, one user's bad connection shouldn't skip the song for the whole room!
+      if (jamRole === 'solo') {
+        runCompletionAdvance(songToRetry);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerError]);
+  }, [playerError, jamRole]);
 
   useEffect(() => {
     if (!currentSong) return;

@@ -21,6 +21,7 @@ export function HomeView() {
         songs={collection.songs}
         isLoading={collection.isLoading}
         onBack={closeCollection}
+        artistName={openedCollectionId?.startsWith('artist-mix:') ? openedCollectionId.slice('artist-mix:'.length) : undefined}
       />
     );
   }

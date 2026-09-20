@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { primaryArtistNames } from '../api/mappers';
+import { ArtistLinks } from '../components/ArtistLinks/ArtistLinks';
 import { audioEngine } from '../audio-engine/AudioEngine';
 import { frameTicker } from '../audio-engine/frameTicker';
 import { Icon } from '../components/Icon/Icon';
@@ -66,7 +66,7 @@ export function MiniPlayer() {
         <LazyImage images={currentSong.image} quality="50x50" alt={currentSong.name} className={styles.art} />
         <span className={styles.text}>
           <span className={styles.title}>{currentSong.name}</span>
-          <span className={styles.subtitle}>{primaryArtistNames(currentSong)}</span>
+          <span className={styles.subtitle}><ArtistLinks song={currentSong} /></span>
         </span>
       </button>
 

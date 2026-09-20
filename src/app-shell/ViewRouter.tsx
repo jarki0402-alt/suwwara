@@ -1,4 +1,5 @@
 import { useUiStore } from '../stores/uiStore';
+import { DetailView } from '../views/detail/DetailView';
 import { HomeView } from '../views/home/HomeView';
 import { LibraryView } from '../views/library/LibraryView';
 import { SearchView } from '../views/search/SearchView';
@@ -7,11 +8,12 @@ import styles from './ViewRouter.module.css';
 
 export function ViewRouter() {
   const currentView = useUiStore((state) => state.currentView);
+  const detailDepth = useUiStore((state) => state.detailStack.length);
 
   return (
     // Keyed by view so the fade replays on every switch.
-    <div key={currentView} className={styles.view}>
-      {renderView(currentView)}
+    <div key={detailDepth > 0 ? `detail-${detailDepth}` : currentView} className={styles.view}>
+      {detailDepth > 0 ? <DetailView /> : renderView(currentView)}
     </div>
   );
 }

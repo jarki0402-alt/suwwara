@@ -1,4 +1,5 @@
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
+import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
@@ -89,7 +90,9 @@ export function NowPlayingView() {
           <div className={styles.meta}>
             <div className={styles.metaText}>
               <span className={styles.title}>{currentSong.name}</span>
-              <span className={styles.subtitle}>{primaryArtistNames(currentSong)}</span>
+              <span className={styles.subtitle}>
+                <ArtistLinks song={currentSong} />
+              </span>
             </div>
             <LikeButton song={currentSong} />
           </div>

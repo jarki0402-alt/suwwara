@@ -1,0 +1,289 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-bottom: var(--space-5);
+}
+
+/* ---- Artist hero ------------------------------------------------------------------------ */
+
+.hero {
+  position: relative;
+  min-height: 240px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--color-bg-elevated);
+}
+
+.heroImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  z-index: -2;
+}
+
+.heroScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.78) 100%);
+  z-index: -1;
+}
+
+.heroName {
+  margin: 0;
+  padding: var(--space-4) var(--space-4) var(--space-4);
+  /* The name is the hero — as large as the width allows without breaking a long one across lines badly. */
+  font-size: clamp(2.2rem, 9vw, 4.6rem);
+  line-height: 1.02;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+  overflow-wrap: anywhere;
+}
+
+.backButton {
+  position: absolute;
+  top: calc(var(--space-3) + env(safe-area-inset-top));
+  left: var(--space-3);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0 var(--space-4);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.playButton {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-brand);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+}
+
+.roundButton {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.sectionTitle {
+  margin: 0 0 var(--space-2);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.rankedRow {
+  display: grid;
+  /* minmax(0, …): a long song title must shrink and ellipsise, not push the like button off the row. */
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rank {
+  text-align: center;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.textButton {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  padding: var(--space-2) 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* A discography can run to hundreds of rows — let the browser skip laying out and painting the
+   ones that are off-screen (the size hint keeps the scrollbar stable). */
+.longList > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
+}
+
+.shelf {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  margin: 0 calc(var(--space-4) * -1);
+  padding: 0 var(--space-4) var(--space-2);
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.shelf::-webkit-scrollbar {
+  display: none;
+}
+
+.card {
+  flex: 0 0 148px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.cardArt {
+  width: 148px;
+  height: 148px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-elevated);
+}
+
+.cardArtRound {
+  border-radius: var(--radius-full);
+}
+
+.cardTitle {
+  margin-top: var(--space-1);
+  font-size: 0.88rem;
+  font-weight: 700;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardMeta {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.status {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.skeletonStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+/* ---- Album header ------------------------------------------------------------------------ */
+
+.albumHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-4) 0;
+  text-align: center;
+}
+
+.albumBackRow {
+  align-self: stretch;
+  display: flex;
+}
+
+.albumCover {
+  width: min(62vw, 240px);
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+  background: var(--color-bg-elevated);
+}
+
+.albumTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.albumMeta {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.albumArtist {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .albumArtist:hover {
+    text-decoration: underline;
+  }
+}
+
+@media (min-width: 960px) {
+  .hero {
+    min-height: 320px;
+  }
+
+  .body {
+    padding: 0 var(--space-6);
+  }
+
+  .heroName {
+    padding: var(--space-5) var(--space-6);
+  }
+
+  .card,
+  .cardArt {
+    flex-basis: 168px;
+    width: 168px;
+  }
+
+  .cardArt {
+    height: 168px;
+  }
+}

@@ -3,6 +3,7 @@ import { Icon } from '../../components/Icon/Icon';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import { SongRow } from '../../components/SongRow/SongRow';
 import { playSongList } from '../../playback/playSongList';
+import { useUiStore } from '../../stores/uiStore';
 import styles from './GeneratedCollectionView.module.css';
 
 interface GeneratedCollectionViewProps {
@@ -11,6 +12,8 @@ interface GeneratedCollectionViewProps {
   songs: Song[];
   isLoading: boolean;
   onBack: () => void;
+  /** Set for an artist mix: the name in the header then links to that artist's page. */
+  artistName?: string;
 }
 
 /**
@@ -21,14 +24,21 @@ interface GeneratedCollectionViewProps {
  * (LibraryView.module.css) closely enough that it reads as the same kind of
  * screen, just without the editing affordances that don't apply here.
  */
-export function GeneratedCollectionView({ title, description, songs, isLoading, onBack }: GeneratedCollectionViewProps) {
+export function GeneratedCollectionView({ title, description, songs, isLoading, onBack, artistName }: GeneratedCollectionViewProps) {
+  const openArtist = useUiStore((state) => state.openArtist);
   return (
     <div className={styles.view}>
       <div className={styles.header}>
         <button type="button" className={styles.iconButton} onClick={onBack} aria-label="Kembali">
           <Icon name="chevron-left" size={18} />
         </button>
-        <span className={styles.title}>{title}</span>
+        {artistName ? (
+          <button type="button" className={[styles.title, styles.titleLink].join(' ')} onClick={() => openArtist({ name: artistName })}>
+            {title}
+          </button>
+        ) : (
+          <span className={styles.title}>{title}</span>
+        )}
         <span className={styles.headerSpacer} />
       </div>
 

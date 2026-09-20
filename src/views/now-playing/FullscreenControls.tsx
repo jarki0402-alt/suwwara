@@ -1,4 +1,4 @@
-import { primaryArtistNames } from '../../api/mappers';
+import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import type { Song } from '../../api/types';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
@@ -44,7 +44,7 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
         <LazyImage images={song.image} quality="50x50" alt={song.name} className={styles.art} />
         <span className={styles.text}>
           <span className={styles.title}>{song.name}</span>
-          <span className={styles.subtitle}>{primaryArtistNames(song)}</span>
+          <span className={styles.subtitle}><ArtistLinks song={song} /></span>
         </span>
       </div>
 

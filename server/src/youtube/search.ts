@@ -5,6 +5,8 @@ export interface SearchSong {
   id: string;
   title: string;
   artist: string;
+  /** YouTube Music's own artist id (`UC…`) when the source provides it — what an artist page is keyed by. */
+  artistId?: string | null;
   durationSec: number;
   thumbnail: string;
   isOfficial: boolean;
@@ -12,7 +14,7 @@ export interface SearchSong {
 
 const MAX_DURATION_SEC = 15 * 60;
 
-function bestThumbnail(thumbnails: { url: string; width: number }[] | undefined): string {
+export function bestThumbnail(thumbnails: { url: string; width: number }[] | undefined): string {
   if (!thumbnails || thumbnails.length === 0) return '';
   return thumbnails.reduce((best, current) => (current.width > best.width ? current : best)).url;
 }
@@ -41,6 +43,7 @@ export async function searchSongs(query: string, limit = 20): Promise<SearchSong
       id: song.videoId,
       title: cleanTitle(song.name),
       artist: song.artist?.name || 'Unknown Artist',
+      artistId: song.artist?.artistId ?? null,
       durationSec,
       thumbnail: bestThumbnail(song.thumbnails),
       // Every result from YT Music's "songs" search is catalog content by

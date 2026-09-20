@@ -1,5 +1,5 @@
 import { forwardRef, useState, type CSSProperties, type PointerEvent } from 'react';
-import { primaryArtistNames } from '../../api/mappers';
+import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import type { Song } from '../../api/types';
 import { AddToPlaylistSheet } from '../../components/AddToPlaylistSheet/AddToPlaylistSheet';
 import { Icon } from '../../components/Icon/Icon';
@@ -65,7 +65,7 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
         <LazyImage images={song.image} quality="50x50" alt={song.name} className={styles.thumb} />
         <span className={styles.text}>
           <span className={styles.title}>{song.name}</span>
-          <span className={styles.subtitle}>{primaryArtistNames(song)}</span>
+          <span className={styles.subtitle}><ArtistLinks song={song} /></span>
         </span>
       </button>
 

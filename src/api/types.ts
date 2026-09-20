@@ -7,6 +7,8 @@ export interface ArtistRef {
   /** Synthetic id — our backend has no stable numeric artist ids (YouTube gives us a channel per video, not a catalog artist entity), so this is the normalized artist name itself. Used as the grouping key for recommendation affinity. */
   id: string;
   name: string;
+  /** YouTube Music's own artist id (`UC…`) when the source provided one — what an artist page is keyed by. Absent on songs saved before this existed; resolved by name on demand then. */
+  browseId?: string;
   role: string;
   image: ImageVariant[];
   url: string;

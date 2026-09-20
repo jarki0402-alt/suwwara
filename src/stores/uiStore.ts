@@ -10,8 +10,16 @@ export type ViewName = 'home' | 'search' | 'library' | 'settings';
  */
 export type GeneratedCollectionId = 'weekly-discovery' | 'viral-indonesia' | `artist-mix:${string}`;
 
+/**
+ * Artist and album pages are pushed on top of whichever menu is open (Spotify-style) rather than
+ * being a menu of their own; the back button pops one level, and switching menu clears them.
+ * `name` is only there for songs saved before artist ids existed — the page resolves it on open.
+ */
+export type DetailRoute = { type: 'artist'; artistId: string | null; name?: string } | { type: 'album'; albumId: string };
+
 interface UiState {
   currentView: ViewName;
+  detailStack: DetailRoute[];
   isNowPlayingOpen: boolean;
   isQueueOpen: boolean;
   isJamSheetOpen: boolean;
@@ -44,6 +52,9 @@ interface UiState {
    */
   isNowPlayingFullscreen: boolean;
   setView: (view: ViewName) => void;
+  openArtist: (target: { artistId?: string | null; name?: string }) => void;
+  openAlbum: (albumId: string) => void;
+  closeDetail: () => void;
   openNowPlaying: () => void;
   closeNowPlaying: () => void;
   openQueue: () => void;
@@ -67,9 +78,22 @@ interface UiState {
   closeFullscreenLyrics: () => void;
 }
 
+/**
+ * Going to an artist/album from Now Playing: on a phone Now Playing is a fullscreen sheet that
+ * would sit on top of the page being opened, so it closes; on desktop it is a docked side panel
+ * that is meant to stay next to the content (only its fullscreen-lyrics takeover has to go).
+ */
+function leaveNowPlaying(): Partial<UiState> {
+  const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 960px)').matches;
+  return isDesktop
+    ? { isNowPlayingFullscreen: false }
+    : { isNowPlayingOpen: false, isQueueOpen: false, isLyricsOpen: false, isNowPlayingFullscreen: false };
+}
+
 /** Always boots to Home — avoids resuming into a Now Playing sheet with nothing loaded. */
 export const useUiStore = create<UiState>((set) => ({
   currentView: 'home',
+  detailStack: [],
   isNowPlayingOpen: false,
   isQueueOpen: false,
   isJamSheetOpen: false,
@@ -80,7 +104,14 @@ export const useUiStore = create<UiState>((set) => ({
   openedCollectionId: null,
   isLyricsOpen: false,
   isNowPlayingFullscreen: false,
-  setView: (view) => set({ currentView: view }),
+  setView: (view) => set({ currentView: view, detailStack: [] }),
+  openArtist: ({ artistId, name }) =>
+    set((state) => ({
+      detailStack: [...state.detailStack, { type: 'artist', artistId: artistId ?? null, name }],
+      ...leaveNowPlaying(),
+    })),
+  openAlbum: (albumId) => set((state) => ({ detailStack: [...state.detailStack, { type: 'album', albumId }], ...leaveNowPlaying() })),
+  closeDetail: () => set((state) => ({ detailStack: state.detailStack.slice(0, -1) })),
   openNowPlaying: () => set({ isNowPlayingOpen: true }),
   closeNowPlaying: () => set({ isNowPlayingOpen: false, isQueueOpen: false, isLyricsOpen: false, isNowPlayingFullscreen: false }),
   openQueue: () => set({ isQueueOpen: true }),
@@ -93,7 +124,7 @@ export const useUiStore = create<UiState>((set) => ({
   closePairingSheet: () => set({ isPairingSheetOpen: false }),
   openIncomingPair: (code) => set({ incomingPairCode: code }),
   closeIncomingPair: () => set({ incomingPairCode: null }),
-  openPlaylist: (playlistId) => set({ currentView: 'library', selectedPlaylistId: playlistId }),
+  openPlaylist: (playlistId) => set({ currentView: 'library', selectedPlaylistId: playlistId, detailStack: [] }),
   closePlaylist: () => set({ selectedPlaylistId: null }),
   openCollection: (collectionId) => set({ openedCollectionId: collectionId }),
   closeCollection: () => set({ openedCollectionId: null }),

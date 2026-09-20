@@ -26,6 +26,7 @@ export interface BackendSong {
   id: string;
   title: string;
   artist: string;
+  artistId?: string | null;
   durationSec: number;
   thumbnail: string;
   album?: string | null;
@@ -58,6 +59,7 @@ function buildImageVariants(videoId: string, bestThumbnail: string): ImageVarian
 export function mapBackendSong(raw: BackendSong): Song {
   const artistName = decodeHtmlEntities(raw.artist || 'Unknown Artist');
   const artistRef: ArtistRef = { id: artistName, name: artistName, role: 'primary_artists', image: [], url: '' };
+  if (raw.artistId) artistRef.browseId = raw.artistId;
   const albumName = raw.album ? decodeHtmlEntities(raw.album) : null;
 
   return {

@@ -38,6 +38,7 @@ function ShellBody() {
   const closeIncomingPair = useUiStore((state) => state.closeIncomingPair);
   const isNowPlayingOpen = useUiStore((state) => state.isNowPlayingOpen);
   const currentView = useUiStore((state) => state.currentView);
+  const detailDepth = useUiStore((state) => state.detailStack.length);
   const { currentSong } = usePlayback();
 
   // On desktop, Now Playing renders as a docked side panel (not a fullscreen
@@ -53,7 +54,7 @@ function ShellBody() {
   const contentRef = useRef<HTMLElement>(null);
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0 });
-  }, [currentView]);
+  }, [currentView, detailDepth]);
 
   return (
     <div className={styles.shell}>

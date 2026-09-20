@@ -77,3 +77,19 @@
   color: var(--color-text-tertiary);
   font-size: 0.9rem;
 }
+
+/* An artist mix's header: same look as the plain title, but a link to the artist. */
+.titleLink {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .titleLink:hover {
+    text-decoration: underline;
+  }
+}

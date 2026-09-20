@@ -49,6 +49,7 @@ export async function getBrowseSections(): Promise<BrowseSection[]> {
         id: item.videoId,
         title: cleanTitle(item.name),
         artist: item.artist?.name || 'Unknown Artist',
+        artistId: item.artist?.artistId ?? null,
         durationSec: item.duration ?? 0,
         thumbnail: bestThumbnail(item.thumbnails),
         isOfficial: true,

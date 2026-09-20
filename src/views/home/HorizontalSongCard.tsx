@@ -1,5 +1,5 @@
 import type { Song } from '../../api/types';
-import { primaryArtistNames } from '../../api/mappers';
+import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import styles from './HorizontalSongCard.module.css';
@@ -25,7 +25,7 @@ export function HorizontalSongCard({ song, onClick, rank }: HorizontalSongCardPr
         {rank !== undefined && <span className={styles.rankBadge}>{rank}</span>}
       </span>
       <span className={styles.title}>{song.name}</span>
-      <span className={styles.subtitle}>{primaryArtistNames(song)}</span>
+      <span className={styles.subtitle}><ArtistLinks song={song} /></span>
     </button>
   );
 }

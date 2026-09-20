@@ -24,12 +24,6 @@
   }
 }
 
-@media (min-width: 1300px) {
-  .grid {
-    grid-template-columns: repeat(6, 1fr);
-  }
-}
-
 .tile {
   /* min-width: 0 overrides the grid item default (min-width: auto), which was
      letting a tile's own text content (e.g. "Dance/Electronic" not wrapping)
@@ -37,12 +31,12 @@
      then had room for only one such oversized column instead of two normal ones. */
   min-width: 0;
   aspect-ratio: 2 / 1.1;
-  max-height: 110px;
+  max-height: 84px;
   border: none;
   border-radius: var(--radius-md);
   padding: var(--space-3);
   color: #ffffff;
-  font-size: 0.92rem;
+  font-size: 0.85rem;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -54,4 +48,28 @@
 
 .tile:active {
   transform: scale(0.97);
+}
+
+/* Desktop: the tile is a fixed-height bar that fills its whole column. (The phone's aspect-ratio + max-height
+   pair shrinks a tile's WIDTH too once the height cap bites, leaving small tiles adrift in wide columns.) */
+@media (min-width: 960px) {
+  /* 12 categories: 4 columns = 3 even rows, 6 columns = 2 even rows (auto-fill left a ragged last row). */
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+  }
+
+  .tile {
+    aspect-ratio: auto;
+    max-height: none;
+    height: 88px;
+    padding: var(--space-4);
+    font-size: 0.95rem;
+  }
+}
+
+@media (min-width: 1500px) {
+  .grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
 }

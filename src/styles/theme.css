@@ -10,27 +10,28 @@
 :root {
   color-scheme: light dark;
 
-  --color-bg: #ffffff;
-  --color-bg-elevated: #f6f5f9;
-  --color-bg-overlay: rgba(255, 255, 255, 0.9);
+  --color-bg: #fbfbfc;
+  --color-bg-elevated: #f3f3f6;
+  --color-bg-overlay: rgba(251, 251, 252, 0.9);
   --color-text-primary: #16161a;
   --color-text-secondary: #6b6b76;
   --color-text-tertiary: #9a9aa5;
-  --color-border: rgba(22, 22, 26, 0.08);
+  --color-border: rgba(22, 22, 26, 0.09);
 
   --color-accent: #7c3aed;
   --color-accent-strong: #6d28d9;
   --color-accent-soft: rgba(124, 58, 237, 0.12);
   --color-accent-2: #ec4899;
+  --color-on-accent: #ffffff;
   --color-danger: #e5484d;
   --color-success: #30a46c;
 
   --color-skeleton-base: rgba(22, 22, 26, 0.06);
   --color-skeleton-highlight: rgba(22, 22, 26, 0.12);
 
-  --shadow-elevated: 0 8px 24px rgba(22, 22, 26, 0.1);
-  --shadow-floating: 0 4px 20px rgba(22, 22, 26, 0.16);
-  --shadow-glow: 0 8px 30px rgba(124, 58, 237, 0.25);
+  --shadow-elevated: 0 8px 24px rgba(22, 22, 26, 0.08);
+  --shadow-floating: 0 2px 10px rgba(22, 22, 26, 0.1);
+  --shadow-glow: 0 6px 24px rgba(124, 58, 237, 0.18);
 
   /* Two-tone brand gradient — used sparingly for hero/highlight surfaces
      (hero banner, active nav pill, play buttons) so it reads as an accent,
@@ -41,46 +42,48 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-bg: #0b0b0f;
-    --color-bg-elevated: #17171d;
-    --color-bg-overlay: rgba(11, 11, 15, 0.9);
-    --color-text-primary: #f5f4f8;
-    --color-text-secondary: #a8a8b3;
-    --color-text-tertiary: #6f6f7a;
-    --color-border: rgba(245, 244, 248, 0.09);
+    --color-bg: #0e0e11;
+    --color-bg-elevated: #17171b;
+    --color-bg-overlay: rgba(14, 14, 17, 0.9);
+    --color-text-primary: #f3f3f5;
+    --color-text-secondary: #9d9da8;
+    --color-text-tertiary: #6e6e79;
+    --color-border: rgba(255, 255, 255, 0.07);
 
     --color-accent: #a78bfa;
     --color-accent-strong: #c4b5fd;
-    --color-accent-soft: rgba(167, 139, 250, 0.18);
+    --color-accent-soft: rgba(167, 139, 250, 0.14);
     --color-accent-2: #f472b6;
+    --color-on-accent: #17102b;
 
     --color-skeleton-base: rgba(245, 244, 248, 0.06);
     --color-skeleton-highlight: rgba(245, 244, 248, 0.14);
 
-    --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --shadow-floating: 0 4px 20px rgba(0, 0, 0, 0.55);
-    --shadow-glow: 0 8px 30px rgba(167, 139, 250, 0.35);
+    --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --shadow-floating: 0 2px 10px rgba(0, 0, 0, 0.35);
+    --shadow-glow: 0 6px 24px rgba(167, 139, 250, 0.2);
   }
 }
 
 :root[data-theme='dark'] {
-  --color-bg: #0b0b0f;
-  --color-bg-elevated: #17171d;
-  --color-bg-overlay: rgba(11, 11, 15, 0.9);
-  --color-text-primary: #f5f4f8;
-  --color-text-secondary: #a8a8b3;
-  --color-text-tertiary: #6f6f7a;
-  --color-border: rgba(245, 244, 248, 0.09);
+  --color-bg: #0e0e11;
+  --color-bg-elevated: #17171b;
+  --color-bg-overlay: rgba(14, 14, 17, 0.9);
+  --color-text-primary: #f3f3f5;
+  --color-text-secondary: #9d9da8;
+  --color-text-tertiary: #6e6e79;
+  --color-border: rgba(255, 255, 255, 0.07);
 
   --color-accent: #a78bfa;
   --color-accent-strong: #c4b5fd;
-  --color-accent-soft: rgba(167, 139, 250, 0.18);
+  --color-accent-soft: rgba(167, 139, 250, 0.14);
   --color-accent-2: #f472b6;
+  --color-on-accent: #17102b;
 
   --color-skeleton-base: rgba(245, 244, 248, 0.06);
   --color-skeleton-highlight: rgba(245, 244, 248, 0.14);
 
-  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-floating: 0 4px 20px rgba(0, 0, 0, 0.55);
-  --shadow-glow: 0 8px 30px rgba(167, 139, 250, 0.35);
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-floating: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 6px 24px rgba(167, 139, 250, 0.2);
 }

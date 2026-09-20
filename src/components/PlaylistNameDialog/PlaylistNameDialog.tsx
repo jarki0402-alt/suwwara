@@ -1,7 +1,7 @@
-import type { FormEvent, MouseEvent } from 'react';
+import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Icon } from '../Icon/Icon';
-import styles from './PlaylistNameDialog.module.css';
+import { Modal } from '../Modal/Modal';
+import modal from '../Modal/Modal.module.css';
 
 interface PlaylistNameDialogProps {
   isOpen: boolean;
@@ -12,9 +12,7 @@ interface PlaylistNameDialogProps {
   onClose: () => void;
 }
 
-/** Replaces `window.prompt` for playlist create/rename — same bottom-sheet-on-mobile,
- * centered-card-on-desktop shell as ConfirmPairSheet/JoinJamSheet, so it reads as part of
- * the app instead of a native browser dialog. */
+/** Replaces `window.prompt` for playlist create/rename, in the app's own popup shell (Modal). */
 export function PlaylistNameDialog({ isOpen, title, confirmLabel, initialValue = '', onConfirm, onClose }: PlaylistNameDialogProps) {
   const [name, setName] = useState(initialValue);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -23,50 +21,40 @@ export function PlaylistNameDialog({ isOpen, title, confirmLabel, initialValue =
     if (isOpen) setName(initialValue);
   }, [isOpen, initialValue]);
 
+  // The input only exists once Modal has mounted it, so focus after the open render, not during it.
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const stopPropagation = (event: MouseEvent) => event.stopPropagation();
 
   const trimmed = name.trim();
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (trimmed.length === 0) return;
-    onConfirm(trimmed);
+    if (trimmed.length > 0) onConfirm(trimmed);
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <form className={styles.sheet} onClick={stopPropagation} onSubmit={handleSubmit}>
-        <div className={styles.badge}>
-          <Icon name="library" size={22} />
-        </div>
-
-        <span className={styles.title}>{title}</span>
-
+    <Modal isOpen={isOpen} onClose={onClose} label={title}>
+      <form style={{ display: 'contents' }} onSubmit={handleSubmit}>
+        <span className={modal.title}>{title}</span>
         <input
           ref={inputRef}
-          className={styles.input}
+          className={modal.input}
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Nama playlist"
           maxLength={80}
-          aria-label={title}
+          aria-label="Nama playlist"
         />
-
-        <div className={styles.actions}>
-          <button type="button" className={styles.cancelButton} onClick={onClose}>
+        <div className={modal.actions}>
+          <button type="button" className={[modal.button, modal.buttonQuiet].join(' ')} onClick={onClose}>
             Batal
           </button>
-          <button type="submit" className={styles.confirmButton} disabled={trimmed.length === 0}>
+          <button type="submit" className={[modal.button, modal.buttonPrimary].join(' ')} disabled={trimmed.length === 0}>
             {confirmLabel}
           </button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

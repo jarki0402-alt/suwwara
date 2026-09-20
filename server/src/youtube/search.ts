@@ -1,3 +1,4 @@
+import { BoundedTtlCache } from './boundedCache';
 import { cleanTitle } from './textClean';
 import { getYTMusic } from './ytmusic';
 
@@ -66,4 +67,30 @@ export async function getSearchSuggestions(query: string): Promise<string[]> {
 
   const ytmusic = await getYTMusic();
   return ytmusic.getSearchSuggestions(trimmed);
+}
+
+export interface ArtistHit {
+  artistId: string;
+  name: string;
+  thumbnail: string;
+}
+
+// Keyed by the lowercased query: the desktop search box asks on every debounced pause, and the same
+// few artist names get typed over and over. Hard cap + short TTL (CLAUDE.md rule #1).
+const artistSearches = new BoundedTtlCache<ArtistHit[]>(200, 30 * 60 * 1000);
+
+/** Artists matching a query — lets search offer "open the profile" when the query is really a person, not a song. */
+export async function searchArtists(query: string, limit = 3): Promise<ArtistHit[]> {
+  const trimmed = query.trim();
+  if (trimmed.length === 0 || trimmed.length > 120) return [];
+
+  const hits = await artistSearches.getOrLoad(trimmed.toLowerCase(), async () => {
+    const ytmusic = await getYTMusic();
+    const results = await ytmusic.searchArtists(trimmed);
+    return results
+      .filter((artist) => artist.artistId && artist.name)
+      .slice(0, 5)
+      .map((artist) => ({ artistId: artist.artistId, name: artist.name, thumbnail: bestThumbnail(artist.thumbnails) }));
+  });
+  return hits.slice(0, limit);
 }

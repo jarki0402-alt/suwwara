@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { getSearchSuggestions, searchSongs } from '../../api/endpoints/search';
+import { getCategorySongs } from '../../api/endpoints/category';
+import { findArtistMatch, getSearchSuggestions, searchSongs, type ArtistHit } from '../../api/endpoints/search';
 import type { Song } from '../../api/types';
 import { Icon } from '../../components/Icon/Icon';
+import { LazyImage } from '../../components/Image/LazyImage';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import type { BrowseCategory } from '../../data/browseCategories';
 import { useRecentSearches } from '../../hooks/useRecentSearches';
+import { useUiStore } from '../../stores/uiStore';
 import { debounce } from '../../utils/debounce';
 import { BrowseCategoriesGrid } from './BrowseCategoriesGrid';
 import { SearchResultsList } from './SearchResultsList';
@@ -19,16 +22,23 @@ export function SearchView() {
   const [results, setResults] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [artist, setArtist] = useState<ArtistHit | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const openArtist = useUiStore((state) => state.openArtist);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [hasCommitted, setHasCommitted] = useState(false);
   const requestIdRef = useRef(0);
+  // The tile currently shown (its label sits in the box). While it is, the typed-search effect below must
+  // leave the results alone: it used to fire a keyword search for the label 350ms after the tile loaded and
+  // overwrite the tile's songs — a tile called Pop then showed songs merely named "pop".
+  const activeCategoryLabelRef = useRef<string | null>(null);
   const recentSearches = useRecentSearches();
 
   const performSearch = (searchQuery: string) => {
     const trimmed = searchQuery.trim();
     if (trimmed.length === 0) {
       setResults([]);
+      setArtist(null);
       setIsLoading(false);
       setError(null);
       return;
@@ -36,6 +46,10 @@ export function SearchView() {
     const requestId = ++requestIdRef.current;
     setIsLoading(true);
     setError(null);
+    // Independent of the songs — the profile card shows up whenever it arrives.
+    findArtistMatch(trimmed).then((hit) => {
+      if (requestId === requestIdRef.current) setArtist(hit);
+    });
     searchSongs(trimmed)
       .then((response) => {
         if (requestId !== requestIdRef.current) return;
@@ -64,6 +78,7 @@ export function SearchView() {
   );
 
   useEffect(() => {
+    if (activeCategoryLabelRef.current !== null && activeCategoryLabelRef.current === query) return;
     runDebouncedSearch(query);
     if (query.trim().length > 0 && !hasCommitted) {
       runDebouncedSuggestions(query);
@@ -79,6 +94,7 @@ export function SearchView() {
   }, [query]);
 
   const commitSearch = (term: string) => {
+    activeCategoryLabelRef.current = null;
     setQuery(term);
     setHasCommitted(true);
     setSuggestions([]);
@@ -88,16 +104,36 @@ export function SearchView() {
   };
 
   const handleCategorySelect = (category: BrowseCategory) => {
+    activeCategoryLabelRef.current = category.label;
     setQuery(category.label);
     setHasCommitted(true);
     setSuggestions([]);
     runDebouncedSearch.cancel();
-    performSearch(category.query);
+    const requestId = ++requestIdRef.current;
+    setArtist(null);
+    setIsLoading(true);
+    setError(null);
+    getCategorySongs(category.id)
+      .then((songs) => {
+        if (requestId === requestIdRef.current) setResults(songs);
+      })
+      .catch(() => {
+        if (requestId === requestIdRef.current) setError('Gagal memuat kategori. Periksa koneksi internetmu.');
+      })
+      .finally(() => {
+        if (requestId === requestIdRef.current) setIsLoading(false);
+      });
   };
 
   const handleInputChange = (value: string) => {
+    activeCategoryLabelRef.current = null;
     setQuery(value);
     setHasCommitted(false);
+  };
+
+  const handleOpenArtist = (hit: ArtistHit) => {
+    recentSearches.add(query);
+    openArtist({ artistId: hit.artistId, name: hit.name });
   };
 
   const handleSubmit = (event: FormEvent) => {
@@ -186,6 +222,19 @@ export function SearchView() {
             <BrowseCategoriesGrid onSelect={handleCategorySelect} />
           </div>
         </div>
+      )}
+
+      {!isLoading && !error && !showBrowseState && artist && (
+        <button type="button" className={styles.artistCard} onClick={() => handleOpenArtist(artist)}>
+          <LazyImage images={artist.image} quality="150x150" alt="" className={styles.artistPhoto} />
+          <span className={styles.artistText}>
+            <span className={styles.artistName}>{artist.name}</span>
+            <span className={styles.artistHint}>Artis · Lihat profil</span>
+          </span>
+          <span className={styles.artistChevron} aria-hidden="true">
+            <Icon name="chevron-left" size={18} />
+          </span>
+        </button>
       )}
 
       {!isLoading && !error && !showBrowseState && results.length === 0 && (

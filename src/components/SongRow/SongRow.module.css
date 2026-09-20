@@ -31,8 +31,8 @@
 }
 
 .thumb {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
   box-shadow: var(--shadow-floating);
@@ -46,7 +46,7 @@
 }
 
 .title {
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   font-weight: 600;
   color: var(--color-text-primary);
   overflow: hidden;

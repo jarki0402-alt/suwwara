@@ -1,4 +1,5 @@
 import { useUiStore } from '../../stores/uiStore';
+import { ArtistMixesSection } from './ArtistMixesSection';
 import { CollectionSection } from './CollectionSection';
 import { GeneratedCollectionView } from './GeneratedCollectionView';
 import { MadeForYouSection } from './MadeForYouSection';
@@ -31,8 +32,9 @@ export function HomeView() {
       <MadeForYouSection />
       <CollectionSection />
       <RecentlyPlayedSection />
-      <TopChartSection />
       <RecommendedSection />
+      <ArtistMixesSection />
+      <TopChartSection />
     </div>
   );
 }

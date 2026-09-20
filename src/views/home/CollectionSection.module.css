@@ -1,9 +1,8 @@
 .likedArt,
 .placeholderArt {
-  width: 136px;
-  height: 136px;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-floating);
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,15 +14,15 @@
 }
 
 .placeholderArt {
-  background: var(--color-bg-elevated);
-  color: var(--color-text-tertiary);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
+/* On desktop the sidebar already lists Liked Songs and every playlist ("Koleksimu"), so repeating
+   them as a Home shelf is just noise; on a phone (no sidebar) this shelf is how they're reached. */
 @media (min-width: 960px) {
-  .likedArt,
-  .placeholderArt {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 1;
+  /* section.collection: needs the element in the selector to outrank the shared `.section { display: flex }`. */
+  section.collection {
+    display: none;
   }
 }

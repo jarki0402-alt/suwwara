@@ -23,9 +23,10 @@
   --z-mini-player: 10;
   --z-sheet: 20;
   --z-toast: 30;
+  --z-modal: 40;
 
-  --mini-player-height: 64px;
-  --bottom-nav-height: 60px;
+  --mini-player-height: 58px;
+  --bottom-nav-height: 54px;
   --sidebar-width: 232px;
   --now-playing-panel-width: 380px;
   --desktop-breakpoint: 960px;

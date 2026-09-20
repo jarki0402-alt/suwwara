@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { LazyImage } from '../components/Image/LazyImage';
+import { PlaylistNameDialog } from '../components/PlaylistNameDialog/PlaylistNameDialog';
 import { Icon, type IconName } from '../components/Icon/Icon';
 import { useLibraryStore } from '../stores/libraryStore';
 import { useUiStore, type ViewName } from '../stores/uiStore';
@@ -17,6 +19,9 @@ export function BottomNav() {
   const selectedPlaylistId = useUiStore((state) => state.selectedPlaylistId);
   const openPlaylist = useUiStore((state) => state.openPlaylist);
   const playlists = useLibraryStore((state) => state.playlists);
+  const likedCount = useLibraryStore((state) => state.likedSongs.length);
+  const createPlaylist = useLibraryStore((state) => state.createPlaylist);
+  const [isCreating, setIsCreating] = useState(false);
 
   return (
     <nav className={styles.nav}>
@@ -38,7 +43,12 @@ export function BottomNav() {
           from the sidebar instead of only through the Koleksi tab's own
           sub-tabs, matching Spotify's persistent library list. */}
       <div className={styles.library}>
-        <span className={styles.libraryHeading}>Koleksimu</span>
+        <div className={styles.libraryHeadingRow}>
+          <span className={styles.libraryHeading}>Koleksimu</span>
+          <button type="button" className={styles.addButton} onClick={() => setIsCreating(true)} aria-label="Buat playlist baru">
+            <Icon name="plus" size={16} />
+          </button>
+        </div>
         <div className={styles.libraryList}>
           <button
             type="button"
@@ -48,7 +58,10 @@ export function BottomNav() {
             <span className={styles.libraryLikedIcon}>
               <Icon name="heart-filled" size={20} />
             </span>
-            <span className={styles.libraryLabel}>Lagu Disukai</span>
+            <span className={styles.libraryText}>
+              <span className={styles.libraryLabel}>Lagu Disukai</span>
+              <span className={styles.librarySub}>{likedCount} trek</span>
+            </span>
           </button>
           {playlists.map((playlist) => (
             <button
@@ -64,11 +77,26 @@ export function BottomNav() {
                   <Icon name="library" size={20} />
                 </span>
               )}
-              <span className={styles.libraryLabel}>{playlist.name}</span>
+              <span className={styles.libraryText}>
+                <span className={styles.libraryLabel}>{playlist.name}</span>
+                <span className={styles.librarySub}>Daftar Putar</span>
+              </span>
             </button>
           ))}
         </div>
       </div>
+
+      <PlaylistNameDialog
+        isOpen={isCreating}
+        title="Playlist Baru"
+        confirmLabel="Buat"
+        onConfirm={(name) => {
+          const playlist = createPlaylist(name);
+          setIsCreating(false);
+          openPlaylist(playlist.id);
+        }}
+        onClose={() => setIsCreating(false)}
+      />
     </nav>
   );
 }

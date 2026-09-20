@@ -16,6 +16,8 @@ import styles from './AppShell.module.css';
 import { BottomNav } from './BottomNav';
 import { MiniPlayer } from './MiniPlayer';
 import { RemoteBar } from './RemoteBar';
+import { PaneResizers } from './PaneResizers';
+import { TopBar } from './TopBar';
 import { ViewRouter } from './ViewRouter';
 
 export function AppShell() {
@@ -70,8 +72,10 @@ function ShellBody() {
   return (
     <div className={styles.shell}>
       <main ref={contentRef} className={[styles.content, showNowPlayingPanel ? styles.contentWithPanel : ''].join(' ')}>
+        <TopBar />
         <ViewRouter />
       </main>
+      <PaneResizers panelOpen={showNowPlayingPanel} />
       <ConnectBridge />
       {/* While steering another device, its bar stands in for the local player — which stays untouched. */}
       {isRemoteControlling ? <RemoteBar /> : <MiniPlayer />}

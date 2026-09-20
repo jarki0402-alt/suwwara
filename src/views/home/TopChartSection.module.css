@@ -1,0 +1,68 @@
+.headingRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+}
+
+.heading {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.hint {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary);
+}
+
+.tag {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* One bordered card, rows separated by hairlines. */
+.list {
+  margin: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg-elevated);
+  overflow: hidden;
+}
+
+.row {
+  display: grid;
+  /* minmax(0, …): a long title must ellipsise, not push the like button off the row. */
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  padding: 0 var(--space-1) 0 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rank {
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 960px) {
+  .headingRow {
+    padding: 0 var(--space-5);
+  }
+
+  .list {
+    margin: 0 var(--space-5);
+  }
+}

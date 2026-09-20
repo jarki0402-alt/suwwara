@@ -5,6 +5,9 @@ import { ToastProvider } from './components/Toast/ToastProvider';
 import './styles/variables.css';
 import './styles/theme.css';
 import './styles/global.css';
+import { applySavedPaneWidths } from './app-shell/paneWidths';
+
+applySavedPaneWidths();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element (#root) not found.');

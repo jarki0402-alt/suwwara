@@ -3,12 +3,11 @@ import { bestImageUrl } from '../../api/mappers';
 import type { Song } from '../../api/types';
 import { Icon, type IconName } from '../../components/Icon/Icon';
 import { getTrendingSongsIndonesia } from '../../recommendation/trendingChart';
-import { getTopArtistMixes } from '../../recommendation/topArtistMix';
 import { getWeeklyDiscoveryMix } from '../../recommendation/weeklyDiscovery';
 import { useUiStore, type GeneratedCollectionId } from '../../stores/uiStore';
 import styles from './MadeForYouSection.module.css';
 
-type Tint = 'weekly' | 'viral' | 'artist';
+type Tint = 'weekly' | 'viral';
 
 interface Tile {
   id: GeneratedCollectionId;
@@ -29,13 +28,8 @@ interface Tile {
  * so clicking through never re-fetches), not a flat gradient — it changes
  * with whatever's actually in the mix, same as Spotify's own Daily Mix art.
  *
- * One "Mix {artist}" tile per top-listened artist (see topArtistMix.ts, up
- * to 2 — capped so this row tops out at 4 tiles total, short enough to fit
- * mobile's 2-column layout without excess scrolling) appears once there's
- * enough history to name any — none appear
- * otherwise, same honest-empty philosophy as the other two tiles' own empty
- * states. Several can show at once, not just a single "your #1 artist" tile,
- * same as Spotify's own multiple Daily Mix cards for different artists.
+ * The per-artist "Mix {artist}" collections used to be extra tiles here; they now live in their own
+ * sideways shelf (ArtistMixesSection) so this row stays two tiles and Home isn't crowded.
  */
 export function MadeForYouSection() {
   const openCollection = useUiStore((state) => state.openCollection);
@@ -62,29 +56,12 @@ export function MadeForYouSection() {
       })
       .catch(() => {});
 
-    getTopArtistMixes()
-      .then((mixes) => {
-        if (cancelled || mixes.length === 0) return;
-        setTiles((prev) => [
-          ...prev,
-          ...mixes.map((mix): Tile => ({
-            id: `artist-mix:${mix.artistName}`,
-            title: `Mix ${mix.artistName}`,
-            subtitle: 'Lagu populer dari artis favoritmu',
-            icon: 'shuffle',
-            tint: 'artist',
-            covers: coversOf(mix.songs),
-          })),
-        ]);
-      })
-      .catch(() => {});
-
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const tintClass: Record<Tint, string> = { weekly: styles.tileWeekly, viral: styles.tileViral, artist: styles.tileArtist };
+  const tintClass: Record<Tint, string> = { weekly: styles.tileWeekly, viral: styles.tileViral };
 
   return (
     <section className={styles.section}>

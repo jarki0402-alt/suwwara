@@ -1,0 +1,180 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  justify-content: center;
+  /* Near the top rather than the middle on a phone: with the keyboard up (naming a playlist) the middle is
+     exactly where the keyboard ends up covering. */
+  align-items: flex-start;
+  padding: max(20vh, 72px) var(--space-4) var(--space-4);
+  background: rgba(0, 0, 0, 0.5);
+  animation: fadeIn var(--transition-base);
+}
+
+.overlaySheet {
+  align-items: flex-end;
+  padding: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.panel {
+  width: min(340px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-elevated);
+  animation: popIn var(--transition-base);
+}
+
+.panelSheet {
+  width: 100%;
+  max-height: 72vh;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
+  border-width: 1px 0 0;
+  border-radius: 18px 18px 0 0;
+  animation: slideUp var(--transition-slow);
+}
+
+.grabber {
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 960px) {
+  .overlay,
+  .overlaySheet {
+    align-items: center;
+    padding: var(--space-4);
+  }
+
+  .panelSheet {
+    width: min(380px, 100%);
+    max-height: 70vh;
+    padding: var(--space-4);
+    border-width: 1px;
+    border-radius: 18px;
+    animation: popIn var(--transition-base);
+  }
+
+  .grabber {
+    display: none;
+  }
+}
+
+/* Parts shared by the popups that use this shell. */
+.title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.text {
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.input {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  /* 16px is the iOS Safari auto-zoom-on-focus threshold. */
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.input:focus {
+  border-color: var(--color-accent);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.button {
+  min-width: 84px;
+  height: 40px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.buttonQuiet {
+  background: none;
+  color: var(--color-text-secondary);
+}
+
+@media (hover: hover) {
+  .buttonQuiet:hover {
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+  }
+}
+
+.buttonPrimary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.buttonDanger {
+  background: var(--color-danger);
+  color: #ffffff;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

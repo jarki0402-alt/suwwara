@@ -1,0 +1,203 @@
+/* Below the desktop breakpoint the Cari tab is right there — no bar. */
+.bar {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .bar {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    padding: var(--space-2) var(--space-5);
+    background: var(--color-bg-overlay);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /* Centred, and proportioned to the page: wide enough to type in, never a stretched slab. */
+  .inner {
+    position: relative;
+    width: min(100%, 580px);
+    margin: 0 auto;
+  }
+
+  .field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    padding: 11px var(--space-4);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-secondary);
+    transition: border-color var(--transition-fast);
+  }
+
+  .field:focus-within {
+    border-color: var(--color-accent);
+  }
+
+  .input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: none;
+    font-size: 0.95rem;
+    color: var(--color-text-primary);
+  }
+
+  .input::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  /* The results float over the page, they don't push it down. Solid on purpose: as glass the cards behind it
+     (and their text) showed through the rows — and a backdrop blur can't work anyway inside the bar's own
+     blurred layer. */
+  .dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: min(60vh, 460px);
+    overflow-y: auto;
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: var(--color-bg-elevated);
+    box-shadow: var(--shadow-elevated);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    scrollbar-width: thin;
+  }
+
+  .dropdownHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .clearAll {
+    border: none;
+    background: none;
+    padding: 2px 4px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .clearAll:hover {
+    color: var(--color-accent);
+  }
+
+  .dropdownLabel {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+  }
+
+  .status {
+    padding: var(--space-3);
+    font-size: 0.82rem;
+    color: var(--color-text-tertiary);
+  }
+
+  .recentItem {
+    display: flex;
+    align-items: center;
+    border-radius: 10px;
+  }
+
+  .recentItem:hover {
+    background: var(--color-bg);
+  }
+
+  .recentItem .recentRow {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .recentRemove {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-full);
+    background: none;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+  }
+
+  .recentRemove:hover {
+    color: var(--color-text-primary);
+  }
+
+  .recentRow,
+  .resultRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    background: none;
+    padding: 7px var(--space-2);
+    color: var(--color-text-primary);
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+
+  .recentRow {
+    color: var(--color-text-secondary);
+  }
+
+  .resultRowActive {
+    background: var(--color-bg);
+  }
+
+  .resultThumb,
+  .artistThumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  /* A person, not a record: round photo, like the artist page. */
+  .artistThumb {
+    border-radius: var(--radius-full);
+  }
+
+  .resultText {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .resultTitle,
+  .resultArtist {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .resultTitle {
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .resultArtist {
+    font-size: 0.76rem;
+    color: var(--color-text-secondary);
+  }
+}

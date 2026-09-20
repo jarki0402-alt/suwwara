@@ -56,6 +56,12 @@ function buildImageVariants(videoId: string, bestThumbnail: string): ImageVarian
   ];
 }
 
+/** The three image tiers for a plain image URL that isn't tied to a video (an artist's photo). */
+export function imagesFromUrl(url: string): ImageVariant[] {
+  if (!url) return [];
+  return (['50x50', '150x150', '500x500'] as const).map((quality) => ({ quality, url: resizeGoogleImage(url, TIER_PIXELS[quality]) }));
+}
+
 /** Maps our backend's YouTube-derived song shape into the app's internal Song type. */
 export function mapBackendSong(raw: BackendSong): Song {
   const artistName = decodeHtmlEntities(raw.artist || 'Unknown Artist');

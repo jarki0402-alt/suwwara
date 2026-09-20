@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { withViewTransition } from '../utils/viewTransition';
 
 export type ViewName = 'home' | 'search' | 'library' | 'settings';
 /**
@@ -134,8 +135,9 @@ export const useUiStore = create<UiState>((set) => ({
     })),
   openAlbum: (albumId) => set((state) => ({ detailStack: [...state.detailStack, { type: 'album', albumId }], ...leaveNowPlaying() })),
   closeDetail: () => set((state) => ({ detailStack: state.detailStack.slice(0, -1) })),
-  openNowPlaying: () => set({ isNowPlayingOpen: true }),
-  closeNowPlaying: () => set({ isNowPlayingOpen: false, isQueueOpen: false, isLyricsOpen: false, isNowPlayingFullscreen: false }),
+  openNowPlaying: () => withViewTransition(() => set({ isNowPlayingOpen: true })),
+  closeNowPlaying: () =>
+    withViewTransition(() => set({ isNowPlayingOpen: false, isQueueOpen: false, isLyricsOpen: false, isNowPlayingFullscreen: false })),
   openQueue: () => set({ isQueueOpen: true }),
   closeQueue: () => set({ isQueueOpen: false }),
   openJamSheet: () => set({ isJamSheetOpen: true }),

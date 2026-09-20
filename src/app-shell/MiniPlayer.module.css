@@ -135,7 +135,7 @@
   .wrapper {
     left: var(--sidebar-width);
     bottom: 0;
-    height: 76px;
+    height: 66px;
     padding: 0 var(--space-5);
     /* Spotify-style 3-column layout: song info left, transport+seek bar
        center, lyrics/volume/expand right — all three actually populated now

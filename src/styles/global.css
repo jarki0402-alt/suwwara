@@ -17,6 +17,9 @@ body,
 }
 
 html {
+  /* One notch below the browser default: the whole app was a little jumbo (headings, rows, controls all read
+     large, especially on a phone) — every rem-based size follows this. */
+  font-size: 15px;
   /* Stops iOS from resizing text on rotation, and removes the grey flash a tap leaves
      on every tappable element — the app draws its own pressed states. */
   -webkit-text-size-adjust: 100%;
@@ -94,4 +97,18 @@ p {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* While a pane divider is being dragged: no text selection, and the resize cursor everywhere so it
+   doesn't flicker as the pointer crosses other elements. */
+html.is-resizing,
+html.is-resizing * {
+  user-select: none !important;
+  cursor: col-resize !important;
+}
+
+/* How the desktop page cross-fades when the Now Playing panel opens/closes (see utils/viewTransition.ts). */
+::view-transition-group(root) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }

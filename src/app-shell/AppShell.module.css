@@ -27,7 +27,8 @@
     margin: 0 auto;
     padding-left: var(--sidebar-width);
     padding-bottom: calc(var(--mini-player-height) + var(--space-5));
-    transition: padding-right var(--transition-base);
+    /* No transition on padding: animating it re-laid out the whole page on every frame (the stutter when
+       the right panel opened). The change is one cross-faded step now — see utils/viewTransition.ts. */
   }
 
   /* Reserves room for the docked Now Playing panel (NowPlayingView.module.css)

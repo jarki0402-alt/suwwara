@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import { getSearchSuggestions } from '../youtube/search';
-import { searchSongs } from '../youtube/search';
+import { getSearchSuggestions, searchArtists, searchSongs } from '../youtube/search';
 
 export const searchRouter = Router();
 
@@ -30,5 +29,16 @@ searchRouter.get('/search/suggestions', async (req, res) => {
     res.json({ suggestions });
   } catch (error) {
     res.status(502).json({ error: 'Failed to fetch search suggestions.', message: (error as Error).message });
+  }
+});
+
+searchRouter.get('/search/artists', async (req, res) => {
+  const query = typeof req.query.q === 'string' ? req.query.q : '';
+  const limit = Math.min(Number(req.query.limit) || 3, 5);
+
+  try {
+    res.json({ artists: await searchArtists(query, limit) });
+  } catch (error) {
+    res.status(502).json({ error: 'Artist search failed.', message: (error as Error).message });
   }
 });

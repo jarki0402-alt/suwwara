@@ -1,8 +1,10 @@
-import type { MouseEvent } from 'react';
 import { useState } from 'react';
 import type { Song } from '../../api/types';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { Icon } from '../Icon/Icon';
+import { LazyImage } from '../Image/LazyImage';
+import { Modal } from '../Modal/Modal';
+import modal from '../Modal/Modal.module.css';
 import { PlaylistNameDialog } from '../PlaylistNameDialog/PlaylistNameDialog';
 import { useToast } from '../Toast/ToastProvider';
 import styles from './AddToPlaylistSheet.module.css';
@@ -13,18 +15,13 @@ interface AddToPlaylistSheetProps {
   onClose: () => void;
 }
 
-/** Reusable bottom sheet for adding a song to an existing (or brand new) playlist — first
- * used from the queue's per-row "+" button, but self-contained enough to call from anywhere. */
+/** Reusable popup for adding a song to an existing (or brand new) playlist — self-contained enough to call from anywhere. */
 export function AddToPlaylistSheet({ song, isOpen, onClose }: AddToPlaylistSheetProps) {
   const playlists = useLibraryStore((state) => state.playlists);
   const addSongToPlaylist = useLibraryStore((state) => state.addSongToPlaylist);
   const createPlaylist = useLibraryStore((state) => state.createPlaylist);
   const { showToast } = useToast();
   const [isCreateOpen, setCreateOpen] = useState(false);
-
-  if (!isOpen) return null;
-
-  const stopPropagation = (event: MouseEvent) => event.stopPropagation();
 
   const handleAdd = (playlistId: string, playlistName: string) => {
     addSongToPlaylist(playlistId, song);
@@ -41,52 +38,44 @@ export function AddToPlaylistSheet({ song, isOpen, onClose }: AddToPlaylistSheet
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.sheet} onClick={stopPropagation}>
-        <div className={styles.header}>
-          <span className={styles.title}>Tambah ke Playlist</span>
-          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Tutup">
-            <Icon name="close" size={18} />
-          </button>
-        </div>
-
-        <button type="button" className={styles.createRow} onClick={() => setCreateOpen(true)}>
-          <span className={styles.createIcon}>
-            <Icon name="plus" size={18} />
-          </span>
-          Playlist Baru
-        </button>
+    <>
+      <Modal isOpen={isOpen && !isCreateOpen} onClose={onClose} label="Simpan ke playlist" variant="sheet">
+        <span className={modal.title}>Simpan ke playlist</span>
 
         <div className={styles.list}>
-          {playlists.length === 0 ? (
-            <p className={styles.empty}>Belum ada playlist — buat satu di atas.</p>
-          ) : (
-            playlists.map((playlist) => {
-              const alreadyIn = playlist.songs.some((s) => s.id === song.id);
-              return (
-                <button
-                  key={playlist.id}
-                  type="button"
-                  className={styles.playlistRow}
-                  onClick={() => handleAdd(playlist.id, playlist.name)}
-                  disabled={alreadyIn}
-                >
-                  <span className={styles.playlistName}>{playlist.name}</span>
-                  <span className={styles.playlistMeta}>{alreadyIn ? 'Sudah ada' : `${playlist.songs.length} lagu`}</span>
-                </button>
-              );
-            })
-          )}
+          <button type="button" className={styles.row} onClick={() => setCreateOpen(true)}>
+            <span className={[styles.thumb, styles.thumbNew].join(' ')}>
+              <Icon name="plus" size={18} />
+            </span>
+            <span className={styles.name}>Playlist baru</span>
+          </button>
+
+          {playlists.map((playlist) => {
+            const alreadyIn = playlist.songs.some((s) => s.id === song.id);
+            return (
+              <button key={playlist.id} type="button" className={styles.row} onClick={() => handleAdd(playlist.id, playlist.name)} disabled={alreadyIn}>
+                {playlist.songs[0] ? (
+                  <LazyImage images={playlist.songs[0].image} quality="50x50" alt="" className={styles.thumb} />
+                ) : (
+                  <span className={styles.thumb}>
+                    <Icon name="library" size={18} />
+                  </span>
+                )}
+                <span className={styles.name}>{playlist.name}</span>
+                <span className={styles.meta}>{alreadyIn ? 'Sudah ada' : `${playlist.songs.length} lagu`}</span>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </Modal>
 
       <PlaylistNameDialog
-        isOpen={isCreateOpen}
-        title="Playlist Baru"
+        isOpen={isOpen && isCreateOpen}
+        title="Playlist baru"
         confirmLabel="Buat"
         onConfirm={handleConfirmCreate}
         onClose={() => setCreateOpen(false)}
       />
-    </div>
+    </>
   );
 }

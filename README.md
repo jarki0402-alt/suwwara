@@ -18,7 +18,9 @@ suwwara/
 │   ├── recommendation/ mesin rekomendasi & trending berbasis histori lokal
 │   ├── lyrics/         parser LRC + sinkronisasi lirik (LRCLIB)
 │   ├── views/          layar: home, search, library, queue, now-playing, settings
-│   ├── app-shell/      shell aplikasi: bottom nav, mini player
+│   ├── app-shell/      shell aplikasi: bottom nav, mini player, RemoteBar (saat mengontrol perangkat lain)
+│   ├── connect/        kanal real-time antar-perangkat tertaut (SSE), pelapor status, penerima perintah
+│   ├── diagnostics/    catatan waktu pemuatan lagu di perangkat ini (Pengaturan → Diagnostik)
 │   ├── components/     komponen reusable (sheet, toast, dll — termasuk JamSheet/PairDeviceSheet)
 │   ├── pwa/             registrasi service worker, prompt install, estimasi storage
 │   └── sw.ts            service worker (Workbox, injectManifest)
@@ -28,6 +30,9 @@ suwwara/
 │       ├── db/           koneksi Postgres + schema (accounts, devices, library_snapshots, audio_cache)
 │       ├── auth/         middleware device-id bearer token
 │       ├── pairing/      kode pairing QR short-lived (pola sama dengan room code Jam)
+│       ├── connect/      hub in-memory perangkat tertaut per akun (kontrol jarak jauh)
+│       ├── linking/      permintaan tautan perangkat (QR ala WhatsApp Web) + rate limit
+│       ├── library/      penggabungan library dua akun
 │       ├── jam/          state room "Jam" in-memory + reducer antrean (mirror queueStore.ts)
 │       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses) — `priorityLimiter.ts`
 ├── vercel/          proyek Vercel terpisah — search/browse/details/similar/trending (stateless, tanpa DB)

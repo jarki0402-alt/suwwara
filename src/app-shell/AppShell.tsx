@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
+import { ConnectSheet } from '../components/ConnectSheet/ConnectSheet';
 import { ConfirmPairSheet } from '../components/ConfirmPairSheet/ConfirmPairSheet';
 import { JamSheet } from '../components/JamSheet/JamSheet';
 import { LinkDeviceSheet } from '../components/LinkDeviceSheet/LinkDeviceSheet';
 import { ScanLinkSheet } from '../components/ScanLinkSheet/ScanLinkSheet';
 import { JoinJamSheet } from '../components/JoinJamSheet/JoinJamSheet';
 import { PairDeviceSheet } from '../components/PairDeviceSheet/PairDeviceSheet';
+import { ConnectBridge } from '../connect/ConnectBridge';
+import { useConnectStore } from '../connect/connectStore';
 import { useJamSync } from '../jam/useJamSync';
 import { PlaybackProvider, usePlayback } from '../playback/PlaybackContext';
 import { useUiStore } from '../stores/uiStore';
@@ -12,6 +15,7 @@ import { NowPlayingView } from '../views/now-playing/NowPlayingView';
 import styles from './AppShell.module.css';
 import { BottomNav } from './BottomNav';
 import { MiniPlayer } from './MiniPlayer';
+import { RemoteBar } from './RemoteBar';
 import { ViewRouter } from './ViewRouter';
 
 export function AppShell() {
@@ -39,6 +43,8 @@ function ShellBody() {
   const incomingPairCode = useUiStore((state) => state.incomingPairCode);
   const closeIncomingPair = useUiStore((state) => state.closeIncomingPair);
   const isNowPlayingOpen = useUiStore((state) => state.isNowPlayingOpen);
+  const isConnectSheetOpen = useUiStore((state) => state.isConnectSheetOpen);
+  const isRemoteControlling = useConnectStore((state) => state.controllingRef !== null && state.devices.some((device) => device.ref === state.controllingRef));
   const linkSheet = useUiStore((state) => state.linkSheet);
   const linkPrefillCode = useUiStore((state) => state.linkPrefillCode);
   const closeLinkSheet = useUiStore((state) => state.closeLinkSheet);
@@ -66,12 +72,15 @@ function ShellBody() {
       <main ref={contentRef} className={[styles.content, showNowPlayingPanel ? styles.contentWithPanel : ''].join(' ')}>
         <ViewRouter />
       </main>
-      <MiniPlayer />
+      <ConnectBridge />
+      {/* While steering another device, its bar stands in for the local player — which stays untouched. */}
+      {isRemoteControlling ? <RemoteBar /> : <MiniPlayer />}
       <BottomNav />
       <NowPlayingView />
       <JamSheet isOpen={isJamSheetOpen} onClose={closeJamSheet} />
       {joinJamRoomId && <JoinJamSheet isOpen roomId={joinJamRoomId} onClose={closeJoinJamSheet} />}
       <PairDeviceSheet isOpen={isPairingSheetOpen} onClose={closePairingSheet} />
+      {isConnectSheetOpen && <ConnectSheet />}
       {linkSheet === 'show' && <LinkDeviceSheet onClose={closeLinkSheet} />}
       {linkSheet === 'scan' && <ScanLinkSheet prefillCode={linkPrefillCode} onClose={closeLinkSheet} />}
       {incomingPairCode && <ConfirmPairSheet isOpen code={incomingPairCode} onClose={closeIncomingPair} />}

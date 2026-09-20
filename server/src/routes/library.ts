@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { sql } from '../db/client';
 import { deviceAuth } from '../auth/deviceAuth';
+import { bearerDeviceId, deviceRef } from '../auth/deviceRef';
+import { notifyLibraryChanged } from '../connect/connectHub';
 
 export const libraryRouter = Router();
 
@@ -63,6 +65,8 @@ libraryRouter.put('/library', async (req, res) => {
       res.status(409).json({ conflict: true, likedSongs: result.likedSongs, playlists: result.playlists, version: result.version });
       return;
     }
+    // Other linked devices pull it now instead of waiting for their next poll.
+    notifyLibraryChanged(req.accountId!, deviceRef(bearerDeviceId(req)), result.version);
     res.json({ version: result.version });
   } catch (error) {
     res.status(502).json({ error: 'Failed to save library.', message: (error as Error).message });

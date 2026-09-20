@@ -1,6 +1,7 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { Router } from 'express';
 import { deviceAuth } from '../auth/deviceAuth';
+import { bearerDeviceId, deviceRef } from '../auth/deviceRef';
 import { sql } from '../db/client';
 import { mergeLibraries, type LibrarySnapshotData } from '../library/merge';
 import { createLinkRequest, getLinkRequest, LINK_REQUEST_TTL_SEC, markLinkApproved, rateLimited } from '../linking/linkRequests';
@@ -11,11 +12,6 @@ import { createLinkRequest, getLinkRequest, LINK_REQUEST_TTL_SEC, markLinkApprov
  * for a router registered after it (see the comment in index.ts on artistRouter).
  */
 export const linkRouter = Router();
-
-/** A device id is a credential, so it never leaves the server. The list a client sees carries this stable, non-reversible reference instead. */
-function deviceRef(deviceId: string): string {
-  return createHash('sha256').update(deviceId).digest('hex').slice(0, 12);
-}
 
 /** Library items are opaque JSON to the server; this only satisfies postgres.js's JSON typing. */
 const asJson = (value: unknown) => value as Parameters<typeof sql.json>[0];
@@ -41,9 +37,7 @@ linkRouter.post('/devices/me', deviceAuth, async (req, res) => {
   }
 });
 
-function bearer(req: { headers: { authorization?: string } }): string {
-  return (req.headers.authorization ?? '').slice('Bearer '.length).trim();
-}
+const bearer = bearerDeviceId;
 
 /** The NEW device asks for a code to show as a QR. */
 linkRouter.post('/auth/link/request', deviceAuth, (req, res) => {

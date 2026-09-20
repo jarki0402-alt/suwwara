@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { listLinkedDevices, unlinkDevice, type LinkedDevice } from '../../api/authClient';
 import { useToast } from '../../components/Toast/ToastProvider';
+import { useConnectStore } from '../../connect/connectStore';
 import { useUiStore } from '../../stores/uiStore';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
@@ -23,6 +24,8 @@ export function LinkedDevices() {
   const openLinkScan = useUiStore((state) => state.openLinkScan);
   const tick = useUiStore((state) => state.linkedDevicesTick);
   const bump = useUiStore((state) => state.bumpLinkedDevices);
+  const openConnectSheet = useUiStore((state) => state.openConnectSheet);
+  const onlineOthers = useConnectStore((state) => Math.max(state.devices.length - 1, 0));
   const [devices, setDevices] = useState<LinkedDevice[]>([]);
 
   useEffect(() => {
@@ -69,6 +72,15 @@ export function LinkedDevices() {
               }
             />
           ))}
+        {onlineOthers > 0 && (
+          <SettingsRow
+            icon="pulse"
+            title="Kontrol perangkat"
+            subtitle={`${onlineOthers} perangkat lain aktif — putar, jeda, atau pindahkan pemutaran.`}
+            onClick={openConnectSheet}
+            control={<span className={styles.linkButton}>Buka</span>}
+          />
+        )}
         <SettingsRow
           icon="database"
           title="Tautkan perangkat baru"

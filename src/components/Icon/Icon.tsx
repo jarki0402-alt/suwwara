@@ -33,6 +33,7 @@ export type IconName =
   | 'download'
   | 'spinner'
   | 'lyrics'
+  | 'devices'
   | 'expand';
 
 interface IconProps {
@@ -307,6 +308,15 @@ function IconPaths({ name }: { name: IconName }) {
           <rect x="2.5" y="5" width="19" height="14" rx="3" stroke="currentColor" fill="none" strokeWidth={2} />
           <line x1="6.5" y1="10" x2="14" y2="10" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
           <line x1="6.5" y1="14" x2="17.5" y2="14" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'devices':
+      // A laptop screen and a phone side by side — "your devices".
+      return (
+        <>
+          <rect x="2.5" y="4.5" width="14" height="10" rx="1.8" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M1.5 18.5h16" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+          <rect x="15" y="9" width="6.5" height="11" rx="1.6" stroke="currentColor" fill="var(--color-bg, transparent)" strokeWidth={2} />
         </>
       );
     case 'expand':

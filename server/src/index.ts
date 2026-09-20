@@ -2,6 +2,7 @@ import cors from 'cors';
 import express from 'express';
 import { migrate } from './db/client';
 import { artistRouter } from './routes/artist';
+import { connectRouter } from './routes/connect';
 import { audioRouter } from './routes/audio';
 import { authRouter } from './routes/auth';
 import { browseRouter } from './routes/browse';
@@ -38,6 +39,7 @@ app.use('/api', jamRouter);
 app.use('/api', artistRouter);
 // linkRouter applies deviceAuth per route (not router-wide), so it is safe ahead of authRouter/libraryRouter.
 app.use('/api', linkRouter);
+app.use('/api', connectRouter);
 app.use('/api', authRouter);
 app.use('/api', libraryRouter);
 

@@ -21,6 +21,7 @@ interface UiState {
   currentView: ViewName;
   /** 'show' = this device displays a QR to be linked; 'scan' = this device scans one (or confirms a code that arrived as a link). */
   linkSheet: 'none' | 'show' | 'scan';
+  isConnectSheetOpen: boolean;
   linkPrefillCode: string | null;
   /** Bumped whenever the set of linked devices changes, so the Settings list refetches. */
   linkedDevicesTick: number;
@@ -56,6 +57,8 @@ interface UiState {
    * entirely, unlike the panel which lets you keep browsing.
    */
   isNowPlayingFullscreen: boolean;
+  openConnectSheet: () => void;
+  closeConnectSheet: () => void;
   openLinkShow: () => void;
   openLinkScan: (prefillCode?: string) => void;
   closeLinkSheet: () => void;
@@ -103,6 +106,7 @@ function leaveNowPlaying(): Partial<UiState> {
 export const useUiStore = create<UiState>((set) => ({
   currentView: 'home',
   linkSheet: 'none',
+  isConnectSheetOpen: false,
   linkPrefillCode: null,
   linkedDevicesTick: 0,
   detailStack: [],
@@ -116,6 +120,8 @@ export const useUiStore = create<UiState>((set) => ({
   openedCollectionId: null,
   isLyricsOpen: false,
   isNowPlayingFullscreen: false,
+  openConnectSheet: () => set({ isConnectSheetOpen: true }),
+  closeConnectSheet: () => set({ isConnectSheetOpen: false }),
   openLinkShow: () => set({ linkSheet: 'show', linkPrefillCode: null }),
   openLinkScan: (prefillCode) => set({ linkSheet: 'scan', linkPrefillCode: prefillCode ?? null }),
   closeLinkSheet: () => set({ linkSheet: 'none', linkPrefillCode: null }),

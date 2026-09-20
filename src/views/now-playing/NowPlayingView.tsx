@@ -1,5 +1,6 @@
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
+import { useConnectStore } from '../../connect/connectStore';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
@@ -24,6 +25,8 @@ export function NowPlayingView() {
   const closeNowPlaying = useUiStore((state) => state.closeNowPlaying);
   const closeFullscreenLyrics = useUiStore((state) => state.closeFullscreenLyrics);
   const openQueue = useUiStore((state) => state.openQueue);
+  const openConnectSheet = useUiStore((state) => state.openConnectSheet);
+  const hasOtherDevices = useConnectStore((state) => state.devices.length > 1);
   const showLyrics = useUiStore((state) => state.isLyricsOpen);
   const toggleLyrics = useUiStore((state) => state.toggleLyrics);
 
@@ -70,9 +73,16 @@ export function NowPlayingView() {
             <Icon name="chevron-down" size={22} />
           </button>
           <span className={styles.topBarLabel}>Sedang Diputar</span>
-          <button type="button" className={styles.iconButton} onClick={openQueue} aria-label="Buka antrean">
-            <Icon name="queue" size={20} />
-          </button>
+          <span className={styles.topBarActions}>
+            {hasOtherDevices && (
+              <button type="button" className={styles.iconButton} onClick={openConnectSheet} aria-label="Perangkat">
+                <Icon name="devices" size={20} />
+              </button>
+            )}
+            <button type="button" className={styles.iconButton} onClick={openQueue} aria-label="Buka antrean">
+              <Icon name="queue" size={20} />
+            </button>
+          </span>
         </div>
 
         <div className={styles.artSection}>

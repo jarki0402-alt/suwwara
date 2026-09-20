@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ArtistLinks } from '../components/ArtistLinks/ArtistLinks';
+import { useConnectStore } from '../connect/connectStore';
 import { audioEngine } from '../audio-engine/AudioEngine';
 import { frameTicker } from '../audio-engine/frameTicker';
 import { Icon } from '../components/Icon/Icon';
@@ -15,6 +16,9 @@ import styles from './MiniPlayer.module.css';
 
 export function MiniPlayer() {
   const openNowPlaying = useUiStore((state) => state.openNowPlaying);
+  const openConnectSheet = useUiStore((state) => state.openConnectSheet);
+  // Only shown once at least one OTHER device is online — with none, there is nothing to pick.
+  const hasOtherDevices = useConnectStore((state) => state.devices.length > 1);
   const isNowPlayingOpen = useUiStore((state) => state.isNowPlayingOpen);
   const isLyricsOpen = useUiStore((state) => state.isLyricsOpen);
   const toggleLyrics = useUiStore((state) => state.toggleLyrics);
@@ -124,6 +128,11 @@ export function MiniPlayer() {
           lyrics and volume from inside the fullscreen Now Playing sheet
           itself, so it doesn't need a mini-player-level shortcut to them. */}
       <div className={styles.rightControls}>
+        {hasOtherDevices && (
+          <button type="button" className={styles.iconButton} onClick={openConnectSheet} aria-label="Perangkat">
+            <Icon name="devices" size={18} />
+          </button>
+        )}
         <button
           type="button"
           className={[styles.iconButton, isLyricsOpen ? styles.iconButtonActive : ''].join(' ')}

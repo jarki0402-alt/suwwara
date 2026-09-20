@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { ConfirmPairSheet } from '../components/ConfirmPairSheet/ConfirmPairSheet';
 import { JamSheet } from '../components/JamSheet/JamSheet';
+import { LinkDeviceSheet } from '../components/LinkDeviceSheet/LinkDeviceSheet';
+import { ScanLinkSheet } from '../components/ScanLinkSheet/ScanLinkSheet';
 import { JoinJamSheet } from '../components/JoinJamSheet/JoinJamSheet';
 import { PairDeviceSheet } from '../components/PairDeviceSheet/PairDeviceSheet';
 import { useJamSync } from '../jam/useJamSync';
@@ -37,6 +39,9 @@ function ShellBody() {
   const incomingPairCode = useUiStore((state) => state.incomingPairCode);
   const closeIncomingPair = useUiStore((state) => state.closeIncomingPair);
   const isNowPlayingOpen = useUiStore((state) => state.isNowPlayingOpen);
+  const linkSheet = useUiStore((state) => state.linkSheet);
+  const linkPrefillCode = useUiStore((state) => state.linkPrefillCode);
+  const closeLinkSheet = useUiStore((state) => state.closeLinkSheet);
   const currentView = useUiStore((state) => state.currentView);
   const detailDepth = useUiStore((state) => state.detailStack.length);
   const { currentSong } = usePlayback();
@@ -67,6 +72,8 @@ function ShellBody() {
       <JamSheet isOpen={isJamSheetOpen} onClose={closeJamSheet} />
       {joinJamRoomId && <JoinJamSheet isOpen roomId={joinJamRoomId} onClose={closeJoinJamSheet} />}
       <PairDeviceSheet isOpen={isPairingSheetOpen} onClose={closePairingSheet} />
+      {linkSheet === 'show' && <LinkDeviceSheet onClose={closeLinkSheet} />}
+      {linkSheet === 'scan' && <ScanLinkSheet prefillCode={linkPrefillCode} onClose={closeLinkSheet} />}
       {incomingPairCode && <ConfirmPairSheet isOpen code={incomingPairCode} onClose={closeIncomingPair} />}
     </div>
   );

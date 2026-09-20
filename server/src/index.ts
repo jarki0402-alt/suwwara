@@ -8,6 +8,7 @@ import { browseRouter } from './routes/browse';
 import { detailsRouter } from './routes/details';
 import { jamRouter } from './routes/jam';
 import { libraryRouter } from './routes/library';
+import { linkRouter } from './routes/link';
 import { searchRouter } from './routes/search';
 import { similarRouter } from './routes/similar';
 import { trendingRouter } from './routes/trending';
@@ -35,6 +36,8 @@ app.use('/api', jamRouter);
 // routes. artistRouter has no auth requirement of its own, so it needs to be
 // registered before that middleware ever gets a chance to intercept it.
 app.use('/api', artistRouter);
+// linkRouter applies deviceAuth per route (not router-wide), so it is safe ahead of authRouter/libraryRouter.
+app.use('/api', linkRouter);
 app.use('/api', authRouter);
 app.use('/api', libraryRouter);
 

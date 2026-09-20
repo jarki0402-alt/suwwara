@@ -5,6 +5,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { CacheManager } from './CacheManager';
 import { DataSaverToggle } from './DataSaverToggle';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
+import { LinkedDevices } from './LinkedDevices';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
 import { ThemeToggle } from './ThemeToggle';
@@ -15,7 +16,6 @@ export function SettingsView() {
   const jamRole = useJamStore((state) => state.role);
   const jamMemberCount = useJamStore((state) => state.memberCount);
   const openJamSheet = useUiStore((state) => state.openJamSheet);
-  const openPairingSheet = useUiStore((state) => state.openPairingSheet);
 
   const handleClearHistory = () => {
     clearHistory();
@@ -45,18 +45,7 @@ export function SettingsView() {
         </div>
       </div>
 
-      <div className={styles.section}>
-        <span className={styles.sectionTitle}>Akun</span>
-        <div className={styles.card}>
-          <SettingsRow
-            icon="database"
-            title="Hubungkan Device Lain"
-            subtitle="Sinkronkan playlist & lagu favorit lewat kode QR — tanpa email, tanpa password."
-            onClick={openPairingSheet}
-            control={<span className={styles.linkButton}>Hubungkan</span>}
-          />
-        </div>
-      </div>
+      <LinkedDevices />
 
       <CacheManager />
 

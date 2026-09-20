@@ -18,6 +18,11 @@ create table if not exists devices (
   last_seen_at timestamptz not null default now()
 );
 
+-- Shown in the linked-devices list (Settings -> Perangkat). Idempotent so an existing
+-- database picks them up on the next boot.
+alter table devices add column if not exists name text;
+alter table devices add column if not exists kind text;
+
 -- One row per account: the whole liked-songs + playlists snapshot, mirroring
 -- the shape already used by src/stores/libraryStore.ts. Deliberately not
 -- normalized into per-song/per-playlist rows — at this app's scale (a closed
@@ -30,6 +35,11 @@ create table if not exists library_snapshots (
   playlists jsonb not null default '[]',
   updated_at timestamptz not null default now()
 );
+
+-- Bumped on every write. Lets a device ask "anything newer than what I have?" without
+-- downloading the whole snapshot, and lets a write be rejected when someone else changed
+-- the library since this device last saw it (see routes/library.ts).
+alter table library_snapshots add column if not exists version bigint not null default 0;
 
 -- Replaces the in-memory Map cache that used to live in youtube/stream.ts.
 -- Moving it here means a redeploy/restart doesn't throw away every

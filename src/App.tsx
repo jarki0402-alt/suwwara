@@ -25,12 +25,16 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('jam');
     const pairCode = params.get('pair');
+    const linkCode = params.get('link');
     if (roomId) useUiStore.getState().openJoinJamSheet(roomId);
     if (pairCode) useUiStore.getState().openIncomingPair(pairCode);
+    // A QR from the "link a device" screen, opened as a link (an ordinary camera app, or a pasted link).
+    if (linkCode && /^[0-9A-Fa-f]{8}$/.test(linkCode)) useUiStore.getState().openLinkScan(linkCode.toUpperCase());
 
-    if (roomId || pairCode) {
+    if (roomId || pairCode || linkCode) {
       params.delete('jam');
       params.delete('pair');
+      params.delete('link');
       const query = params.toString();
       window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
     }

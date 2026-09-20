@@ -19,6 +19,11 @@ export type DetailRoute = { type: 'artist'; artistId: string | null; name?: stri
 
 interface UiState {
   currentView: ViewName;
+  /** 'show' = this device displays a QR to be linked; 'scan' = this device scans one (or confirms a code that arrived as a link). */
+  linkSheet: 'none' | 'show' | 'scan';
+  linkPrefillCode: string | null;
+  /** Bumped whenever the set of linked devices changes, so the Settings list refetches. */
+  linkedDevicesTick: number;
   detailStack: DetailRoute[];
   isNowPlayingOpen: boolean;
   isQueueOpen: boolean;
@@ -51,6 +56,10 @@ interface UiState {
    * entirely, unlike the panel which lets you keep browsing.
    */
   isNowPlayingFullscreen: boolean;
+  openLinkShow: () => void;
+  openLinkScan: (prefillCode?: string) => void;
+  closeLinkSheet: () => void;
+  bumpLinkedDevices: () => void;
   setView: (view: ViewName) => void;
   openArtist: (target: { artistId?: string | null; name?: string }) => void;
   openAlbum: (albumId: string) => void;
@@ -93,6 +102,9 @@ function leaveNowPlaying(): Partial<UiState> {
 /** Always boots to Home — avoids resuming into a Now Playing sheet with nothing loaded. */
 export const useUiStore = create<UiState>((set) => ({
   currentView: 'home',
+  linkSheet: 'none',
+  linkPrefillCode: null,
+  linkedDevicesTick: 0,
   detailStack: [],
   isNowPlayingOpen: false,
   isQueueOpen: false,
@@ -104,6 +116,10 @@ export const useUiStore = create<UiState>((set) => ({
   openedCollectionId: null,
   isLyricsOpen: false,
   isNowPlayingFullscreen: false,
+  openLinkShow: () => set({ linkSheet: 'show', linkPrefillCode: null }),
+  openLinkScan: (prefillCode) => set({ linkSheet: 'scan', linkPrefillCode: prefillCode ?? null }),
+  closeLinkSheet: () => set({ linkSheet: 'none', linkPrefillCode: null }),
+  bumpLinkedDevices: () => set((state) => ({ linkedDevicesTick: state.linkedDevicesTick + 1 })),
   setView: (view) => set({ currentView: view, detailStack: [] }),
   openArtist: ({ artistId, name }) =>
     set((state) => ({

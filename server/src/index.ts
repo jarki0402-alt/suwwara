@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import { migrate } from './db/client';
+import { pruneLyricsCache } from './youtube/lyrics';
 import { artistRouter } from './routes/artist';
 import { connectRouter } from './routes/connect';
 import { audioRouter } from './routes/audio';
@@ -10,6 +11,7 @@ import { detailsRouter } from './routes/details';
 import { jamRouter } from './routes/jam';
 import { libraryRouter } from './routes/library';
 import { linkRouter } from './routes/link';
+import { lyricsRouter } from './routes/lyrics';
 import { searchRouter } from './routes/search';
 import { similarRouter } from './routes/similar';
 import { trendingRouter } from './routes/trending';
@@ -22,6 +24,7 @@ app.use(cors());
 app.use(express.json());
 app.use('/api', searchRouter);
 app.use('/api', detailsRouter);
+app.use('/api', lyricsRouter);
 app.use('/api', audioRouter);
 app.use('/api', trendingRouter);
 app.use('/api', trendingIdRouter);
@@ -49,6 +52,7 @@ app.get('/', (_req, res) => {
 
 async function start(): Promise<void> {
   await migrate();
+  void pruneLyricsCache();
   app.listen(PORT, '0.0.0.0', () => {
     // eslint-disable-next-line no-console
     console.log(`Suwwara music backend listening on http://0.0.0.0:${PORT}`);

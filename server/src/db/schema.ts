@@ -53,4 +53,19 @@ create table if not exists audio_cache (
   expires_at timestamptz not null,
   primary key (video_id, quality)
 );
+
+-- Lyrics found for a video, so a song is looked up upstream once for everyone instead of on every play of
+-- every device. expires_at is a refresh time, not a delete time: an expired row is still served if the
+-- refresh fails (see youtube/lyrics.ts). Rows are pruned by count and age, never left to grow unbounded.
+create table if not exists lyrics_cache (
+  video_id text primary key,
+  type text not null,
+  source text,
+  synced text,
+  plain text,
+  matched_duration_sec real,
+  expires_at timestamptz not null,
+  fetched_at timestamptz not null default now()
+);
+create index if not exists lyrics_cache_fetched_idx on lyrics_cache (fetched_at);
 `;

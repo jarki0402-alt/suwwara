@@ -34,19 +34,6 @@ registerRoute(
   }),
 );
 
-// LRCLIB lyrics — rarely change once matched, so a longer cache is safe.
-registerRoute(
-  ({ url }) => url.hostname === 'lrclib.net',
-  new NetworkFirst({
-    cacheName: 'lrclib-api',
-    networkTimeoutSeconds: 4,
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 7 }),
-    ],
-  }),
-);
-
 // Audio is deliberately NOT cached/routed through the Service Worker at all (removed
 // 2026-09-05, previously a CacheFirst + RangeRequestsPlugin rule here). Two independent,
 // hard-to-fully-close failure modes kept surfacing as the exact same user-facing bug

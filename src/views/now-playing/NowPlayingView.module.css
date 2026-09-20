@@ -244,6 +244,8 @@
 }
 
 .artSection {
+  /* Positioning context for the lyrics' timing control (LyricsPanel.module.css .syncControl). */
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;

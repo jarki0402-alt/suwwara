@@ -266,7 +266,7 @@
   height: min(78vw, 340px);
   border-radius: var(--radius-lg);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* No border: a 1px light outline drawn over the photo's edge read as a grey line cutting into the art. */
 }
 
 .meta {
@@ -284,6 +284,10 @@
 }
 
 .title {
+  /* Explicit, not inherited: inherited it is body's colour, which is dark text in the light theme — on this
+     always-dark sheet the song title then nearly vanished. (The tokens overridden on .sheet only apply where a
+     rule actually reads them.) */
+  color: var(--color-text-primary);
   font-size: 1.15rem;
   font-weight: 700;
   overflow: hidden;

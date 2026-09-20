@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { describeThisDevice } from '../../auth/deviceInfo';
 import { listLinkedDevices, unlinkDevice, type LinkedDevice } from '../../api/authClient';
 import { useToast } from '../../components/Toast/ToastProvider';
 import { useConnectStore } from '../../connect/connectStore';
@@ -27,6 +28,7 @@ export function LinkedDevices() {
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
   const onlineOthers = useConnectStore((state) => Math.max(state.devices.length - 1, 0));
   const [devices, setDevices] = useState<LinkedDevice[]>([]);
+  const isComputer = describeThisDevice().kind === 'desktop';
 
   useEffect(() => {
     let cancelled = false;
@@ -81,20 +83,25 @@ export function LinkedDevices() {
             control={<span className={styles.linkButton}>Buka</span>}
           />
         )}
-        <SettingsRow
-          icon="database"
-          title="Tautkan perangkat baru"
-          subtitle="Tampilkan QR di sini (laptop / perangkat baru), lalu pindai dari HP."
-          onClick={openLinkShow}
-          control={<span className={styles.linkButton}>Tampilkan QR</span>}
-        />
-        <SettingsRow
-          icon="search"
-          title="Pindai QR dari perangkat lain"
-          subtitle="Di HP yang sudah berisi lagu & playlist kamu."
-          onClick={() => openLinkScan()}
-          control={<span className={styles.linkButton}>Pindai</span>}
-        />
+        {/* Like WhatsApp Web: the computer is the one that shows the QR, the phone is the one that scans it —
+            so each device only offers its own half. */}
+        {isComputer ? (
+          <SettingsRow
+            icon="database"
+            title="Tautkan ke HP"
+            subtitle="Tampilkan QR, lalu pindai dari HP yang sudah berisi lagu & playlist kamu."
+            onClick={openLinkShow}
+            control={<span className={styles.linkButton}>Tampilkan QR</span>}
+          />
+        ) : (
+          <SettingsRow
+            icon="search"
+            title="Pindai QR dari perangkat lain"
+            subtitle="Di HP yang sudah berisi lagu & playlist kamu."
+            onClick={() => openLinkScan()}
+            control={<span className={styles.linkButton}>Pindai</span>}
+          />
+        )}
       </div>
     </div>
   );

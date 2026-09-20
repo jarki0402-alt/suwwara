@@ -1,3 +1,4 @@
+import { resizeGoogleImage, TIER_PIXELS } from './imageSize';
 import type { ArtistRef, ImageVariant, Song } from './types';
 
 const NAMED_HTML_ENTITIES: Record<string, string> = {
@@ -49,9 +50,9 @@ export interface BackendSong {
 function buildImageVariants(videoId: string, bestThumbnail: string): ImageVariant[] {
   const fallback = bestThumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
   return [
-    { quality: '50x50', url: fallback },
-    { quality: '150x150', url: fallback },
-    { quality: '500x500', url: fallback },
+    { quality: '50x50', url: resizeGoogleImage(fallback, TIER_PIXELS['50x50']) },
+    { quality: '150x150', url: resizeGoogleImage(fallback, TIER_PIXELS['150x150']) },
+    { quality: '500x500', url: resizeGoogleImage(fallback, TIER_PIXELS['500x500']) },
   ];
 }
 

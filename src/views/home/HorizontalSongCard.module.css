@@ -21,7 +21,7 @@
   position: relative;
   display: block;
   border-radius: var(--radius-md);
-  transition: box-shadow var(--transition-base);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
 }
 
 .art {
@@ -29,7 +29,6 @@
   height: 136px;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-floating);
-  transition: transform var(--transition-base);
 }
 
 .playOverlay {
@@ -47,11 +46,11 @@
 }
 
 @media (hover: hover) {
-  .card:hover .art {
-    transform: translateY(-4px);
-  }
-
+  /* The wrapper is what lifts, not just the image: the dark play overlay sits on the wrapper, and
+     lifting only the image left its top 4px uncovered by the overlay — a bright band across the
+     top of the cover while the rest looked dimmed. */
   .card:hover .artWrapper {
+    transform: translateY(-4px);
     box-shadow: var(--shadow-glow);
   }
 

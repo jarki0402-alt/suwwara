@@ -1,6 +1,7 @@
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../../connect/connectStore';
+import { useIsDesktop } from '../../hooks/useIsDesktop';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
@@ -24,6 +25,7 @@ export function NowPlayingView() {
   const isFullscreen = useUiStore((state) => state.isNowPlayingFullscreen);
   const closeNowPlaying = useUiStore((state) => state.closeNowPlaying);
   const closeFullscreenLyrics = useUiStore((state) => state.closeFullscreenLyrics);
+  const isDesktop = useIsDesktop();
   const openQueue = useUiStore((state) => state.openQueue);
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
   const hasOtherDevices = useConnectStore((state) => state.devices.length > 1);
@@ -108,10 +110,11 @@ export function NowPlayingView() {
           </div>
         )}
 
+        {/* Desktop only: on a phone the sheet is just the art and the controls. (The artist's own page has the bio.) */}
         {/* Not shown while viewing lyrics/fullscreen — a same-artist bio
             reads oddly wedged between lyric lines, and fullscreen is meant to
             be lyrics-focused with nothing else competing for attention. */}
-        {!showLyrics && !isFullscreen && <ArtistInfo artistName={primaryArtistNames(currentSong)} />}
+        {!showLyrics && !isFullscreen && isDesktop && <ArtistInfo artistName={primaryArtistNames(currentSong)} />}
 
         {isFullscreen ? (
           <div className={[styles.fullscreenBar, chromeHidden ? styles.chromeHidden : ''].join(' ')}>

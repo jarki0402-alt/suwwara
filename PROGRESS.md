@@ -25,6 +25,14 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (rapikan hasil uji user: peran QR per perangkat, garis di foto, gambar tajam)
+
+- **Tautan perangkat: tiap perangkat cuma menawarkan separuhnya** (`LinkedDevices.tsx`): komputer hanya "Tautkan ke HP" (Tampilkan QR), HP/tablet hanya "Pindai QR" — seperti WhatsApp Web. Jalur `?link=` tetap jalan.
+- **Now Playing di HP**: "Tentang Artis" (bio Wikipedia) dihilangkan di HP, tetap ada di panel desktop (`useIsDesktop`, jadi permintaan Wikipedia pun tak dikirim di HP); halaman artis tetap punya bio di paling bawah.
+- **"Garis abu-abu yang menutupi foto"**, dua penyebab berbeda: (1) Now Playing: `border: 1px solid rgba(255,255,255,.1)` di `.art` menimpa tepi foto — dihapus. (2) Kartu chart Beranda saat hover: yang terangkat 4 px hanya fotonya, sedangkan lapisan gelap ikon-putar (`inset:0`) tidak — 4 px teratas foto tak tertimpa lapisan gelap dan tampak seperti pita emas terang di atas cover yang lain tampak kelabu. Sekarang seluruh tile (foto + lapisan) yang terangkat; diukur: posisi atas foto/lapisan/wrapper sama (565/565/565) saat hover.
+- **Foto pecah**: thumbnail dari YouTube Music cuma `=w120-h120` dan dipakai di semua tempat, termasuk Now Playing ±340 px. CDN Google membuat ukuran apa pun lewat parameter itu (diverifikasi piksel aslinya: 226/544/800), jadi tiap tingkat meminta ukuran yang pas (`imageSize.ts`: 160 untuk baris daftar, 320 kartu, 640 Now Playing; URL non-Google tak disentuh). Foto Now Playing kini 640 px asli.
+- **Bug lama (mode terang)**: judul lagu di Now Playing nyaris tak terbaca karena `.title` tak punya warna sendiri dan mewarisi teks gelap dari `body`, sedangkan sheet-nya selalu gelap. Ditambah `color: var(--color-text-primary)`.
+
 ## Perubahan terbaru — 2026-09-21 (Connect: kontrol jarak jauh antar-perangkat ala Spotify Connect)
 
 Perangkat yang sudah tertaut sekarang saling terlihat dan bisa saling mengontrol. Dirancang supaya **pemutar, `usePlaybackController`, dan AudioEngine tidak disentuh sama sekali**: saat mengontrol perangkat lain, `RemoteBar` (bar terpisah) menggantikan MiniPlayer; perangkat yang dikontrol menjalankan perintah lewat engine/antrean yang sama dengan tombol on-screen.

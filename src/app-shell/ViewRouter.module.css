@@ -1,0 +1,17 @@
+/* A short fade on every menu switch. Opacity only, on purpose: a transform on this
+   wrapper would make it the containing block for any position:fixed descendant for
+   the duration of the animation, and an instant hard swap (what this replaced) reads
+   as a flash on a phone. Kept well under the 200ms threshold where UI starts to feel
+   like it's waiting on you. */
+.view {
+  animation: viewIn 140ms ease-out both;
+}
+
+@keyframes viewIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

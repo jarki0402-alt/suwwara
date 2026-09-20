@@ -16,6 +16,13 @@ body,
   height: 100dvh;
 }
 
+html {
+  /* Stops iOS from resizing text on rotation, and removes the grey flash a tap leaves
+     on every tappable element — the app draws its own pressed states. */
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   margin: 0;
   font-family: var(--font-family);
@@ -29,6 +36,9 @@ body {
 button {
   font-family: inherit;
   color: inherit;
+  /* Taps register immediately — no double-tap-to-zoom wait on a control, and no
+     accidental page zoom from rapid play/pause/next taps. */
+  touch-action: manipulation;
 }
 
 img {
@@ -71,4 +81,17 @@ p {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+/* Anyone who has asked their OS for less motion gets none: every animation and
+   transition in the app (sheet slides, view fades, spinners) collapses to instant. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

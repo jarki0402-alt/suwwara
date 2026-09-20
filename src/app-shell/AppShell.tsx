@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ConfirmPairSheet } from '../components/ConfirmPairSheet/ConfirmPairSheet';
 import { JamSheet } from '../components/JamSheet/JamSheet';
 import { JoinJamSheet } from '../components/JoinJamSheet/JoinJamSheet';
@@ -36,6 +37,7 @@ function ShellBody() {
   const incomingPairCode = useUiStore((state) => state.incomingPairCode);
   const closeIncomingPair = useUiStore((state) => state.closeIncomingPair);
   const isNowPlayingOpen = useUiStore((state) => state.isNowPlayingOpen);
+  const currentView = useUiStore((state) => state.currentView);
   const { currentSong } = usePlayback();
 
   // On desktop, Now Playing renders as a docked side panel (not a fullscreen
@@ -45,9 +47,17 @@ function ShellBody() {
   // class is a no-op below the desktop breakpoint.
   const showNowPlayingPanel = isNowPlayingOpen && currentSong !== null;
 
+  // <main> is the one scroll container shared by every menu, so without this a menu
+  // opened after scrolling deep into another one starts from that same offset — the
+  // fresh view then appears already scrolled past its own header.
+  const contentRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0 });
+  }, [currentView]);
+
   return (
     <div className={styles.shell}>
-      <main className={[styles.content, showNowPlayingPanel ? styles.contentWithPanel : ''].join(' ')}>
+      <main ref={contentRef} className={[styles.content, showNowPlayingPanel ? styles.contentWithPanel : ''].join(' ')}>
         <ViewRouter />
       </main>
       <MiniPlayer />

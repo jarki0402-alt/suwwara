@@ -17,3 +17,12 @@ export function setGainImmediate(gainNode: GainNode, context: AudioContext, volu
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(volume, now);
 }
+
+/** Ramps from wherever the gain currently is (not from 0) — used to resume out of a
+ * half-finished fade-out without a jump. */
+export function scheduleFadeTo(gainNode: GainNode, context: AudioContext, targetVolume: number, durationSec: number): void {
+  const now = context.currentTime;
+  gainNode.gain.cancelScheduledValues(now);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+  gainNode.gain.linearRampToValueAtTime(targetVolume, now + Math.max(durationSec, 0.01));
+}

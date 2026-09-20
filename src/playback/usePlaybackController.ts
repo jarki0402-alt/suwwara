@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Song } from '../api/types';
 import { cacheSongs } from '../api/songCache';
+import { prefetchAudioResolveOnly } from '../api/musicClient';
 import { audioEngine } from '../audio-engine/AudioEngine';
 import { AudioCache } from '../audio-engine/AudioCache';
 import { useAudioEngine } from '../audio-engine/useAudioEngine';
@@ -56,11 +57,16 @@ const TRANSITION_FADE_SEC = 0.35;
 // radio-style queue flowing continuously (like any other streaming app) instead
 // of ever visibly running out and stopping.
 const EXTEND_QUEUE_THRESHOLD = 3;
-// How many upcoming tracks to keep warm. Only the very next one gets a full
-// audio-byte prefetch (genuinely costs the same server work as playing it —
-// see prefetchAudioFull's own doc comment for why that's capped to just one);
-// the rest only get the cheap yt-dlp-resolve-only warm-up.
-const PREFETCH_LOOKAHEAD = 3;
+// How many upcoming tracks to keep warm. Every one of them costs the backend a
+// yt-dlp resolve (and, where the browser can hold blobs, a whole-file download) on
+// a 1-vCPU VM, so this stays small: the next track is what matters, a second one is
+// cheap insurance against a quick double-skip.
+const PREFETCH_LOOKAHEAD = 2;
+// Background warm-up only starts once the current track has been audibly playing for
+// this long. It used to fire the instant the queue changed — i.e. at the exact moment
+// the user had just tapped a song and was waiting on the backend, so the lookahead
+// resolves queued up right beside (and delayed) the one that mattered.
+const PREFETCH_SETTLE_MS = 1500;
 
 /**
  * Orchestration layer wiring queueStore/settingsStore to the AudioEngine and
@@ -124,6 +130,14 @@ export function usePlaybackController() {
     audioEngine.setVolume(volume);
   }, [volume]);
 
+  // Off the tap path: see AudioEngine.prepare() for why building the graph on the first
+  // tap made the first song of a session start late. Deferred a moment so it never
+  // competes with the app's own first paint.
+  useEffect(() => {
+    const timeoutId = setTimeout(() => audioEngine.prepare(), 500);
+    return () => clearTimeout(timeoutId);
+  }, []);
+
   useEffect(() => {
     if (!currentSong) {
       loadedSongIdRef.current = null;
@@ -149,11 +163,16 @@ export function usePlaybackController() {
     const shouldAutoplay = jamStateAtLoad.role === 'solo' ? true : (jamStateAtLoad.playbackMeta?.isPlaying ?? true);
 
     const effectiveDataSaver = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
-    const loadTimeoutMs = effectiveDataSaver ? undefined : 8000; // 8s limit for high-quality
 
+    // No timeout-triggered quality fallback on purpose. A slow *start* is almost always
+    // the backend resolving a track it hasn't seen yet (or waiting its turn behind
+    // another resolve), not a lack of bandwidth — 'low' is a separate cache entry that
+    // needs its own fresh resolve, queued behind the one still running, so switching
+    // to it made the wait longer, not shorter. Real bandwidth problems are handled
+    // where they actually show up: a rebuffer mid-song (see the effect further down).
     const action = wasIdle
-      ? audioEngine.loadTrack(currentSong, { dataSaver: effectiveDataSaver, autoplay: shouldAutoplay, fadeInSec: 0.6, timeoutMs: loadTimeoutMs })
-      : audioEngine.crossfadeTo(currentSong, TRANSITION_FADE_SEC, { dataSaver: effectiveDataSaver, timeoutMs: loadTimeoutMs });
+      ? audioEngine.loadTrack(currentSong, { dataSaver: effectiveDataSaver, autoplay: shouldAutoplay, fadeInSec: 0.6 })
+      : audioEngine.crossfadeTo(currentSong, TRANSITION_FADE_SEC, { dataSaver: effectiveDataSaver });
 
     action
       .then(() => {
@@ -170,21 +189,6 @@ export function usePlaybackController() {
       })
       .catch((error: unknown) => {
         const timedOut = error instanceof Error && error.message.includes('Timed out');
-        
-        if (timedOut && !effectiveDataSaver) {
-          // Initial load high quality timed out! Rescue with low quality probation.
-          autoDataSaverTracksRemainingRef.current = 2;
-          const fallbackAction = wasIdle
-            ? audioEngine.loadTrack(currentSong, { dataSaver: true, autoplay: shouldAutoplay, fadeInSec: 0.6 })
-            : audioEngine.crossfadeTo(currentSong, TRANSITION_FADE_SEC, { dataSaver: true });
-            
-          fallbackAction.catch((err2) => {
-             const timedOut2 = err2 instanceof Error && err2.message.includes('Timed out');
-             setPlaybackStatus({ isPlaying: false, isBuffering: false, error: timedOut2 ? 'Koneksi lambat — lagu gagal dimuat.' : 'Gagal memutar lagu ini.' });
-          });
-          return;
-        }
-
         setPlaybackStatus({
           isPlaying: false,
           isBuffering: false,
@@ -271,30 +275,57 @@ export function usePlaybackController() {
     // through the whole queue instead of just failing visibly once.
     if (consecutiveErrorsRef.current < MAX_CONSECUTIVE_AUTO_SKIP) {
       consecutiveErrorsRef.current += 1;
-      // In a Jam, one user's bad connection shouldn't skip the song for the whole room!
-      if (jamRole === 'solo') {
+      // In a Jam an advance moves the queue for the whole room, so one member's bad
+      // connection must never trigger it (a timeout says nothing about the track, only
+      // about this device). A track that is genuinely broken fails for everyone
+      // though, and would otherwise wedge the room forever — so the creator alone
+      // (the server dedupes by song id) skips it, and only for a non-timeout failure.
+      const isTimeout = playerError.includes('Koneksi lambat');
+      if (jamRole === 'solo' || (jamIsCreator && !isTimeout)) {
         runCompletionAdvance(songToRetry);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerError, jamRole]);
+  }, [playerError, jamRole, jamIsCreator]);
 
+  // Lookahead warm-up. Deliberately waits for the current track to be *playing* (see
+  // PREFETCH_SETTLE_MS) and re-arms whenever the queue shape around it changes —
+  // reorders, additions from search, radio auto-extend, a Jam edit from someone else —
+  // so what's kept warm always matches whatever is actually coming next.
+  //
+  // Two different mechanisms, because the platforms differ:
+  //  - browsers that can play a blob: URL (desktop/Android): download the next tracks
+  //    into IndexedDB, one at a time, and only then point the spare <audio> element at
+  //    the stored blob — the next track then starts with zero network.
+  //  - iOS: blob: playback is unreliable there (see AudioCache), so the spare element
+  //    natively preloads the next track over the network and only the tracks after it
+  //    get the cheap resolve-only warm-up.
+  // The *current* track is never prefetched: its own <audio> element is already
+  // downloading it, and a second full download of the same file just doubled the load.
+  const isPlaying = engineState.status === 'playing';
   useEffect(() => {
-    if (!currentSong) return;
-    const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id);
-    const [nextUp] = upcoming;
-    if (nextUp) audioEngine.preloadNextTrack(nextUp, dataSaver);
-    
-    // Push to the limit: Cache current track and ALL upcoming tracks in IndexedDB
-    AudioCache.prefetchAndCache(currentSong.id, dataSaver).catch(() => {});
-    for (const song of upcoming) {
-      AudioCache.prefetchAndCache(song.id, dataSaver).catch(() => {});
-    }
-    // Re-runs whenever the current track (or the queue shape around it) changes — reorders,
-    // additions from search, radio auto-extend, a Jam edit from someone else — so the
-    // upcoming tracks being kept warm always match whatever's actually coming next.
+    if (!currentSong || !isPlaying) return;
+    const timeoutId = setTimeout(() => {
+      const preferLow = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
+      const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id);
+      const [nextUp, ...later] = upcoming;
+      if (!nextUp) return;
+
+      AudioCache.prefetchTracks(
+        // Data Saver users opted out of spending data on tracks they may never hear.
+        (preferLow ? [nextUp] : upcoming).map((song) => song.id),
+        preferLow,
+      );
+      if (AudioCache.isSupported) {
+        void AudioCache.prefetchAndCache(nextUp.id, preferLow).then(() => audioEngine.preloadNextTrack(nextUp, preferLow));
+      } else {
+        void audioEngine.preloadNextTrack(nextUp, preferLow);
+        for (const song of later) prefetchAudioResolveOnly(song.id, preferLow ? 'low' : 'high');
+      }
+    }, PREFETCH_SETTLE_MS);
+    return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSong?.id, order, position, repeatMode, dataSaver]);
+  }, [currentSong?.id, isPlaying, order, position, repeatMode, dataSaver]);
 
   useEffect(() => {
     setPlaybackStatus({

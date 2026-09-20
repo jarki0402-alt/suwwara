@@ -4,6 +4,12 @@
   z-index: var(--z-sheet);
   background: var(--color-bg);
   animation: slideIn var(--transition-slow);
+  /* The sheet slides in over 400ms with a full-screen 40px-blurred image inside it.
+     Telling the browser up front that this layer will be transformed lets it
+     rasterize the blurred art once and just move the finished layer, instead of
+     re-blurring it on every frame — the difference between smooth and stuttering
+     on an iPhone GPU. */
+  will-change: transform;
 }
 
 @keyframes slideIn {
@@ -59,6 +65,7 @@
   object-fit: cover;
   filter: blur(40px) saturate(1.4) brightness(0.7);
   z-index: -1;
+  transform: translateZ(0); /* own layer: the blur is rasterized once, not per frame of the slide-in */
 }
 
 .ambientScrim {

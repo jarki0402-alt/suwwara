@@ -12,7 +12,6 @@ export interface LoadTrackOptions {
   dataSaver?: boolean;
   autoplay?: boolean;
   fadeInSec?: number;
-  timeoutMs?: number;
 }
 
 export class AudioEngineError extends Error {

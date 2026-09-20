@@ -78,6 +78,7 @@
      the old solid-gradient tiles this replaced. */
   filter: blur(13px) saturate(1.25) brightness(0.85);
   z-index: -1;
+  transform: translateZ(0); /* rasterize each blurred image once instead of on every scroll frame of the row */
 }
 
 .collageImg:nth-child(1) {

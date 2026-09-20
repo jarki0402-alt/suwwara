@@ -1,15 +1,35 @@
 import type { Song } from '../api/types';
 import { resolveAudioUrl } from './bitrateResolver';
 import { AudioCache } from './AudioCache';
-import { scheduleFadeIn, scheduleFadeOut, setGainImmediate } from './crossfade';
+import { scheduleFadeIn, scheduleFadeOut, scheduleFadeTo, setGainImmediate } from './crossfade';
 import type { AudioEngineListener, LoadTrackOptions, PlaybackState } from './types';
 import { AudioEngineError } from './types';
 
 const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
-const CANPLAY_TIMEOUT_MS = 15000;
+// Deliberately longer than the backend's own worst case (a 25s yt-dlp resolve timeout,
+// see server/src/youtube/stream.ts): giving up on the client before the server does
+// only abandons a resolve that was about to succeed. A slow-but-working load should
+// keep spinning; only a genuinely dead one should ever hit this.
+const CANPLAY_TIMEOUT_MS = 30000;
+
+// How long pause/resume take to ramp the output, in seconds. Stopping an <audio>
+// element mid-waveform can leave an audible click; ~90ms is below what reads as a
+// delay but enough to land the ramp on silence. Only where a GainNode exists (not iOS,
+// which bypasses Web Audio entirely — see ensureGraph).
+const PAUSE_FADE_SEC = 0.09;
+const RESUME_FADE_SEC = 0.06;
+
+// HTMLMediaElement.HAVE_FUTURE_DATA — enough buffered to start playing.
+const HAVE_FUTURE_DATA = 3;
 
 function waitForEvent(target: HTMLMediaElement, event: 'canplay', timeoutMs: number): Promise<void> {
+  // A track natively preloaded into the spare element (preloadNextTrack) has usually
+  // already fired its one 'canplay' by the time it's swapped in — waiting for another
+  // would just sit there until the timeout, turning an instant "next" into a stall.
+  // (load() resets readyState to 0 synchronously, so this can't be a stale value from
+  // a previous src.)
+  if (target.readyState >= HAVE_FUTURE_DATA) return Promise.resolve();
   return new Promise((resolve, reject) => {
     let settled = false;
     const onEvent = () => {
@@ -64,6 +84,13 @@ class AudioEngine {
   private volume = 1;
   private currentSong: Song | null = null;
   private preloadedUrl: string | null = null;
+  /**
+   * Which track the spare element was last pointed at by preloadNextTrack(). Identified
+   * by song + quality rather than by URL: for a track stored in IndexedDB every
+   * AudioCache.get() mints a *new* blob: URL, so a URL comparison never recognised the
+   * element it had just preloaded and the "next" track was needlessly loaded again.
+   */
+  private preloaded: { songId: string; dataSaver: boolean } | null = null;
   private crossfadeTimeoutId: ReturnType<typeof setTimeout> | null = null;
   /**
    * Bumped by every loadTrack()/crossfadeTo() call and captured as `requestId`
@@ -79,6 +106,15 @@ class AudioEngine {
    * the sole authority over playback state.
    */
   private playRequestId = 0;
+  /**
+   * How many loadTrack()/crossfadeTo() calls are in flight. Both of them own the spare
+   * <audio> element while they run (crossfadeTo loads the incoming track into it), and
+   * preloadNextTrack() targets that very same element — so it must never touch it in
+   * the middle of a transition, or it can overwrite the song the user just tapped with
+   * the one queued after it.
+   */
+  private transitionsInFlight = 0;
+  private pauseTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   private listeners = new Set<AudioEngineListener>();
   private snapshot: PlaybackState = { status: 'idle', duration: 0, error: null };
@@ -143,6 +179,7 @@ class AudioEngine {
     this.elements = [chainA.element, chainB.element];
     this.gains = [chainA.gain, chainB.gain];
 
+    AudioCache.warm();
     this.bindElementEvents(0, chainA.element);
     this.bindElementEvents(1, chainB.element);
     if (context) this.bindLifecycleRecovery(context);
@@ -232,6 +269,19 @@ class AudioEngine {
   }
 
   /**
+   * Builds the audio graph (AudioContext, both <audio> elements) ahead of the first tap.
+   * `new AudioContext()` opens the audio device, which was measured blocking the main
+   * thread for ~1s on its first call — and it used to happen lazily inside the very first
+   * click, so the first song of every session sat there doing nothing before it even
+   * requested any audio. Creating it is allowed without a user gesture (it just starts out
+   * 'suspended'; unlock() still resumes it inside the real tap), so this is safe to run
+   * during idle time right after the app opens.
+   */
+  prepare(): void {
+    this.ensureGraph();
+  }
+
+  /**
    * Must be called synchronously at the very top of the first play-button click
    * handler (iOS/Chrome autoplay policy).
    *
@@ -282,16 +332,28 @@ class AudioEngine {
   }
 
   async loadTrack(song: Song, options: LoadTrackOptions = {}): Promise<void> {
+    this.transitionsInFlight += 1;
+    try {
+      await this.loadTrackImpl(song, options);
+    } finally {
+      this.transitionsInFlight -= 1;
+    }
+  }
+
+  private async loadTrackImpl(song: Song, options: LoadTrackOptions): Promise<void> {
     const requestId = ++this.playRequestId;
+    this.cancelPendingPause();
     const { context, elements, gains } = this.ensureGraph();
     if (context && context.state === 'suspended') await context.resume();
     if (requestId !== this.playRequestId) return; // superseded while the context was resuming
 
-    let url = await AudioCache.get(song.id, options.dataSaver ?? false);
-    if (!url) {
-      url = resolveAudioUrl(song.id, options.dataSaver ?? false);
+    const dataSaver = options.dataSaver ?? false;
+    const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
+    const usePreload = this.hasUsablePreload(song, dataSaver, elements[inactiveIndex]);
+    let url = '';
+    if (!usePreload) {
+      url = (await AudioCache.get(song.id, dataSaver)) ?? resolveAudioUrl(song.id, dataSaver);
     }
-    const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
 
     this.cancelPendingCrossfade();
     this.currentSong = song;
@@ -314,12 +376,11 @@ class AudioEngine {
     // So if it's in the inactive element, loadTrack should just swap.
     // Wait, loadTrack does a hard cut using the *currently active* element.
     // If it's preloaded in the inactive element, we should just use that element!
-    const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
-    if ((this.preloadedUrl === url || this.preloadedUrl === preloadUrl) && 
-        (elements[inactiveIndex].src.endsWith(url) || elements[inactiveIndex].src.endsWith(preloadUrl))) {
+    if (usePreload) {
       const oldActiveIndex = this.activeIndex;
       this.activeIndex = inactiveIndex;
       this.preloadedUrl = null;
+      this.preloaded = null;
       // We swapped elements. Stop the old one.
       elements[oldActiveIndex].pause();
       const oldSrc = elements[oldActiveIndex].src;
@@ -335,7 +396,7 @@ class AudioEngine {
         newElement.volume = this.volume;
       }
       
-      await waitForEvent(newElement, 'canplay', options.timeoutMs ?? CANPLAY_TIMEOUT_MS);
+      await waitForEvent(newElement, 'canplay', CANPLAY_TIMEOUT_MS);
       if (requestId !== this.playRequestId) return;
       this.updateSnapshot({ duration: song.duration || newElement.duration });
       
@@ -356,11 +417,12 @@ class AudioEngine {
     }
 
     this.preloadedUrl = null;
+    this.preloaded = null;
     const oldSrc = element.src;
     element.src = url;
     element.load();
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
-    await waitForEvent(element, 'canplay', options.timeoutMs ?? CANPLAY_TIMEOUT_MS);
+    await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
     if (requestId !== this.playRequestId) return; // a newer request claimed this element meanwhile
 
     // Deliberately song.duration first, not element.duration: browsers can badly
@@ -444,19 +506,56 @@ class AudioEngine {
   }
 
   async play(): Promise<void> {
-    const { context, elements } = this.ensureGraph();
+    const { context, elements, gains } = this.ensureGraph();
     if (context && context.state === 'suspended') await context.resume();
-    await elements[this.activeIndex].play();
+    const element = elements[this.activeIndex];
+    const gain = gains[this.activeIndex];
+    const wasFadingOut = this.pauseTimeoutId !== null;
+    this.cancelPendingPause();
+    if (gain && context && (element.paused || wasFadingOut)) {
+      // Resuming from a pause (or from the middle of its fade-out): ramp up from
+      // wherever the output currently is instead of snapping to full volume.
+      if (element.paused) setGainImmediate(gain, context, 0);
+      scheduleFadeTo(gain, context, this.volume, RESUME_FADE_SEC);
+    }
+    await element.play();
   }
 
   pause(): void {
     if (!this.elements) return;
-    this.elements[this.activeIndex].pause();
+    const element = this.elements[this.activeIndex];
+    const gain = this.gains?.[this.activeIndex];
+    const context = this.context;
+    this.cancelPendingPause();
+    // No fade when there's nothing audible to fade (iOS has no GainNode), the element
+    // is already stopped, or the page is hidden — timers are throttled in the
+    // background, and a lock-screen pause has to take effect at once.
+    if (!gain || !context || element.paused || (typeof document !== 'undefined' && document.hidden)) {
+      element.pause();
+      return;
+    }
+    scheduleFadeOut(gain, context, PAUSE_FADE_SEC);
+    // The button flips right away; the element itself stops once the ramp has landed.
+    this.updateSnapshot({ status: 'paused' });
+    this.pauseTimeoutId = setTimeout(() => {
+      this.pauseTimeoutId = null;
+      element.pause();
+    }, PAUSE_FADE_SEC * 1000 + 10);
+  }
+
+  private cancelPendingPause(): void {
+    if (this.pauseTimeoutId !== null) {
+      clearTimeout(this.pauseTimeoutId);
+      this.pauseTimeoutId = null;
+    }
   }
 
   togglePlay(): void {
     if (!this.elements) return;
-    if (this.elements[this.activeIndex].paused) {
+    // "Paused" includes the ~90ms while a pause's fade-out is still running — the
+    // element itself hasn't stopped yet, but the user's intent already has.
+    const logicallyPaused = this.elements[this.activeIndex].paused || this.pauseTimeoutId !== null;
+    if (logicallyPaused) {
       // Previously `void this.play()` — a rejection here (e.g. the element's src
       // wasn't actually valid/ready yet) vanished as a silent unhandled promise
       // rejection: no toast, no state change, the play button just did nothing
@@ -531,6 +630,17 @@ class AudioEngine {
     return this.snapshot.status === 'playing' && this.context !== null && this.context.state !== 'running';
   }
 
+  /** True while a track change owns the spare <audio> element (a method rather than an
+   * inline check so it is re-read fresh after an await, not narrowed by an earlier one). */
+  private spareElementBusy(): boolean {
+    return this.snapshot.status === 'loading' || this.transitionsInFlight > 0;
+  }
+
+  private hasUsablePreload(song: Song, dataSaver: boolean, element: HTMLAudioElement): boolean {
+    const preloaded = this.preloaded;
+    return preloaded !== null && preloaded.songId === song.id && preloaded.dataSaver === dataSaver && element.src !== '' && !element.error;
+  }
+
   private cancelPendingCrossfade(): void {
     if (this.crossfadeTimeoutId !== null) {
       clearTimeout(this.crossfadeTimeoutId);
@@ -546,6 +656,16 @@ class AudioEngine {
    * a requirement for basic playback to keep working.
    */
   async crossfadeTo(song: Song, durationSec: number, options: LoadTrackOptions = {}): Promise<void> {
+    this.transitionsInFlight += 1;
+    try {
+      await this.crossfadeToImpl(song, durationSec, options);
+    } finally {
+      this.transitionsInFlight -= 1;
+    }
+  }
+
+  private async crossfadeToImpl(song: Song, durationSec: number, options: LoadTrackOptions): Promise<void> {
+    this.cancelPendingPause();
     const dataSaver = options.dataSaver ?? false;
     // If Web Audio API is disabled (e.g. iOS fallback), crossfades must degrade to a hard cut.
     if (durationSec <= 0 || !this.context) {
@@ -564,22 +684,25 @@ class AudioEngine {
     // was even in progress until the new track had already started.
     this.updateSnapshot({ status: 'loading', error: null });
 
-    let url = await AudioCache.get(song.id, dataSaver);
-    if (!url) url = resolveAudioUrl(song.id, dataSaver);
-    const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
-
     const outgoingIndex = this.activeIndex;
     const incomingIndex: 0 | 1 = outgoingIndex === 0 ? 1 : 0;
     const outgoingGain = gains[outgoingIndex];
     const incomingElement = elements[incomingIndex];
     const incomingGain = gains[incomingIndex];
 
-    if ((this.preloadedUrl === url || this.preloadedUrl === preloadUrl) && 
-        (incomingElement.src.endsWith(url) || incomingElement.src.endsWith(preloadUrl))) {
+    const usePreload = this.hasUsablePreload(song, dataSaver, incomingElement);
+    if (usePreload) {
       // Already preloaded natively by preloadNextTrack!
       this.preloadedUrl = null;
+      this.preloaded = null;
     } else {
+      const url = (await AudioCache.get(song.id, dataSaver)) ?? resolveAudioUrl(song.id, dataSaver);
+      if (requestId !== this.playRequestId) {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+        return; // a newer request took over while the cache lookup ran
+      }
       this.preloadedUrl = null;
+      this.preloaded = null;
       const oldSrc = incomingElement.src;
       incomingElement.src = url;
       incomingElement.load();
@@ -588,7 +711,7 @@ class AudioEngine {
     if (incomingGain && context) setGainImmediate(incomingGain, context, 0);
 
     try {
-      await waitForEvent(incomingElement, 'canplay', options.timeoutMs ?? CANPLAY_TIMEOUT_MS);
+      await waitForEvent(incomingElement, 'canplay', CANPLAY_TIMEOUT_MS);
       if (requestId !== this.playRequestId) return; // a newer request has since claimed this same element
       await incomingElement.play();
       if (requestId !== this.playRequestId) {
@@ -648,20 +771,27 @@ class AudioEngine {
     // loading a real track transition (crossfadeTo/loadTrack) — the inactive element
     // is actively being used by that transition, and touching it here would overwrite
     // the song the user just clicked with the one *after* it!
-    if (this.snapshot.status === 'loading') return;
+    if (this.spareElementBusy()) return;
+
+    const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
+    const inactiveElement = this.elements[inactiveIndex];
+    if (this.hasUsablePreload(song, dataSaver, inactiveElement)) return; // already sitting in the spare element
 
     let url = await AudioCache.get(song.id, dataSaver);
     if (!url) url = resolveAudioUrl(song.id, dataSaver);
     const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
-    
-    if (this.preloadedUrl === preloadUrl || this.preloadedUrl === url) return;
 
-    const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
-    const inactiveElement = this.elements[inactiveIndex];
-    
+    // The cache lookup above is async — a track change may have started while it ran,
+    // and that change now owns the spare element.
+    if (this.spareElementBusy() || this.activeIndex !== (inactiveIndex === 0 ? 1 : 0)) {
+      if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+      return;
+    }
+
     // Set the src and force a load. The element is already user-activated (see unlock()),
     // so the browser will honor this background load.
     this.preloadedUrl = preloadUrl;
+    this.preloaded = { songId: song.id, dataSaver };
     const oldSrc = inactiveElement.src;
     inactiveElement.src = preloadUrl;
     inactiveElement.load();

@@ -80,6 +80,26 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
     }
   };
 
+  // The OS share sheet (WhatsApp, Messages, ...) — what people actually expect from a
+  // "share" button on a phone, and one tap fewer than copy-then-switch-apps-then-paste.
+  // Web Share exists on iOS Safari/PWA, Android Chrome and desktop Safari/Edge; anywhere
+  // it doesn't, the button simply isn't rendered and "Salin" remains.
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const handleShareLink = async () => {
+    try {
+      await navigator.share({
+        title: 'Dengerin bareng di Suwwara',
+        text: `Gabung Jam-ku di Suwwara — kode ${roomId}`,
+        url: shareLink,
+      });
+    } catch (error) {
+      // Closing the share sheet without picking anything rejects with AbortError —
+      // that's the user changing their mind, not a failure worth a toast.
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      void handleCopyLink();
+    }
+  };
+
   const handleLeave = async () => {
     if (!roomId) return;
     setBusy(true);
@@ -161,6 +181,11 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
 
             <div className={styles.linkRow}>
               <span className={styles.linkText}>{shareLink}</span>
+              {canShare && (
+                <button type="button" className={styles.copyButton} onClick={handleShareLink}>
+                  Bagikan
+                </button>
+              )}
               <button type="button" className={styles.copyButton} onClick={handleCopyLink}>
                 Salin
               </button>

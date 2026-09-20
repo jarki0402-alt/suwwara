@@ -27,3 +27,27 @@ export async function getYTMusic(): Promise<YTMusic> {
   }
   return initPromise;
 }
+
+let instanceID: YTMusic | null = null;
+let initPromiseID: Promise<YTMusic> | null = null;
+
+/**
+ * A SECOND, separate singleton — deliberately not reusing getYTMusic()'s
+ * client — initialized with Indonesia's region/language instead of the
+ * US/English one forced above. Only used for the "Lagi Viral di Indonesia"
+ * home section (see trendingId.ts): that's the one place this app actually
+ * *wants* YT Music's region-aware ranking (its own Indonesia-specific
+ * trending/charts shelves), rather than avoiding it like everywhere else.
+ */
+export async function getYTMusicID(): Promise<YTMusic> {
+  if (instanceID) return instanceID;
+  if (!initPromiseID) {
+    initPromiseID = (async () => {
+      const client = new YTMusic();
+      await client.initialize({ GL: 'ID', HL: 'id' });
+      instanceID = client;
+      return client;
+    })();
+  }
+  return initPromiseID;
+}

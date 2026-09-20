@@ -27,5 +27,6 @@
   --mini-player-height: 64px;
   --bottom-nav-height: 60px;
   --sidebar-width: 232px;
+  --now-playing-panel-width: 380px;
   --desktop-breakpoint: 960px;
 }

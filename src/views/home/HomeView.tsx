@@ -1,27 +1,33 @@
+import { useUiStore } from '../../stores/uiStore';
 import { CollectionSection } from './CollectionSection';
-import { HeroBanner } from './HeroBanner';
+import { GeneratedCollectionView } from './GeneratedCollectionView';
+import { MadeForYouSection } from './MadeForYouSection';
 import { RecentlyPlayedSection } from './RecentlyPlayedSection';
 import { RecommendedSection } from './RecommendedSection';
 import { TopChartSection } from './TopChartSection';
+import { useGeneratedCollection } from './useGeneratedCollection';
 import styles from './HomeView.module.css';
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 4) return 'Selamat malam';
-  if (hour < 11) return 'Selamat pagi';
-  if (hour < 15) return 'Selamat siang';
-  if (hour < 19) return 'Selamat sore';
-  return 'Selamat malam';
-}
-
 export function HomeView() {
+  const openedCollectionId = useUiStore((state) => state.openedCollectionId);
+  const closeCollection = useUiStore((state) => state.closeCollection);
+  const collection = useGeneratedCollection(openedCollectionId);
+
+  if (collection) {
+    return (
+      <GeneratedCollectionView
+        title={collection.title}
+        description={collection.description}
+        songs={collection.songs}
+        isLoading={collection.isLoading}
+        onBack={closeCollection}
+      />
+    );
+  }
+
   return (
     <div className={styles.view}>
-      <header className={styles.header}>
-        <span className={styles.greeting}>{getGreeting()}</span>
-        <span className={styles.brand}>Suwwara</span>
-      </header>
-      <HeroBanner />
+      <MadeForYouSection />
       <CollectionSection />
       <RecentlyPlayedSection />
       <TopChartSection />

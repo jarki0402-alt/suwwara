@@ -363,6 +363,7 @@ export function usePlaybackController() {
 
   useEffect(() => {
     if (engineState.status !== 'ended' || !currentSong) return;
+    if (audioEngine.getCurrentSong()?.id !== currentSong.id) return;
     runCompletionAdvance(currentSong);
   }, [engineState.status, currentSong, runCompletionAdvance]);
 

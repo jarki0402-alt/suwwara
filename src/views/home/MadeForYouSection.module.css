@@ -1,0 +1,189 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.heading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0 var(--space-4);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+}
+
+.tile {
+  position: relative;
+  overflow: hidden;
+  /* Forces its own stacking context so .collageImg/.scrim's negative z-index
+     below is resolved against THIS element, not wherever the nearest ancestor
+     stacking context up the tree happens to be — without it, position:relative
+     alone (no z-index) doesn't establish one, and those negative-z-index
+     layers would land behind some unrelated ancestor instead of just behind
+     .tileIcon/.tileText (the exact bug this app already hit once before with
+     NowPlayingView's ambient backdrop — see that file's own comment on it). */
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  min-height: 96px;
+  cursor: pointer;
+  text-align: left;
+  color: #ffffff;
+  box-shadow: var(--shadow-floating);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.tile:active {
+  transform: scale(0.98);
+}
+
+/* Fallback background — visible until the collage <img>s (set from the
+   collection's own actual songs, see MadeForYouSection.tsx) load in, and
+   permanently for anyone whose collection fetch failed/came back empty. */
+.tileWeekly {
+  background: linear-gradient(135deg, #4c1d95 0%, var(--color-accent) 100%);
+}
+
+.tileViral {
+  background: linear-gradient(135deg, #9d174d 0%, var(--color-accent-2) 100%);
+}
+
+.tileArtist {
+  background: linear-gradient(135deg, #164e63 0%, #0891b2 100%);
+}
+
+/* Splits into left/right halves for up to 2 covers (nth-child), each
+   comfortably oversized with a fixed-px inset — not a percentage transform —
+   so the blur radius never samples past the image's own edge regardless of
+   this tile's rendered size (see HeroBanner.module.css's own note on why a
+   percentage-based margin doesn't reliably scale with the blur radius). */
+.collageImg {
+  position: absolute;
+  top: -24px;
+  bottom: -24px;
+  width: calc(50% + 24px);
+  object-fit: cover;
+  /* Tuned down from an earlier 18px — enough to read as ambient/ombré (not a
+     legible photo, which would fight the title text for attention) without
+     going so soft it just reads as a flat color smear indistinguishable from
+     the old solid-gradient tiles this replaced. */
+  filter: blur(13px) saturate(1.25) brightness(0.85);
+  z-index: -1;
+}
+
+.collageImg:nth-child(1) {
+  left: -24px;
+}
+
+.collageImg:nth-child(2) {
+  right: -24px;
+}
+
+/* Neutral dark scrim (no brand-color tint) — a previous version tinted this
+   per-tile (purple/pink/teal), which washed out the collage's own actual
+   colors underneath into looking like a flat colored tile with a photo
+   barely peeking through. This just darkens for text legibility, the same
+   way HeroBanner's own scrim does, so the collection's real cover art colors
+   read through instead of the app's own brand palette. Left-to-right (not
+   HeroBanner's top-to-bottom) since the icon+title sit on the left here. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.4) 55%, rgba(0, 0, 0, 0.15) 100%);
+}
+
+.tileIcon {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tileIconImage {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.tileText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tileTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tileSubtitle {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 959px) {
+  /* Below the desktop breakpoint, auto-fit's 220px minimum only ever fits
+     ONE column (a typical ~375-430px phone width, minus padding, is well
+     under 440px) — every tile ended up full-width and full-height, turning
+     up to 4 of them into most of a screen's worth of scrolling before
+     reaching anything else on Home. A fixed 2-column grid plus a visibly
+     more compact tile (shorter, smaller icon, no subtitle) fits comfortably
+     without needing horizontal scroll like the rest of Home's mobile rows. */
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+  }
+
+  .tile {
+    min-height: 72px;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .tileIcon,
+  .tileIconImage {
+    width: 36px;
+    height: 36px;
+  }
+
+  .tileTitle {
+    font-size: 0.8rem;
+  }
+
+  .tileSubtitle {
+    display: none;
+  }
+}

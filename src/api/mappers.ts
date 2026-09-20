@@ -31,13 +31,26 @@ export interface BackendSong {
   album?: string | null;
 }
 
-/** YouTube thumbnail URLs are deterministic for any video id — this gives genuinely tiered image quality instead of reusing one flat image at every size. */
+/**
+ * All three tiers deliberately use the SAME source (YT Music's own curated
+ * square album-art thumbnail, from search/browse results) instead of the
+ * smaller two falling back to raw i.ytimg.com/vi/{id}/{mq,hq}default.jpg video
+ * thumbnails like an earlier version of this function did. Those raw video
+ * thumbnails are auto-extracted frames from the video itself — for videos
+ * whose own content has black letterboxing baked into the frame (common for
+ * "official audio" uploads that center square album art on a 16:9 canvas),
+ * that letterboxing is baked into the pixels, not something object-fit:cover
+ * can crop away in CSS. YT Music's own thumbnail doesn't have this problem
+ * (it's the actual album art, not a video frame), so reusing it everywhere
+ * trades a little bandwidth on small tiles for tiles that are reliably a
+ * clean, full-bleed square.
+ */
 function buildImageVariants(videoId: string, bestThumbnail: string): ImageVariant[] {
-  const fallbackHq = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  const fallback = bestThumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
   return [
-    { quality: '50x50', url: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` },
-    { quality: '150x150', url: fallbackHq },
-    { quality: '500x500', url: bestThumbnail || fallbackHq },
+    { quality: '50x50', url: fallback },
+    { quality: '150x150', url: fallback },
+    { quality: '500x500', url: fallback },
   ];
 }
 

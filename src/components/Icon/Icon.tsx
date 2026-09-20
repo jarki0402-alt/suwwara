@@ -31,7 +31,9 @@ export type IconName =
   | 'clock'
   | 'database'
   | 'download'
-  | 'spinner';
+  | 'spinner'
+  | 'lyrics'
+  | 'expand';
 
 interface IconProps {
   name: IconName;
@@ -294,6 +296,27 @@ function IconPaths({ name }: { name: IconName }) {
           <path d="M12 3v12" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
           <polyline points="7,10 12,15 17,10" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
           <path d="M5 19h14" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'lyrics':
+      // A closed-caption/subtitle-card glyph (rounded rect + text lines) —
+      // reads unambiguously as "text/lyrics" at a glance, unlike a mic (which
+      // implies recording/voice input, not "show lyrics for what's playing").
+      return (
+        <>
+          <rect x="2.5" y="5" width="19" height="14" rx="3" stroke="currentColor" fill="none" strokeWidth={2} />
+          <line x1="6.5" y1="10" x2="14" y2="10" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+          <line x1="6.5" y1="14" x2="17.5" y2="14" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'expand':
+      // Feather Icons "maximize-2" (feathericons.com, MIT).
+      return (
+        <>
+          <polyline points="15,3 21,3 21,9" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points="9,21 3,21 3,15" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          <line x1="21" y1="3" x2="14" y2="10" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+          <line x1="3" y1="21" x2="10" y2="14" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
         </>
       );
     case 'spinner':

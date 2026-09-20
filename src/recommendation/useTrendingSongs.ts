@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import type { Song } from '../api/types';
-import { getTrendingSongs } from './trendingChart';
+import { getTrendingSongs, getTrendingSongsIndonesia } from './trendingChart';
 
-export function useTrendingSongs(limit = 20): { songs: Song[]; isLoading: boolean } {
+function useChart(fetcher: (limit: number) => Promise<Song[]>, limit: number): { songs: Song[]; isLoading: boolean } {
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
-    getTrendingSongs(limit)
+    fetcher(limit)
       .then((result) => {
         if (!cancelled) setSongs(result);
       })
@@ -22,7 +22,16 @@ export function useTrendingSongs(limit = 20): { songs: Song[]; isLoading: boolea
     return () => {
       cancelled = true;
     };
-  }, [limit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limit, fetcher]);
 
   return { songs, isLoading };
+}
+
+export function useTrendingSongs(limit = 20): { songs: Song[]; isLoading: boolean } {
+  return useChart(getTrendingSongs, limit);
+}
+
+export function useTrendingSongsIndonesia(limit = 20): { songs: Song[]; isLoading: boolean } {
+  return useChart(getTrendingSongsIndonesia, limit);
 }

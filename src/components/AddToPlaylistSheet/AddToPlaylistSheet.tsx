@@ -1,7 +1,9 @@
 import type { MouseEvent } from 'react';
+import { useState } from 'react';
 import type { Song } from '../../api/types';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { Icon } from '../Icon/Icon';
+import { PlaylistNameDialog } from '../PlaylistNameDialog/PlaylistNameDialog';
 import { useToast } from '../Toast/ToastProvider';
 import styles from './AddToPlaylistSheet.module.css';
 
@@ -18,6 +20,7 @@ export function AddToPlaylistSheet({ song, isOpen, onClose }: AddToPlaylistSheet
   const addSongToPlaylist = useLibraryStore((state) => state.addSongToPlaylist);
   const createPlaylist = useLibraryStore((state) => state.createPlaylist);
   const { showToast } = useToast();
+  const [isCreateOpen, setCreateOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -29,12 +32,11 @@ export function AddToPlaylistSheet({ song, isOpen, onClose }: AddToPlaylistSheet
     onClose();
   };
 
-  const handleCreate = () => {
-    const name = window.prompt('Nama playlist baru:', 'Playlist Baru');
-    if (name === null) return;
+  const handleConfirmCreate = (name: string) => {
     const playlist = createPlaylist(name);
     addSongToPlaylist(playlist.id, song);
     showToast(`Dibuat & ditambahkan ke "${playlist.name}".`);
+    setCreateOpen(false);
     onClose();
   };
 
@@ -48,7 +50,7 @@ export function AddToPlaylistSheet({ song, isOpen, onClose }: AddToPlaylistSheet
           </button>
         </div>
 
-        <button type="button" className={styles.createRow} onClick={handleCreate}>
+        <button type="button" className={styles.createRow} onClick={() => setCreateOpen(true)}>
           <span className={styles.createIcon}>
             <Icon name="plus" size={18} />
           </span>
@@ -77,6 +79,14 @@ export function AddToPlaylistSheet({ song, isOpen, onClose }: AddToPlaylistSheet
           )}
         </div>
       </div>
+
+      <PlaylistNameDialog
+        isOpen={isCreateOpen}
+        title="Playlist Baru"
+        confirmLabel="Buat"
+        onConfirm={handleConfirmCreate}
+        onClose={() => setCreateOpen(false)}
+      />
     </div>
   );
 }

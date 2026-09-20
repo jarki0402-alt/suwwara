@@ -12,7 +12,14 @@ import styles from './SeekBar.module.css';
  * it straight into the ProgressBar's imperative handle — the component only
  * re-renders (via displaySeconds) once per whole second, for the time labels.
  */
-export function SeekBar({ duration }: { duration: number }) {
+/**
+ * `horizontal` (used by MiniPlayer's desktop seek row) keeps the bar fully
+ * interactive (drag-to-seek) but lays the time labels beside it on one row
+ * instead of stacked below — distinct from ProgressBar's own `compact` prop,
+ * which strips interactivity entirely (used for the mobile mini-player's
+ * read-only progress line).
+ */
+export function SeekBar({ duration, horizontal = false }: { duration: number; horizontal?: boolean }) {
   const progressBarRef = useRef<ProgressBarHandle>(null);
   const [displaySeconds, setDisplaySeconds] = useState(0);
   // Mirrors whatever denominator the bar itself is using (audioEngine.getDuration(),
@@ -60,6 +67,16 @@ export function SeekBar({ duration }: { duration: number }) {
     }
     audioEngine.seek(positionSec);
   };
+
+  if (horizontal) {
+    return (
+      <div className={styles.horizontalWrapper}>
+        <span className={styles.horizontalTime}>{formatTime(displaySeconds)}</span>
+        <ProgressBar ref={progressBarRef} onSeekFraction={handleSeekFraction} ariaLabel="Posisi lagu" />
+        <span className={styles.horizontalTime}>{formatTime(totalSeconds)}</span>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.wrapper}>

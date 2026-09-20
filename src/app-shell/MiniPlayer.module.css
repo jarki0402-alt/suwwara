@@ -68,11 +68,26 @@
   white-space: nowrap;
 }
 
+.centerColumn {
+  /* Transparent to layout on mobile — .actions acts as a direct flex child of
+     .wrapper exactly as before this existed, .desktopSeekBar stays hidden
+     (below) so it doesn't appear as a stray empty row in the mobile bar. */
+  display: contents;
+}
+
+.desktopSeekBar {
+  display: none;
+}
+
 .actions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   flex-shrink: 0;
+}
+
+.rightControls {
+  display: none;
 }
 
 .actionButton {
@@ -122,11 +137,18 @@
     bottom: 0;
     height: 76px;
     padding: 0 var(--space-5);
-    /* Spotify-style 3-column layout: song info left, transport centered in the
-       whole bar (not just "after the text"), symmetric empty column on the right
-       keeps the center column mathematically centered. */
+    /* Spotify-style 3-column layout: song info left, transport+seek bar
+       center, lyrics/volume/expand right — all three actually populated now
+       (the right column used to be an intentionally-empty symmetry spacer). */
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    /* The right column used to be 1fr (or minmax(190px, 1fr)) — in practice,
+       paired against the center column's own minmax(0, 722px), the grid's
+       free-space distribution left this track sitting right at its floor
+       (measured ~192px) rather than growing, cramped enough that the volume
+       slider's thumb and the expand icon visually overlapped. A plain fixed
+       width sidesteps that fr-distribution behavior entirely — this column
+       only ever needs to fit its own three controls, never more. */
+    grid-template-columns: 1fr minmax(0, 722px) 270px;
     gap: var(--space-4);
   }
 
@@ -135,12 +157,32 @@
     max-width: 360px;
   }
 
+  .progressTrack {
+    /* Superseded by .desktopSeekBar in the center column, which is
+       interactive (drag-to-seek) instead of this compact read-only line. */
+    display: none;
+  }
+
   .desktopOnly {
     display: flex;
   }
 
-  .actions {
+  .centerColumn {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     justify-self: center;
+    justify-content: center;
+    width: 100%;
+    gap: 2px;
+  }
+
+  .desktopSeekBar {
+    display: block;
+  }
+
+  .actions {
+    justify-content: center;
     gap: var(--space-4);
   }
 
@@ -160,5 +202,96 @@
   .playButton:hover {
     transform: scale(1.06);
     box-shadow: var(--shadow-glow);
+  }
+
+  .rightControls {
+    display: flex;
+    align-items: center;
+    justify-self: end;
+    justify-content: flex-end;
+    gap: var(--space-4);
+    width: 100%;
+  }
+
+  .iconButton {
+    border: none;
+    background: none;
+    color: var(--color-text-secondary);
+    padding: var(--space-2);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--transition-fast);
+  }
+
+  .iconButton:hover {
+    color: var(--color-text-primary);
+  }
+
+  .iconButtonActive {
+    color: var(--color-accent);
+  }
+
+  .volumeControl {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    /* Longer than before (was 90px) — felt too short to comfortably drag. */
+    width: 130px;
+    flex-shrink: 0;
+    /* Extra clearance so the range thumb's own radius never visually touches
+       the expand icon right after it, even at volume 100 (thumb centered
+       exactly on the track's own right edge). */
+    padding-right: 4px;
+    color: var(--color-text-secondary);
+  }
+
+  .volumeControl svg {
+    flex-shrink: 0;
+  }
+
+  .volumeSlider {
+    flex: 1;
+    /* Flex items default to min-width:auto, which for a range input resolves
+       to its own browser-default intrinsic width (~130-170px depending on
+       engine) — NOT 0 — so despite flex-shrink:1 (from flex:1 above), it
+       refused to shrink below that floor inside this 90px-wide container.
+       The result: the input demanded its full default width regardless,
+       overflowing past .volumeControl's right edge into the expand button
+       next to it, while the icon before it (the only OTHER flexible sibling
+       in this row) got assigned the resulting negative space and collapsed
+       to 0 width — both this row's reported bugs (missing speaker icon,
+       thumb overlapping the expand button) traced back to this one default. */
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: var(--radius-full);
+    background: var(--color-border);
+    outline: none;
+  }
+
+  .volumeSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+  }
+
+  .volumeSlider::-moz-range-track {
+    height: 4px;
+    border-radius: var(--radius-full);
+    background: var(--color-border);
+  }
+
+  .volumeSlider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
   }
 }

@@ -201,6 +201,15 @@ class AudioEngine {
     });
     element.addEventListener('ended', () => {
       if (!isActive()) return;
+      // A crossfade already in flight (status 'loading') means this element is the OUTGOING
+      // track of a transition already triggered for a different song — `isActive()` alone
+      // doesn't catch this because activeIndex/currentSong only swap to the new track once its
+      // own 'canplay'+play() resolves (crossfadeTo), which can take long enough for this old
+      // element to reach its real end first. Reporting 'ended' here got read as "the NEW
+      // current song just finished" by usePlaybackController's auto-advance effect, skipping
+      // an extra song in the queue every time a song ended on its own instead of via a manual
+      // next click (manual next tears the old element down before it can ever fire 'ended').
+      if (this.snapshot.status === 'loading') return;
       this.updateSnapshot({ status: 'ended' });
     });
     element.addEventListener('error', () => {

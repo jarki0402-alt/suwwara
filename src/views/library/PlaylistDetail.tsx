@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { searchSongs } from '../../api/endpoints/search';
 import type { Song } from '../../api/types';
+import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
 import { Icon } from '../../components/Icon/Icon';
+import { PlaylistNameDialog } from '../../components/PlaylistNameDialog/PlaylistNameDialog';
 import { SongRow } from '../../components/SongRow/SongRow';
 import { playSongList } from '../../playback/playSongList';
 import { useLibraryStore, type UserPlaylist } from '../../stores/libraryStore';
@@ -21,6 +23,8 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
 
   const [query, setQuery] = useState('');
   const [addResults, setAddResults] = useState<Song[]>([]);
+  const [isRenameOpen, setRenameOpen] = useState(false);
+  const [isDeleteOpen, setDeleteOpen] = useState(false);
 
   const runSearch = useMemo(
     () =>
@@ -42,16 +46,15 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
     return () => runSearch.cancel();
   }, [query, runSearch]);
 
-  const handleRename = () => {
-    const name = window.prompt('Ganti nama playlist:', playlist.name);
-    if (name) renamePlaylist(playlist.id, name);
+  const handleConfirmRename = (name: string) => {
+    renamePlaylist(playlist.id, name);
+    setRenameOpen(false);
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Hapus playlist "${playlist.name}"? Tindakan ini tidak bisa dibatalkan.`)) {
-      deletePlaylist(playlist.id);
-      onBack();
-    }
+  const handleConfirmDelete = () => {
+    deletePlaylist(playlist.id);
+    setDeleteOpen(false);
+    onBack();
   };
 
   return (
@@ -61,7 +64,7 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
           <Icon name="chevron-left" size={18} />
         </button>
         <span className={styles.detailTitle}>{playlist.name}</span>
-        <button type="button" className={styles.iconButton} onClick={handleRename} aria-label="Ganti nama playlist">
+        <button type="button" className={styles.iconButton} onClick={() => setRenameOpen(true)} aria-label="Ganti nama playlist">
           <Icon name="more" size={18} />
         </button>
       </div>
@@ -122,9 +125,27 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
         </div>
       )}
 
-      <button type="button" className={styles.deleteButton} onClick={handleDelete}>
+      <button type="button" className={styles.deleteButton} onClick={() => setDeleteOpen(true)}>
         Hapus Playlist
       </button>
+
+      <PlaylistNameDialog
+        isOpen={isRenameOpen}
+        title="Ganti Nama Playlist"
+        confirmLabel="Simpan"
+        initialValue={playlist.name}
+        onConfirm={handleConfirmRename}
+        onClose={() => setRenameOpen(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        title="Hapus Playlist?"
+        description={`Playlist "${playlist.name}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`}
+        confirmLabel="Hapus"
+        onConfirm={handleConfirmDelete}
+        onClose={() => setDeleteOpen(false)}
+      />
     </div>
   );
 }

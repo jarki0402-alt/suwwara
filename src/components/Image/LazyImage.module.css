@@ -8,6 +8,17 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* A small, deliberate over-zoom applied to EVERY thumbnail in the app (this
+     is the one shared rendering path all of them go through). Root cause:
+     some official album-art assets YouTube Music serves back (verified by
+     downloading one directly — One Direction's "FOUR" cover, among others)
+     have a thin light-gray border baked into the actual image pixels itself,
+     not something object-fit: cover can crop away since it's real image
+     content, not letterboxing/whitespace. This scale crops a few percent off
+     every edge uniformly — imperceptible on a normal full-bleed cover, but
+     enough to push a baked-in border like that one outside the visible frame
+     on the tiles that have it, which is the more common case in practice. */
+  transform: scale(1.08);
 }
 
 .placeholder {

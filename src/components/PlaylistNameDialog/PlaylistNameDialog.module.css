@@ -1,0 +1,134 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn var(--transition-base);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.sheet {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--color-bg);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--space-5) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-elevated);
+  animation: slideUp var(--transition-slow);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 960px) {
+  .overlay {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sheet {
+    width: min(360px, 92vw);
+    border-radius: var(--radius-lg);
+    animation: popIn var(--transition-base);
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.badge {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-brand);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow);
+}
+
+.title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.input {
+  width: 100%;
+  background: var(--color-bg-elevated);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-full);
+  padding: var(--space-3) var(--space-4);
+  /* 16px is the iOS Safari auto-zoom-on-focus threshold — see the same note on
+     SearchView's .input. */
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  text-align: center;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.input:focus {
+  border-color: var(--color-accent);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.cancelButton,
+.confirmButton {
+  flex: 1;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: var(--space-3);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.cancelButton {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+}
+
+.confirmButton {
+  background: var(--gradient-brand);
+  color: #ffffff;
+}
+
+.confirmButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

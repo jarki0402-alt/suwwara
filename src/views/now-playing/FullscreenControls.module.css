@@ -1,0 +1,180 @@
+/* Left (song info) and right (controls) tracks share the same 1fr so the grid
+   always splits leftover space evenly between them — previously the left track
+   was a bare 1fr against a fixed 190px right track, so on anything wider than
+   the two sides' own content, the extra space piled up entirely on the left and
+   pushed the center seek bar/transport off-center instead of keeping it
+   visually centered in the bar. */
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 640px) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.art {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitle {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.smallButton {
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.85);
+  padding: var(--space-1);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.smallButton:hover {
+  color: #ffffff;
+}
+
+.smallButtonActive {
+  color: var(--color-accent);
+}
+
+.playButton {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-brand);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.iconButton {
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.75);
+  padding: var(--space-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--transition-fast);
+}
+
+.iconButton:hover {
+  color: #ffffff;
+}
+
+.iconButtonActive {
+  color: var(--color-accent);
+}
+
+.volumeControl {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* Longer than before (was 90px) per feedback that the slider felt too short
+     to comfortably drag — flex-basis instead of a bare fixed width so it can
+     still shrink on a narrower desktop window instead of forcing this row to
+     overflow past the screen edge. */
+  flex: 1 1 140px;
+  min-width: 90px;
+  padding-right: 4px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.volumeControl svg {
+  flex-shrink: 0;
+}
+
+.volumeSlider {
+  flex: 1;
+  /* See MiniPlayer.module.css's own note on this exact property — a range
+     input's default min-width:auto (its own browser-default intrinsic
+     width, not 0) refuses to shrink to fit a tight flex container otherwise,
+     which both overflows past this row and starves the icon next to it down
+     to 0 width. */
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.25);
+  outline: none;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+}
+
+.volumeSlider::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.volumeSlider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+}

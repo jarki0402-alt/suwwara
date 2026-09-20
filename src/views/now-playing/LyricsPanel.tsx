@@ -7,20 +7,25 @@ import styles from './LyricsPanel.module.css';
 const LyricsLine = memo(function LyricsLine({
   text,
   isActive,
+  isFullscreen,
   registerRef,
 }: {
   text: string;
   isActive: boolean;
+  isFullscreen: boolean;
   registerRef: (node: HTMLParagraphElement | null) => void;
 }) {
   return (
-    <p ref={isActive ? registerRef : undefined} className={[styles.line, isActive ? styles.activeLine : ''].join(' ')}>
+    <p
+      ref={isActive ? registerRef : undefined}
+      className={[styles.line, isActive ? styles.activeLine : '', isFullscreen ? styles.lineFullscreen : ''].join(' ')}
+    >
       {text || ' '}
     </p>
   );
 });
 
-export function LyricsPanel({ song }: { song: Song | null }) {
+export function LyricsPanel({ song, isFullscreen = false }: { song: Song | null; isFullscreen?: boolean }) {
   const [result, setResult] = useState<LyricsResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const activeLineElementRef = useRef<HTMLParagraphElement | null>(null);
@@ -75,19 +80,20 @@ export function LyricsPanel({ song }: { song: Song | null }) {
 
   if (result.type === 'plain') {
     return (
-      <div className={styles.plainWrapper}>
-        <pre className={styles.plainText}>{result.text}</pre>
+      <div className={[styles.plainWrapper, isFullscreen ? styles.plainWrapperFullscreen : ''].join(' ')}>
+        <pre className={[styles.plainText, isFullscreen ? styles.plainTextFullscreen : ''].join(' ')}>{result.text}</pre>
       </div>
     );
   }
 
   return (
-    <div className={styles.syncedWrapper} ref={containerRef}>
+    <div className={[styles.syncedWrapper, isFullscreen ? styles.syncedWrapperFullscreen : ''].join(' ')} ref={containerRef}>
       {result.lines.map((line, index) => (
         <LyricsLine
           key={`${line.time}-${index}`}
           text={line.text}
           isActive={index === activeIndex}
+          isFullscreen={isFullscreen}
           registerRef={(node) => {
             if (index === activeIndex) activeLineElementRef.current = node;
           }}

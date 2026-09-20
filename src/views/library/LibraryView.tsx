@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLibraryStore } from '../../stores/libraryStore';
+import { useUiStore } from '../../stores/uiStore';
 import { LikedSongsList } from './LikedSongsList';
 import { PlaylistDetail } from './PlaylistDetail';
 import { PlaylistsList } from './PlaylistsList';
@@ -9,14 +10,18 @@ type Tab = 'liked' | 'playlists';
 
 export function LibraryView() {
   const [tab, setTab] = useState<Tab>('liked');
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  // Lifted to uiStore (not local state) so the desktop sidebar's playlist
+  // list (BottomNav) can open a specific playlist's detail view directly.
+  const selectedPlaylistId = useUiStore((state) => state.selectedPlaylistId);
+  const openPlaylist = useUiStore((state) => state.openPlaylist);
+  const closePlaylist = useUiStore((state) => state.closePlaylist);
   const playlists = useLibraryStore((state) => state.playlists);
   const selectedPlaylist = playlists.find((playlist) => playlist.id === selectedPlaylistId) ?? null;
 
   if (selectedPlaylist) {
     return (
       <div className={styles.view}>
-        <PlaylistDetail playlist={selectedPlaylist} onBack={() => setSelectedPlaylistId(null)} />
+        <PlaylistDetail playlist={selectedPlaylist} onBack={closePlaylist} />
       </div>
     );
   }
@@ -41,7 +46,7 @@ export function LibraryView() {
         </button>
       </div>
 
-      {tab === 'liked' ? <LikedSongsList /> : <PlaylistsList onSelectPlaylist={setSelectedPlaylistId} />}
+      {tab === 'liked' ? <LikedSongsList /> : <PlaylistsList onSelectPlaylist={openPlaylist} />}
     </div>
   );
 }

@@ -37,7 +37,7 @@ Pemutar musik pribadi bebas iklan (PWA, installable di HP/desktop) yang meresolu
 - Lagu disukai, playlist, riwayat putar, "baru diputar" ([src/stores/libraryStore.ts](./src/stores/libraryStore.ts), [src/stores/historyStore.ts](./src/stores/historyStore.ts)).
 - Mesin rekomendasi lokal berbasis histori putar ([src/recommendation/](./src/recommendation/)).
 - Trending global: campuran shelf kurasi YouTube Music + query cadangan.
-- Hero banner di Beranda: lagu #1 trending ditampilkan sebagai banner full-bleed dengan cover art diblur jadi latar + tombol play cepat ([src/views/home/HeroBanner.tsx](./src/views/home/HeroBanner.tsx)).
+- "Dibuat Untukmu": dua kartu ala Spotify Daily Mix/Discover Weekly di Beranda, diklik untuk buka daftar lagu penuh (bukan langsung main) — **Temuan Mingguan** (personalisasi dari riwayat putar, mesin sama dengan "Rekomendasi Untukmu" tapi di-cache stabil per minggu kalender) dan **Lagi Viral di Indonesia** (region-specific asli dari YouTube Music, bukan cuma keyword Indonesia ditempel ke chart global — lihat [src/views/home/MadeForYouSection.tsx](./src/views/home/MadeForYouSection.tsx), [server/src/youtube/trendingId.ts](./server/src/youtube/trendingId.ts)).
 
 ### Pencarian & jelajah
 - Hasil dari backend (`ytmusic-api`/`youtube-sr`), autocomplete saat mengetik, riwayat pencarian client-side.

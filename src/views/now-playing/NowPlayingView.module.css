@@ -72,12 +72,116 @@
   height: 100%;
 }
 
+/* Transparent to layout on mobile (children act as direct flex items of
+   .sheet, same gap/order as if this wrapper didn't exist) — collapsed
+   entirely at desktop, see the media query below, since MiniPlayer's own
+   desktop-only seek bar + transport row take over there instead. Fullscreen
+   mode (.overlayFullscreen, also desktop) needs its own copy back — see its
+   own override, which wins on specificity regardless of source order. */
+.mobileOnlyControls {
+  display: contents;
+}
+
+/* Fullscreen-only bottom bar (FullscreenControls.tsx) — a single compact
+   MiniPlayer-shaped row instead of stacked rows, and deliberately no
+   background of its own (floats directly over the ambient backdrop as just
+   a cluster of controls, not a panel). Sits wherever normal flex flow puts
+   it after .artSection (flex:1, so it's pushed to the bottom of the sheet)
+   — no special positioning needed. */
+.fullscreenBar {
+  padding-top: var(--space-2);
+}
+
+/* Auto-hide chrome (fullscreen only, driven by useIdleMouse in
+   NowPlayingView.tsx) — applied to .topBar and .fullscreenBar. Fades in
+   quickly on activity (short transition) but fades out more slowly on idle,
+   which reads as more deliberate/less jarring than a symmetric fade — the
+   same asymmetry video players' own auto-hide controls use.
+   pointer-events: none while hidden so an invisible control can't silently
+   swallow a click meant for the lyrics/backdrop underneath it. */
+.chromeHidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+}
+
+.topBar,
+.fullscreenBar {
+  transition: opacity 200ms ease;
+}
+
+/* Hides the cursor itself too while fullscreen chrome is hidden — the same
+   "nothing on screen suggests this is an interactive app surface" idea auto-
+   hide already applies to the controls, extended to the pointer itself. */
+.cursorHidden {
+  cursor: none;
+}
+
 @media (min-width: 960px) {
+  /* Spotify-reference layout on desktop: Now Playing is a persistent panel
+     DOCKED to the right edge — not a fullscreen takeover, and not a centered
+     floating popup either. The main content behind it (Home/Search/Library)
+     stays visible and usable; AppShell.module.css reserves the matching
+     width in .content via .contentWithPanel so nothing sits underneath it.
+     A previous version made this fullscreen (100% width/height, dimmed page
+     hidden entirely) — reverted per explicit feedback: fullscreen wasn't
+     what was wanted, a Spotify-style side panel was. */
   .overlay {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
+    left: auto;
+    width: var(--now-playing-panel-width);
+    /* Stops above the desktop MiniPlayer bar (76px, MiniPlayer.module.css)
+       instead of inheriting the base rule's bottom:0 — otherwise this panel's
+       higher z-index (--z-sheet) would sit on top of and hide the transport
+       bar underneath it, which stays visible/usable the whole time here
+       (unlike mobile, where opening Now Playing IS the fullscreen takeover). */
+    bottom: 76px;
+    background: none;
+    animation: slideInFromRight var(--transition-base);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: -24px 0 48px rgba(0, 0, 0, 0.35);
+  }
+
+  @keyframes slideInFromRight {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .sheet {
+    padding: var(--space-5) var(--space-5) var(--space-6);
+  }
+
+  .queueSheet {
+    height: 100%;
+    /* .overlay's own background is intentionally none at desktop (see above,
+       so the ambient blurred backdrop shows through for the normal sheet) —
+       but swapping to the queue list bypasses .sheet entirely, so it needs
+       its own opaque background here or the main page behind would show
+       through the transparent panel. */
+    background: var(--color-bg);
+  }
+
+  .mobileOnlyControls {
+    display: none;
+  }
+
+  /* True fullscreen takeover (Expand button in MiniPlayer) — hides the
+     sidebar/main content/docked-panel framing entirely, unlike the docked
+     .overlay above which deliberately leaves them visible. Higher specificity
+     than the plain .overlay desktop rules above (two classes vs one) wins
+     regardless of source order, so this correctly overrides the docked
+     positioning back to full coverage. */
+  .overlayFullscreen {
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    border-left: none;
+    box-shadow: none;
     animation: fadeIn var(--transition-base);
   }
 
@@ -90,39 +194,17 @@
     }
   }
 
-  .sheet {
-    /* Now Playing goes truly fullscreen on desktop (unlike the Queue popup
-       below) — no max-width/centering here. A max-width used to be set on
-       .sheet itself, which contradicted this same comment: it left a narrow
-       720px column floating over the dimmed page with Home visibly peeking
-       in on both sides, which read as a small boxed popup, not a fullscreen
-       view — most noticeable with Lyrics open, since that content especially
-       benefits from the extra width. Readability for the *narrower* rows
-       (title/meta, seek bar, transport controls) is still capped below via
-       .contentColumn, applied only to those — not to .artSection or the
-       lyrics panel, which are meant to use the full width. */
-    width: 100%;
-    height: 100%;
-    background: var(--color-bg);
-    padding: var(--space-7) var(--space-6);
+  .overlayFullscreen .sheet {
+    padding: var(--space-6) var(--space-7);
   }
 
-  .topBar,
-  .meta,
-  .bottomRow {
+  .overlayFullscreen .mobileOnlyControls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
     width: 100%;
     max-width: 640px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .queueSheet {
-    width: min(440px, 92vw);
-    height: min(760px, 88vh);
-    background: var(--color-bg);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-elevated);
-    overflow: hidden;
+    margin: 0 auto;
   }
 }
 

@@ -553,6 +553,13 @@ Layar Antrean sebelumnya cuma daftar sederhana dengan tombol ▲▼ buat pindah 
 
 Semua diverifikasi lewat browser beneran, termasuk **drag-nya dites fungsional** (bukan cuma visual) — simulasi drag baris ke-2 turun lewat baris ke-3, dicek urutan lagu SEBELUM dan SESUDAH lewat DOM, dan urutannya benar-benar tertukar sesuai posisi drag.
 
+## Perubahan terbaru — 2026-09-05 (Extreme Audio Caching & Lookahead)
+
+- **IndexedDB Persistent Caching:** Created `AudioCache.ts` to persistently store downloaded blobs (binary audio data) in the browser's IndexedDB. Limit set to 50 tracks to prevent unbounded memory growth.
+- **Zero-Delay Playback:** `AudioEngine.ts` now intercepts `loadTrack` and `crossfadeTo` to serve `blob:` URLs from IndexedDB instantly, entirely skipping the network and backend resolution.
+- **Aggressive Pre-fetching:** Increased `PREFETCH_LOOKAHEAD` to 3. `usePlaybackController.ts` now aggressively fetches the full audio file for the current song and the next 3 songs in the background using `priority=low` to ensure perfectly smooth transitions in both forward and backward skips.
+- **Memory Leak Fixes:** Added `URL.revokeObjectURL()` cleanup hooks when elements swap or unmount `blob:` streams.
+
 ## Perubahan terbaru — 2026-09-04 (polish Beranda, bottom nav, mini player, tema)
 
 - **Beranda kerasa sepi di bagian atas** (banyak ruang kosong antara header dan "Baru Diputar") — ditambah section "Koleksi Kamu" (shortcut ke Lagu Disukai + playlist) yang **selalu tampil** meski datanya masih kosong (beda dari section lain yang hilang total kalau kosong) — beda dari section lain yang justru MENGHILANG kalau datanya kosong, jadi section ini yang mengisi ruang itu konsisten. Klik tile langsung memutar isi lagu-disukai/playlist itu (atau ke tab Koleksi kalau masih kosong). Lihat `src/views/home/CollectionSection.tsx`.

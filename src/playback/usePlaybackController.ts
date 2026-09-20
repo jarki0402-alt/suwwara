@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Song } from '../api/types';
-import { prefetchAudioResolveOnly } from '../api/musicClient';
 import { cacheSongs } from '../api/songCache';
 import { audioEngine } from '../audio-engine/AudioEngine';
+import { AudioCache } from '../audio-engine/AudioCache';
 import { useAudioEngine } from '../audio-engine/useAudioEngine';
 import { useToast } from '../components/Toast/ToastProvider';
 import { sendJamIntent } from '../jam/jamClient';
@@ -60,7 +60,7 @@ const EXTEND_QUEUE_THRESHOLD = 3;
 // audio-byte prefetch (genuinely costs the same server work as playing it —
 // see prefetchAudioFull's own doc comment for why that's capped to just one);
 // the rest only get the cheap yt-dlp-resolve-only warm-up.
-const PREFETCH_LOOKAHEAD = 2;
+const PREFETCH_LOOKAHEAD = 3;
 
 /**
  * Orchestration layer wiring queueStore/settingsStore to the AudioEngine and
@@ -251,10 +251,14 @@ export function usePlaybackController() {
   useEffect(() => {
     if (!currentSong) return;
     const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id);
-    const quality = dataSaver ? 'low' : 'high';
-    const [nextUp, ...furtherOut] = upcoming;
+    const [nextUp] = upcoming;
     if (nextUp) audioEngine.preloadNextTrack(nextUp, dataSaver);
-    for (const song of furtherOut) prefetchAudioResolveOnly(song.id, quality);
+    
+    // Push to the limit: Cache current track and ALL upcoming tracks in IndexedDB
+    AudioCache.prefetchAndCache(currentSong.id, dataSaver).catch(() => {});
+    for (const song of upcoming) {
+      AudioCache.prefetchAndCache(song.id, dataSaver).catch(() => {});
+    }
     // Re-runs whenever the current track (or the queue shape around it) changes — reorders,
     // additions from search, radio auto-extend, a Jam edit from someone else — so the
     // upcoming tracks being kept warm always match whatever's actually coming next.

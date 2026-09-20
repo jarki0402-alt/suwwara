@@ -1,5 +1,6 @@
 import type { Song } from '../api/types';
 import { resolveAudioUrl } from './bitrateResolver';
+import { AudioCache } from './AudioCache';
 import { scheduleFadeIn, scheduleFadeOut, setGainImmediate } from './crossfade';
 import type { AudioEngineListener, LoadTrackOptions, PlaybackState } from './types';
 import { AudioEngineError } from './types';
@@ -286,8 +287,11 @@ class AudioEngine {
     if (context && context.state === 'suspended') await context.resume();
     if (requestId !== this.playRequestId) return; // superseded while the context was resuming
 
-    const url = resolveAudioUrl(song.id, options.dataSaver ?? false);
-    const preloadUrl = url + (url.includes('?') ? '&' : '?') + 'priority=low';
+    let url = await AudioCache.get(song.id, options.dataSaver ?? false);
+    if (!url) {
+      url = resolveAudioUrl(song.id, options.dataSaver ?? false);
+    }
+    const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
 
     this.cancelPendingCrossfade();
     this.currentSong = song;
@@ -318,8 +322,10 @@ class AudioEngine {
       this.preloadedUrl = null;
       // We swapped elements. Stop the old one.
       elements[oldActiveIndex].pause();
+      const oldSrc = elements[oldActiveIndex].src;
       elements[oldActiveIndex].removeAttribute('src');
       elements[oldActiveIndex].load();
+      if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
       // Use the newly active one
       const newElement = elements[this.activeIndex];
       const newGain = gains[this.activeIndex];
@@ -350,8 +356,10 @@ class AudioEngine {
     }
 
     this.preloadedUrl = null;
+    const oldSrc = element.src;
     element.src = url;
     element.load();
+    if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
     await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
     if (requestId !== this.playRequestId) return; // a newer request claimed this element meanwhile
 
@@ -413,8 +421,13 @@ class AudioEngine {
     const wasPlaying = !element.paused;
 
     this.updateSnapshot({ status: 'loading' });
-    element.src = resolveAudioUrl(song.id, true);
+    let url = await AudioCache.get(song.id, true);
+    if (!url) url = resolveAudioUrl(song.id, true);
+    
+    const oldSrc = element.src;
+    element.src = url;
     element.load();
+    if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
     await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
     if (requestId !== this.playRequestId) return; // superseded by a real track change meanwhile
 
@@ -550,8 +563,9 @@ class AudioEngine {
     // was even in progress until the new track had already started.
     this.updateSnapshot({ status: 'loading', error: null });
 
-    const url = resolveAudioUrl(song.id, dataSaver);
-    const preloadUrl = url + (url.includes('?') ? '&' : '?') + 'priority=low';
+    let url = await AudioCache.get(song.id, dataSaver);
+    if (!url) url = resolveAudioUrl(song.id, dataSaver);
+    const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
 
     const outgoingIndex = this.activeIndex;
     const incomingIndex: 0 | 1 = outgoingIndex === 0 ? 1 : 0;
@@ -565,8 +579,10 @@ class AudioEngine {
       this.preloadedUrl = null;
     } else {
       this.preloadedUrl = null;
+      const oldSrc = incomingElement.src;
       incomingElement.src = url;
       incomingElement.load();
+      if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
     }
     if (incomingGain && context) setGainImmediate(incomingGain, context, 0);
 
@@ -609,9 +625,11 @@ class AudioEngine {
       const outgoingElement = elements[outgoingIndex];
       // Only clear if the element hasn't been repurposed for a new preload
       if (!this.preloadedUrl || !outgoingElement.src.endsWith(this.preloadedUrl)) {
+        const oldSrc = outgoingElement.src;
         outgoingElement.pause();
         outgoingElement.removeAttribute('src');
         outgoingElement.load();
+        if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
       }
       this.crossfadeTimeoutId = null;
     }, durationSec * 1000 + 100);
@@ -623,7 +641,7 @@ class AudioEngine {
    * the media stream in the background using the OS's prioritized media downloader, 
    * bypassing the JS `fetch()` background throttling that usually starves mobile PWAs.
    */
-  preloadNextTrack(song: Song, dataSaver = false): void {
+  async preloadNextTrack(song: Song, dataSaver = false): Promise<void> {
     if (!this.elements) return;
     // Do NOT preload into the inactive element if we are currently in the middle of
     // loading a real track transition (crossfadeTo/loadTrack) — the inactive element
@@ -631,8 +649,9 @@ class AudioEngine {
     // the song the user just clicked with the one *after* it!
     if (this.snapshot.status === 'loading') return;
 
-    const url = resolveAudioUrl(song.id, dataSaver);
-    const preloadUrl = url + (url.includes('?') ? '&' : '?') + 'priority=low';
+    let url = await AudioCache.get(song.id, dataSaver);
+    if (!url) url = resolveAudioUrl(song.id, dataSaver);
+    const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
     
     if (this.preloadedUrl === preloadUrl || this.preloadedUrl === url) return;
 
@@ -642,8 +661,10 @@ class AudioEngine {
     // Set the src and force a load. The element is already user-activated (see unlock()),
     // so the browser will honor this background load.
     this.preloadedUrl = preloadUrl;
+    const oldSrc = inactiveElement.src;
     inactiveElement.src = preloadUrl;
     inactiveElement.load();
+    if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
   }
 
   subscribe(listener: AudioEngineListener): () => void {

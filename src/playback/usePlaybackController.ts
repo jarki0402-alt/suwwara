@@ -116,6 +116,9 @@ export function usePlaybackController() {
   // Guards the "tap to resume audio" prompt below so a still-blocked remote
   // play doesn't spam a fresh toast every time a heartbeat re-evaluates it.
   const jamPlayPromptShownRef = useRef(false);
+  // Tracks how many upcoming songs should be forced into low quality (Data Saver)
+  // after a network timeout or rebuffer to prevent consecutive failures.
+  const autoDataSaverTracksRemainingRef = useRef(0);
 
   useEffect(() => {
     audioEngine.setVolume(volume);
@@ -145,9 +148,12 @@ export function usePlaybackController() {
     const jamStateAtLoad = useJamStore.getState();
     const shouldAutoplay = jamStateAtLoad.role === 'solo' ? true : (jamStateAtLoad.playbackMeta?.isPlaying ?? true);
 
+    const effectiveDataSaver = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
+    const loadTimeoutMs = effectiveDataSaver ? undefined : 8000; // 8s limit for high-quality
+
     const action = wasIdle
-      ? audioEngine.loadTrack(currentSong, { dataSaver, autoplay: shouldAutoplay, fadeInSec: 0.6 })
-      : audioEngine.crossfadeTo(currentSong, TRANSITION_FADE_SEC, dataSaver);
+      ? audioEngine.loadTrack(currentSong, { dataSaver: effectiveDataSaver, autoplay: shouldAutoplay, fadeInSec: 0.6, timeoutMs: loadTimeoutMs })
+      : audioEngine.crossfadeTo(currentSong, TRANSITION_FADE_SEC, { dataSaver: effectiveDataSaver, timeoutMs: loadTimeoutMs });
 
     action
       .then(() => {
@@ -157,10 +163,28 @@ export function usePlaybackController() {
         const jamState = useJamStore.getState();
         if (jamState.role === 'solo') return;
         const meta = jamState.playbackMeta;
-        if (meta && meta.positionSec > 0) audioEngine.seek(meta.positionSec);
+        if (meta && meta.positionSec > 0) {
+          const elapsedSec = meta.isPlaying ? (Date.now() - meta.lastUpdatedAtMs) / 1000 : 0;
+          audioEngine.seek(meta.positionSec + Math.max(0, elapsedSec));
+        }
       })
       .catch((error: unknown) => {
         const timedOut = error instanceof Error && error.message.includes('Timed out');
+        
+        if (timedOut && !effectiveDataSaver) {
+          // Initial load high quality timed out! Rescue with low quality probation.
+          autoDataSaverTracksRemainingRef.current = 2;
+          const fallbackAction = wasIdle
+            ? audioEngine.loadTrack(currentSong, { dataSaver: true, autoplay: shouldAutoplay, fadeInSec: 0.6 })
+            : audioEngine.crossfadeTo(currentSong, TRANSITION_FADE_SEC, { dataSaver: true });
+            
+          fallbackAction.catch((err2) => {
+             const timedOut2 = err2 instanceof Error && err2.message.includes('Timed out');
+             setPlaybackStatus({ isPlaying: false, isBuffering: false, error: timedOut2 ? 'Koneksi lambat — lagu gagal dimuat.' : 'Gagal memutar lagu ini.' });
+          });
+          return;
+        }
+
         setPlaybackStatus({
           isPlaying: false,
           isBuffering: false,
@@ -178,6 +202,10 @@ export function usePlaybackController() {
     (song: Song) => {
       if (advancedForSongIdRef.current === song.id) return;
       advancedForSongIdRef.current = song.id;
+
+      if (autoDataSaverTracksRemainingRef.current > 0) {
+        autoDataSaverTracksRemainingRef.current -= 1;
+      }
 
       recordHistory({
         songId: song.id,
@@ -293,6 +321,7 @@ export function usePlaybackController() {
 
     const timeoutId = setTimeout(() => {
       qualityDroppedSongIdRef.current = currentSong.id;
+      autoDataSaverTracksRemainingRef.current = 2; // start probation for upcoming tracks
       audioEngine.reloadAtLowerQuality().catch(() => {
         // Best-effort recovery — if it fails, the existing stall/error watchdogs
         // above still apply exactly as if this attempt had never happened.

@@ -60,7 +60,7 @@ export function useJamSync() {
         useJamStore.getState().setPlaybackMeta({
           isPlaying: snapshot.isPlaying,
           positionSec: snapshot.positionSec,
-          lastUpdatedAtMs: snapshot.lastUpdatedAtMs,
+          lastUpdatedAtMs: Date.now(),
         });
         useJamStore.getState().setMemberCount(snapshot.memberCount);
       },
@@ -74,7 +74,7 @@ export function useJamSync() {
         });
       },
       onTransport: (payload) => {
-        useJamStore.getState().setPlaybackMeta(payload);
+        useJamStore.getState().setPlaybackMeta({ ...payload, lastUpdatedAtMs: Date.now() });
       },
       onPresence: (payload) => {
         useJamStore.getState().setMemberCount(payload.memberCount);

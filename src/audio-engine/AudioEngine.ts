@@ -335,7 +335,7 @@ class AudioEngine {
         newElement.volume = this.volume;
       }
       
-      await waitForEvent(newElement, 'canplay', CANPLAY_TIMEOUT_MS);
+      await waitForEvent(newElement, 'canplay', options.timeoutMs ?? CANPLAY_TIMEOUT_MS);
       if (requestId !== this.playRequestId) return;
       this.updateSnapshot({ duration: song.duration || newElement.duration });
       
@@ -360,7 +360,7 @@ class AudioEngine {
     element.src = url;
     element.load();
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
-    await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
+    await waitForEvent(element, 'canplay', options.timeoutMs ?? CANPLAY_TIMEOUT_MS);
     if (requestId !== this.playRequestId) return; // a newer request claimed this element meanwhile
 
     // Deliberately song.duration first, not element.duration: browsers can badly
@@ -545,7 +545,8 @@ class AudioEngine {
    * gesture (observed on iOS Safari) — crossfade is a smoothness nicety, never
    * a requirement for basic playback to keep working.
    */
-  async crossfadeTo(song: Song, durationSec: number, dataSaver = false): Promise<void> {
+  async crossfadeTo(song: Song, durationSec: number, options: LoadTrackOptions = {}): Promise<void> {
+    const dataSaver = options.dataSaver ?? false;
     // If Web Audio API is disabled (e.g. iOS fallback), crossfades must degrade to a hard cut.
     if (durationSec <= 0 || !this.context) {
       await this.loadTrack(song, { dataSaver, autoplay: true });
@@ -587,7 +588,7 @@ class AudioEngine {
     if (incomingGain && context) setGainImmediate(incomingGain, context, 0);
 
     try {
-      await waitForEvent(incomingElement, 'canplay', CANPLAY_TIMEOUT_MS);
+      await waitForEvent(incomingElement, 'canplay', options.timeoutMs ?? CANPLAY_TIMEOUT_MS);
       if (requestId !== this.playRequestId) return; // a newer request has since claimed this same element
       await incomingElement.play();
       if (requestId !== this.playRequestId) {

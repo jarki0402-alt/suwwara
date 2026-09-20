@@ -13,7 +13,7 @@ interface Room {
   creatorClientId: string;
   queueState: RoomQueueState;
   transportState: RoomTransportState;
-  lastCompletedSongId: string | null;
+  lastAutoAdvanceAt: number;
   members: Map<string, Member>;
   lastActivityAt: number;
 }
@@ -40,7 +40,7 @@ export function createRoom(creatorClientId: string, initialQueue: RoomQueueState
     creatorClientId,
     queueState: initialQueue,
     transportState: { isPlaying: false, positionSec: 0, lastUpdatedAtMs: now },
-    lastCompletedSongId: null,
+    lastAutoAdvanceAt: 0,
     members: new Map(),
     lastActivityAt: now,
   });
@@ -157,7 +157,7 @@ export function applyIntent(roomId: string, intent: JamIntent): boolean {
     case 'set-queue':
       room.queueState = setQueue(room.queueState, intent.payload.songs, intent.payload.startAt);
       room.transportState = { isPlaying: true, positionSec: 0, lastUpdatedAtMs: now };
-      room.lastCompletedSongId = null;
+      room.lastAutoAdvanceAt = 0;
       queueChanged = true;
       transportChanged = true;
       break;
@@ -174,14 +174,15 @@ export function applyIntent(roomId: string, intent: JamIntent): boolean {
       transportChanged = true;
       break;
     case 'advance-on-ended': {
-      const currentSong = songAt(room.queueState);
       // Dedupe: multiple devices' local completion-watchdogs can all fire for the
       // same song within moments of each other — only the first one for a given
       // now-playing song actually advances the queue; the rest are no-ops.
-      if (!currentSong || currentSong.id !== intent.payload.songId || room.lastCompletedSongId === intent.payload.songId) {
+      // Time-based dedupe allows repeatMode: 'one' or manual backwards skips
+      // to naturally play and finish the same song multiple times without locking up.
+      if (now - room.lastAutoAdvanceAt < 3000) {
         break;
       }
-      room.lastCompletedSongId = intent.payload.songId;
+      room.lastAutoAdvanceAt = now;
       const result = advanceOnEnded(room.queueState);
       room.queueState = result.state;
       room.transportState = { isPlaying: !result.ranOut, positionSec: 0, lastUpdatedAtMs: now };

@@ -16,7 +16,7 @@ suwwara/
 │   ├── jam/             client "Jam" (dengerin bareng) — SSE client, aksi antrean yang jam-aware
 │   ├── stores/         Zustand stores (player, queue, library, history, settings, ui, jam)
 │   ├── recommendation/ mesin rekomendasi & trending berbasis histori lokal
-│   ├── lyrics/         parser LRC + sinkronisasi lirik (LRCLIB)
+│   ├── lyrics/         parser LRC, sinkronisasi + koreksi waktu lirik (data dari backend /api/lyrics)
 │   ├── views/          layar: home, search, library, queue, now-playing, settings
 │   ├── app-shell/      shell aplikasi: bottom nav, mini player, RemoteBar (saat mengontrol perangkat lain)
 │   ├── connect/        kanal real-time antar-perangkat tertaut (SSE), pelapor status, penerima perintah
@@ -84,7 +84,7 @@ Untuk deploy ke GCP + Vercel beneran, lihat bagian **Deploy** di bawah.
 - **Database**: Postgres 16 (akun/device, snapshot library, cache resolve audio) — self-hosted di kontainer yang sama dengan backend, tidak pernah diekspos publik
 - **Akun**: tanpa password — device ID acak + pairing lintas device via kode/QR (lihat `src/auth/deviceIdentity.ts`, `server/src/pairing/pairingManager.ts`)
 - **Audio**: Web Audio API (dua `<audio>` element paralel untuk crossfade)
-- **Lirik**: LRCLIB, parser LRC sendiri
+- **Lirik**: backend mencari di LRCLIB lalu YouTube Music (cache Postgres), parser LRC sendiri
 
 ## Deploy
 

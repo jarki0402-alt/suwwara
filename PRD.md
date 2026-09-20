@@ -29,7 +29,7 @@ Pemutar musik pribadi bebas iklan (PWA, installable di HP/desktop) yang meresolu
 
 ### Now Playing
 - Seek bar dengan drag-to-seek.
-- Lirik tersinkron otomatis (LRCLIB + parser LRC sendiri, [src/lyrics/](./src/lyrics/)), dibatasi 30fps dan berhenti total saat tab disembunyikan.
+- Lirik tersinkron otomatis (backend `/api/lyrics/:videoId`: LRCLIB lalu YouTube Music, cache Postgres; parser LRC sendiri, [src/lyrics/](./src/lyrics/)), dengan koreksi waktu per lagu, dibatasi 30fps dan berhenti total saat tab disembunyikan.
 - Kontrol volume.
 - Latar belakang immersive: cover album diblur+digelapkan jadi backdrop layar penuh (gaya Apple Music/Spotify), bukan warna solid — lihat [src/views/now-playing/NowPlayingView.tsx](./src/views/now-playing/NowPlayingView.tsx).
 

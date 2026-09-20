@@ -1,5 +1,15 @@
+# Container logs are unbounded by default (json-file, no rotation). On this VM's small
+# disk a chatty service — the backend logs every yt-dlp resolve — would eventually fill
+# it. 3 x 10MB per service is plenty to debug from and can never grow past that.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
+    logging: *default-logging
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -19,6 +29,7 @@ services:
       retries: 5
 
   backend:
+    logging: *default-logging
     build:
       context: ./server
     restart: unless-stopped
@@ -48,6 +59,7 @@ services:
       - "8787:8787"
 
   ytdlp-service:
+    logging: *default-logging
     build:
       context: ./server/ytdlp-service
     restart: unless-stopped
@@ -55,12 +67,14 @@ services:
       - bgutil-provider
 
   bgutil-provider:
+    logging: *default-logging
     image: brainicism/bgutil-ytdlp-pot-provider:latest
     restart: unless-stopped
     # By default, the provider runs on port 4416 inside the container.
     # No need to publish ports to the host; the backend accesses it internally.
 
   frontend:
+    logging: *default-logging
     build:
       context: .
     restart: unless-stopped

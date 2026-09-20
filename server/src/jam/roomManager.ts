@@ -23,6 +23,7 @@ const rooms = new Map<string, Room>();
 const ROOM_CODE_BYTES = 3; // 6 hex chars — ~16.7M combinations, plenty unguessable for a closed circle
 const ROOM_IDLE_TTL_MS = 5 * 60 * 1000;
 const GC_INTERVAL_MS = 60 * 1000;
+const AUTO_ADVANCE_DEDUPE_MS = 3000;
 
 function generateRoomId(): string {
   let code: string;
@@ -59,8 +60,20 @@ export function isMember(roomId: string, clientId: string): boolean {
   return rooms.get(roomId)?.members.has(clientId) ?? false;
 }
 
+/** The room's transport state rolled forward to `now`. The server only learns the
+ * playhead from discrete events (seek/next/play...) — nothing reports it continuously —
+ * so `positionSec` is really "where the playhead was at lastUpdatedAtMs". Anyone reading
+ * it later (a device joining or reconnecting mid-song, or a `play` arriving after a long
+ * pause) must add the time that has passed since, or they start from a stale spot. Done
+ * here, on the one clock every device already agrees to follow, rather than on each
+ * client: no cross-device clock skew involved. */
+function projectTransport(transport: RoomTransportState, now: number): RoomTransportState {
+  const elapsedSec = transport.isPlaying ? Math.max(0, now - transport.lastUpdatedAtMs) / 1000 : 0;
+  return { isPlaying: transport.isPlaying, positionSec: transport.positionSec + elapsedSec, lastUpdatedAtMs: now };
+}
+
 function toSnapshot(room: Room): RoomSnapshot {
-  return { ...room.queueState, ...room.transportState, memberCount: room.members.size };
+  return { ...room.queueState, ...projectTransport(room.transportState, Date.now()), memberCount: room.members.size };
 }
 
 export function getSnapshot(roomId: string): RoomSnapshot | null {
@@ -78,7 +91,7 @@ function broadcastQueue(room: Room): void {
 }
 
 function broadcastTransport(room: Room): void {
-  const payload = { ...room.transportState };
+  const payload = projectTransport(room.transportState, Date.now());
   for (const member of room.members.values()) writeEvent(member.res, 'transport', payload);
 }
 
@@ -174,14 +187,20 @@ export function applyIntent(roomId: string, intent: JamIntent): boolean {
       transportChanged = true;
       break;
     case 'advance-on-ended': {
-      // Dedupe: multiple devices' local completion-watchdogs can all fire for the
-      // same song within moments of each other — only the first one for a given
-      // now-playing song actually advances the queue; the rest are no-ops.
-      // Time-based dedupe allows repeatMode: 'one' or manual backwards skips
-      // to naturally play and finish the same song multiple times without locking up.
-      if (now - room.lastAutoAdvanceAt < 3000) {
-        break;
-      }
+      // Every device runs its own end-of-track watchdog, so several reports for the
+      // same track arrive within moments of each other — only the first should advance.
+      // Two guards, because each catches what the other can't:
+      //  - the report must be about the track that is playing *right now*. A slow
+      //    device (a phone on a bad connection) can report seconds later, after the
+      //    queue has already moved on; a purely time-based window would wrongly treat
+      //    that late report as a fresh "track ended" and skip a song nobody finished.
+      //  - a short window for the same track, so repeat-one / a queue holding the same
+      //    song twice can still legitimately replay it, while simultaneous reports
+      //    for one ending collapse into a single advance.
+      const currentId = room.queueState.queue[room.queueState.order[room.queueState.position]]?.id;
+      const reportedId = intent.payload?.songId;
+      if (reportedId !== undefined && currentId !== undefined && reportedId !== currentId) break;
+      if (now - room.lastAutoAdvanceAt < AUTO_ADVANCE_DEDUPE_MS) break;
       room.lastAutoAdvanceAt = now;
       const result = advanceOnEnded(room.queueState);
       room.queueState = result.state;
@@ -190,16 +209,19 @@ export function applyIntent(roomId: string, intent: JamIntent): boolean {
       transportChanged = true;
       break;
     }
+    // play/pause/toggle must bank the time already played *before* flipping isPlaying:
+    // otherwise pausing at 1:00 keeps the stale positionSec, and resuming makes every
+    // device seek back to wherever the last seek/next happened.
     case 'play':
-      room.transportState = { ...room.transportState, isPlaying: true, lastUpdatedAtMs: now };
+      room.transportState = { ...projectTransport(room.transportState, now), isPlaying: true };
       transportChanged = true;
       break;
     case 'pause':
-      room.transportState = { ...room.transportState, isPlaying: false, lastUpdatedAtMs: now };
+      room.transportState = { ...projectTransport(room.transportState, now), isPlaying: false };
       transportChanged = true;
       break;
     case 'toggle-play':
-      room.transportState = { ...room.transportState, isPlaying: !room.transportState.isPlaying, lastUpdatedAtMs: now };
+      room.transportState = { ...projectTransport(room.transportState, now), isPlaying: !room.transportState.isPlaying };
       transportChanged = true;
       break;
     case 'seek':

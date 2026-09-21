@@ -114,6 +114,8 @@ export function usePlaybackController() {
   const currentSong: Song | null = queue[order[position] ?? -1] ?? null;
 
   const loadedSongIdRef = useRef<string | null>(null);
+  // True until the song-load effect below has run once — the run that sees whatever the previous session left in the queue.
+  const firstLoadRunRef = useRef(true);
   const completedRef = useRef(false);
   // Guards against advancing twice for the same song — the stall watchdog and a
   // (possibly late) native 'ended' event could otherwise both fire for it.
@@ -152,12 +154,33 @@ export function usePlaybackController() {
   }, []);
 
   useEffect(() => {
+    const isFirstRun = firstLoadRunRef.current;
+    firstLoadRunRef.current = false;
     if (!currentSong) {
       loadedSongIdRef.current = null;
       setCurrentSongId(null);
       return;
     }
     if (loadedSongIdRef.current === currentSong.id) return;
+
+    // The queue is persisted, so opening or refreshing the app finds last session's song here. It is shown, paused —
+    // not loaded: no audio starts by itself and the server is not asked to resolve a song nobody chose this time. The
+    // first play (see AudioEngine.deferStart) loads it; picking anything else discards it. Jam keeps its own flow.
+    if (isFirstRun && useJamStore.getState().role === 'solo') {
+      const restored = currentSong;
+      setCurrentSongId(restored.id);
+      cacheSongs([restored]);
+      audioEngine.deferStart(() => {
+        // From here on it is an ordinary loaded track, so the next change crossfades instead of loading from idle.
+        loadedSongIdRef.current = restored.id;
+        return audioEngine.loadTrack(restored, {
+          dataSaver: useSettingsStore.getState().dataSaver || autoDataSaverTracksRemainingRef.current > 0,
+          autoplay: true,
+          fadeInSec: 0.6,
+        });
+      });
+      return;
+    }
 
     const wasIdle = loadedSongIdRef.current === null;
     const previouslyLoadedId = loadedSongIdRef.current;

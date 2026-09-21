@@ -83,6 +83,13 @@ class AudioEngine {
   private gains: [GainNode | null, GainNode | null] | null = null;
   private activeIndex: 0 | 1 = 0;
   private volume = 1;
+  /**
+   * A track that is on screen but has deliberately not been loaded yet — the last song of the previous session, shown
+   * paused when the app opens. The first play() (button, lock screen, another device, Jam) runs it; loading anything
+   * else first discards it. Keeps a refresh from starting audio by itself or asking the server to resolve a song nobody
+   * asked for.
+   */
+  private deferredStart: (() => Promise<void>) | null = null;
   private currentSong: Song | null = null;
   private preloadedUrl: string | null = null;
   /**
@@ -341,7 +348,13 @@ class AudioEngine {
     inactiveElement.currentTime = 0;
   }
 
+  /** See `deferredStart`. */
+  deferStart(start: () => Promise<void>): void {
+    this.deferredStart = start;
+  }
+
   async loadTrack(song: Song, options: LoadTrackOptions = {}): Promise<void> {
+    this.deferredStart = null;
     this.transitionsInFlight += 1;
     try {
       await this.loadTrackImpl(song, options);
@@ -521,6 +534,13 @@ class AudioEngine {
   }
 
   async play(): Promise<void> {
+    if (this.deferredStart) {
+      const start = this.deferredStart;
+      this.deferredStart = null;
+      // Same as every tap that starts a song: prime the elements inside this gesture, then load and play.
+      void this.unlock();
+      return start();
+    }
     const { context, elements, gains } = this.ensureGraph();
     if (context && context.state === 'suspended') await context.resume();
     const element = elements[this.activeIndex];
@@ -671,6 +691,7 @@ class AudioEngine {
    * a requirement for basic playback to keep working.
    */
   async crossfadeTo(song: Song, durationSec: number, options: LoadTrackOptions = {}): Promise<void> {
+    this.deferredStart = null;
     this.transitionsInFlight += 1;
     try {
       await this.crossfadeToImpl(song, durationSec, options);

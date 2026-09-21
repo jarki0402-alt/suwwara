@@ -25,6 +25,15 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (volume tak kegedean, shelf halaman artis tak mepet, ukuran ikon diseragamkan)
+
+**AudioEngine, `usePlaybackController`, dan jalur audio backend tidak disentuh** (diff kosong; `verify.cjs` tiga profil tanpa error).
+
+- **Bulatan slider volume di HP 22 → 16px**; area sentuh tetap 32px tinggi, garis ungu terisi tetap, lebar baris 220 → 200px. Slider volume di bar desktop (12px) tak diubah.
+- **Shelf Album / Single / Artis serupa di halaman artis (HP) tak lagi mepet**: akar masalahnya `scroll-snap-align: start` tanpa `scroll-padding` — tiap kartu menempel ke tepi scroller dan mengabaikan padding, jadi kartu pertama menempel ke tepi layar (kini sejajar judul di x=16). Ditambah spacer di ujung kanan dan jarak judul-shelf 8 → 12px.
+- **Ukuran ikon diseragamkan**: skala 20px untuk ikon kontrol biasa, 24px untuk sheet Now Playing di HP, 16px hanya untuk hiasan kecil. ♥ 24 → 20 (kotak 44 → 40px, sama dengan ⋯); ⋯ 18 → 22 (tiga titik jauh lebih ringan daripada hati, jadi butuh ukuran lebih agar setara; titik r 1,5 → 1,9); + di baris antrean/playlist 16 → 20; kontrol sekunder bar bawah dan layar penuh (acak, ulang, lirik, perangkat, layar penuh, ikon volume) 16–18 → 20; ikon bawah Now Playing HP (lirik, perangkat, volume) dan ♥-nya 22/16 → 24; chevron kembali di banner 18 → 20. `LikeButton` menerima prop `size`.
+- **Deploy**: sama seperti catatan sebelumnya — `git pull && docker compose up -d --build --force-recreate backend frontend`.
+
 ## Perubahan terbaru — 2026-09-21 (bar atas lebih lega, hitam di sekitar sampul hilang, bulatan slider ungu, Perangkat di HP dan panel kanan di desktop)
 
 **AudioEngine, `usePlaybackController`, dan jalur audio backend tidak disentuh** (diff kosong; `verify.cjs` desktop/Android/iPhone-WebKit tanpa error).

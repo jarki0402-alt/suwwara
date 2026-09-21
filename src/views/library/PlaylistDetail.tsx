@@ -107,7 +107,7 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
                     onClick={() => addSongToPlaylist(playlist.id, song)}
                     aria-label="Tambahkan ke playlist ini"
                   >
-                    <Icon name="plus" size={16} />
+                    <Icon name="plus" size={20} />
                   </button>
                   <SongRowActions song={song} />
                 </>

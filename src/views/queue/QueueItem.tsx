@@ -58,7 +58,7 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
         onPointerCancel={handlePointerUp}
         aria-label="Geser buat urutkan ulang"
       >
-        <Icon name="grip" size={16} />
+        <Icon name="grip" size={18} />
       </button>
 
       <button type="button" className={styles.main} onClick={() => playAtPosition(position)}>
@@ -70,7 +70,7 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
       </button>
 
       <button type="button" className={styles.iconButton} onClick={() => setAddToPlaylistOpen(true)} aria-label="Tambah ke playlist">
-        <Icon name="plus" size={16} />
+        <Icon name="plus" size={20} />
       </button>
 
       <OptionsMenu

@@ -86,7 +86,7 @@ export function MiniPlayer() {
             aria-label="Acak antrean"
             aria-pressed={shuffle}
           >
-            <Icon name="shuffle" size={18} />
+            <Icon name="shuffle" size={20} />
           </button>
           <button
             type="button"
@@ -113,7 +113,7 @@ export function MiniPlayer() {
             onClick={cycleRepeat}
             aria-label="Ubah mode ulang"
           >
-            <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={18} />
+            <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={20} />
           </button>
         </div>
 
@@ -139,7 +139,7 @@ export function MiniPlayer() {
           aria-label="Perangkat"
           aria-pressed={isConnectSheetOpen}
         >
-          <Icon name="devices" size={18} />
+          <Icon name="devices" size={20} />
         </button>
         <button
           type="button"
@@ -148,10 +148,10 @@ export function MiniPlayer() {
           aria-label="Tampilkan lirik"
           aria-pressed={isLyricsOpen}
         >
-          <Icon name="lyrics" size={18} />
+          <Icon name="lyrics" size={20} />
         </button>
         <div className={styles.volumeControl}>
-          <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={16} />
+          <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={20} />
           <input
             type="range"
             min={0}
@@ -163,7 +163,7 @@ export function MiniPlayer() {
           />
         </div>
         <button type="button" className={styles.iconButton} onClick={openFullscreenLyrics} aria-label="Perbesar layar penuh">
-          <Icon name="expand" size={18} />
+          <Icon name="expand" size={20} />
         </button>
       </div>
     </div>

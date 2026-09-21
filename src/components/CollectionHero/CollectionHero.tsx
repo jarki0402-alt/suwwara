@@ -48,7 +48,7 @@ export function CollectionHero({ kind, title, onTitleClick, description, songs, 
         <span className={styles.tint} aria-hidden="true" />
         {onBack && (
           <button type="button" className={styles.backButton} onClick={onBack} aria-label="Kembali">
-            <Icon name="chevron-left" size={18} />
+            <Icon name="chevron-left" size={20} />
           </button>
         )}
         <div className={styles.inner}>

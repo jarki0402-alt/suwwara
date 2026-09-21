@@ -257,9 +257,9 @@ function IconPaths({ name }: { name: IconName }) {
     case 'more':
       return (
         <>
-          <circle cx="5" cy="12" r="1.5" fill="currentColor" />
-          <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-          <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+          <circle cx="5" cy="12" r="1.9" fill="currentColor" />
+          <circle cx="12" cy="12" r="1.9" fill="currentColor" />
+          <circle cx="19" cy="12" r="1.9" fill="currentColor" />
         </>
       );
     case 'plus':

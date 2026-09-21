@@ -103,7 +103,7 @@ export function NowPlayingView() {
                 <ArtistLinks song={currentSong} />
               </span>
             </div>
-            <LikeButton song={currentSong} />
+            <LikeButton song={currentSong} size={24} />
           </div>
         )}
 
@@ -150,7 +150,7 @@ export function NowPlayingView() {
                   aria-label="Tampilkan lirik"
                   aria-pressed={showLyrics}
                 >
-                  <Icon name="lyrics" size={22} />
+                  <Icon name="lyrics" size={24} />
                 </button>
                 {/* Always here (not only once another device is online): the Perangkat sheet also says how to link one. */}
                 <button
@@ -159,12 +159,12 @@ export function NowPlayingView() {
                   onClick={openConnectSheet}
                   aria-label="Perangkat"
                 >
-                  <Icon name="devices" size={22} />
+                  <Icon name="devices" size={24} />
                   {hasOtherDevices && <span className={styles.deviceDot} aria-hidden="true" />}
                 </button>
               </div>
               <div className={styles.volumeRow}>
-                <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={16} />
+                <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={24} />
                 <input
                   type="range"
                   min={0}

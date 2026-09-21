@@ -353,13 +353,13 @@
   align-items: center;
   gap: var(--space-2);
   flex: 1;
-  max-width: 220px;
+  max-width: 200px;
   color: var(--color-text-secondary);
 }
 
 /* The phone's volume slider. The visible line is 4px, but the element a finger has to land on is the input itself,
-   so the input is tall (32px) with a transparent body and the line is drawn on its track: a bigger target and a
-   bigger handle, and the part below the handle is filled purple (--fill, set inline) so it reads as a slider. */
+   so the input is tall (32px) with a transparent body and the line is drawn on its track: a big target with a
+   modest 16px handle, and the part below the handle is filled purple (--fill, set inline) so it reads as a slider. */
 .volumeSlider {
   flex: 1;
   min-width: 0;
@@ -381,9 +381,9 @@
 .volumeSlider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 22px;
-  height: 22px;
-  margin-top: -9px; /* centres the 22px handle on the 4px line */
+  width: 16px;
+  height: 16px;
+  margin-top: -6px; /* centres the 16px handle on the 4px line */
   border: none;
   border-radius: 50%;
   background: var(--color-accent);
@@ -403,8 +403,8 @@
 }
 
 .volumeSlider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   border: none;
   border-radius: 50%;
   background: var(--color-accent);

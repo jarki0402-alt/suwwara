@@ -57,7 +57,7 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
             aria-label="Acak antrean"
             aria-pressed={shuffle}
           >
-            <Icon name="shuffle" size={16} />
+            <Icon name="shuffle" size={20} />
           </button>
           <button type="button" className={styles.smallButton} onClick={onPrevious} aria-label="Lagu sebelumnya">
             <Icon name="previous" size={20} />
@@ -74,7 +74,7 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
             onClick={cycleRepeat}
             aria-label="Ubah mode ulang"
           >
-            <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={16} />
+            <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={20} />
           </button>
         </div>
         <SeekBar duration={song.duration} horizontal />
@@ -89,10 +89,10 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
           aria-label="Tampilkan lirik"
           aria-pressed={isLyricsOpen}
         >
-          <Icon name="lyrics" size={18} />
+          <Icon name="lyrics" size={20} />
         </button>
         <div className={styles.volumeControl}>
-          <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={16} />
+          <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={20} />
           <input
             type="range"
             min={0}

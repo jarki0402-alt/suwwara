@@ -104,7 +104,7 @@
 }
 
 .sectionTitle {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-3);
   font-size: 1.25rem;
   font-weight: 800;
 }
@@ -149,8 +149,17 @@
   margin: 0 calc(var(--space-4) * -1);
   padding: 0 var(--space-4) var(--space-2);
   scroll-snap-type: x proximity;
+  /* Without this each card snaps to the scroller's very edge, ignoring the padding — the first one sat flush
+     against the screen edge and the last one against the far edge. */
+  scroll-padding: 0 var(--space-4);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+}
+
+/* Padding-right of a scroll container is not always honoured at the end of the content. */
+.shelf::after {
+  content: '';
+  flex: 0 0 1px;
 }
 
 .shelf::-webkit-scrollbar {

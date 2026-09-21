@@ -88,7 +88,8 @@ export function OptionsMenu({ items, ariaLabel = 'Opsi lainnya', header, trigger
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <Icon name="more" size={18} />
+        {/* 22, not 20: three dots weigh far less than a heart of the same box, so they need the extra size to read as its equal. */}
+        <Icon name="more" size={22} />
       </button>
       {open &&
         createPortal(

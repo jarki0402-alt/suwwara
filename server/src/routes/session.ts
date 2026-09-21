@@ -16,7 +16,8 @@ import {
   SESSION_COOKIE,
   type SessionInfo,
 } from '../auth/sessions';
-import { normalizeUsername, passwordProblem } from '../auth/users';
+import { SESSION_DAYS, passwordProblem, type Role } from '../auth/policy';
+import { normalizeUsername } from '../auth/users';
 
 /** Sign-in, sign-out and "who am I" — mounted BEFORE the session gate, so each route here does its own checks. */
 export const sessionRouter = Router();
@@ -73,11 +74,12 @@ sessionRouter.post('/auth/login', async (req, res) => {
     }
 
     loginLimiter.reset(ip, username);
-    const token = await createSession(user.account_id, req);
+    const role: Role = user.role === 'admin' ? 'admin' : 'user';
+    const token = await createSession(user.account_id, req, role);
     void sql`update users set last_login_at = now() where account_id = ${user.account_id}`.catch(() => {});
     audit('login_ok', { accountId: user.account_id, username, ip });
-    res.setHeader('Set-Cookie', sessionCookie(token, req));
-    res.json({ user: publicUser({ username, role: user.role === 'admin' ? 'admin' : 'user', mustChangePassword: user.must_change_password }) });
+    res.setHeader('Set-Cookie', sessionCookie(token, req, SESSION_DAYS[role] * 24 * 60 * 60));
+    res.json({ user: publicUser({ username, role, mustChangePassword: user.must_change_password }) });
   } catch {
     res.status(503).json({ error: 'auth_unavailable', message: 'Layanan sedang tidak tersedia. Coba lagi sebentar.' });
   }
@@ -95,7 +97,7 @@ sessionRouter.post('/auth/password', async (req, res) => {
   if (!info) return;
   const current = typeof req.body?.current === 'string' ? req.body.current : '';
   const next = req.body?.next;
-  const problem = passwordProblem(next);
+  const problem = passwordProblem(next, info.role);
   if (problem) {
     res.status(400).json({ error: 'weak_password', message: problem });
     return;

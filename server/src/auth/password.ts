@@ -67,6 +67,4 @@ export function generatePassword(length = 12): string {
   return Array.from(bytes, (byte) => ALPHABET[byte % ALPHABET.length]).join('');
 }
 
-export const MIN_PASSWORD_LENGTH = 8;
-export const MAX_PASSWORD_LENGTH = 128;
 export const USERNAME_PATTERN = /^[a-z0-9._-]{3,32}$/;

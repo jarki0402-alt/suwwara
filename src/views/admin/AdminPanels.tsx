@@ -1,23 +1,10 @@
 import { useState } from 'react';
-import { useAuthStore } from '../../auth/authStore';
-import { Icon } from '../../components/Icon/Icon';
-import { useUiStore } from '../../stores/uiStore';
 import { timeAgo } from '../../utils/deviceLabel';
 import { formatBytes } from '../../utils/formatBytes';
 import { adminApi } from './adminApi';
 import styles from './AdminView.module.css';
 import { BarChart } from './BarChart';
 import { useAdminData } from './useAdminData';
-import { UsersPanel } from './UsersPanel';
-
-type Tab = 'ringkasan' | 'pengguna' | 'pemakaian' | 'sistem' | 'keamanan';
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'ringkasan', label: 'Ringkasan' },
-  { id: 'pengguna', label: 'Pengguna' },
-  { id: 'pemakaian', label: 'Pemakaian' },
-  { id: 'sistem', label: 'Sistem' },
-  { id: 'keamanan', label: 'Keamanan' },
-];
 
 const REFRESH_MS = 30_000;
 const ms = (value: number | null) => (value === null ? '—' : `${value.toLocaleString('id-ID')} ms`);
@@ -46,7 +33,7 @@ function Meter({ fraction }: { fraction: number }) {
   );
 }
 
-function Overview() {
+export function Overview() {
   const { data, error } = useAdminData(adminApi.overview, REFRESH_MS);
   const usage = useAdminData(() => adminApi.usage(14), REFRESH_MS * 4);
   if (error) return <p className={styles.error}>{error}</p>;
@@ -71,7 +58,7 @@ function Overview() {
   );
 }
 
-function UsagePanel() {
+export function UsagePanel() {
   const [days, setDays] = useState(30);
   const { data, error } = useAdminData(() => adminApi.usage(days), REFRESH_MS * 4, String(days));
   const max = Math.max(...(data?.perUser ?? []).map((row) => row.bytes), 1);
@@ -108,7 +95,7 @@ function UsagePanel() {
   );
 }
 
-function SystemPanel() {
+export function SystemPanel() {
   const { data, error } = useAdminData(adminApi.system, REFRESH_MS);
   if (error) return <p className={styles.error}>{error}</p>;
   if (!data) return <p className={styles.muted}>Memuat…</p>;
@@ -183,7 +170,7 @@ const EVENT_LABELS: Record<string, string> = {
   admin_unlock: 'Kunci dibuka',
 };
 
-function SecurityPanel() {
+export function SecurityPanel() {
   const { data, error, reload } = useAdminData(adminApi.audit, REFRESH_MS);
   return (
     <>
@@ -219,36 +206,5 @@ function SecurityPanel() {
         </div>
       </div>
     </>
-  );
-}
-
-/** Admin-only: users, bandwidth, server health, security log. Reached from Pengaturan → Akun. */
-export function AdminView() {
-  const role = useAuthStore((state) => state.user?.role);
-  const setView = useUiStore((state) => state.setView);
-  const [tab, setTab] = useState<Tab>('ringkasan');
-  if (role !== 'admin') return null;
-
-  return (
-    <div className={styles.view}>
-      <div className={styles.head}>
-        <button type="button" className={styles.back} onClick={() => setView('settings')} aria-label="Kembali ke Pengaturan">
-          <Icon name="chevron-left" size={18} />
-        </button>
-        <h1 className={styles.title}>Dashboard Admin</h1>
-      </div>
-      <div className={styles.tabs} role="tablist">
-        {TABS.map((item) => (
-          <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} className={`${styles.tab} ${tab === item.id ? styles.tabActive : ''}`} onClick={() => setTab(item.id)}>
-            {item.label}
-          </button>
-        ))}
-      </div>
-      {tab === 'ringkasan' && <Overview />}
-      {tab === 'pengguna' && <UsersPanel />}
-      {tab === 'pemakaian' && <UsagePanel />}
-      {tab === 'sistem' && <SystemPanel />}
-      {tab === 'keamanan' && <SecurityPanel />}
-    </div>
   );
 }

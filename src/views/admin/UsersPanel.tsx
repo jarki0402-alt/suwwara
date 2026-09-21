@@ -19,6 +19,8 @@ export function UsersPanel() {
   const me = useAuthStore((state) => state.user?.username);
   const { showToast } = useToast();
   const { data: users, error: loadError, reload } = useAdminData(adminApi.users);
+  const { data: legacy, reload: reloadLegacy } = useAdminData(adminApi.legacyAccounts);
+  const [legacyId, setLegacyId] = useState('');
   const [name, setName] = useState('');
   const [makeAdmin, setMakeAdmin] = useState(false);
   const [secret, setSecret] = useState<Secret | null>(null);
@@ -32,6 +34,7 @@ export function UsersPanel() {
     try {
       await work();
       reload();
+      reloadLegacy();
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Gagal.');
     } finally {
@@ -42,10 +45,11 @@ export function UsersPanel() {
   const create = (event: FormEvent) => {
     event.preventDefault();
     void run(async () => {
-      const created = await adminApi.createUser(name.trim().toLowerCase(), makeAdmin ? 'admin' : 'user');
+      const created = await adminApi.createUser(name.trim().toLowerCase(), makeAdmin ? 'admin' : 'user', makeAdmin || !legacyId ? undefined : legacyId);
       setSecret({ username: created.username, password: created.temporaryPassword, kind: 'baru' });
       setName('');
       setMakeAdmin(false);
+      setLegacyId('');
     });
   };
 
@@ -71,7 +75,21 @@ export function UsersPanel() {
             Buat
           </button>
         </form>
-        <p className={styles.muted}>Sandi sementara dibuat otomatis dan hanya tampil sekali; pengguna wajib menggantinya saat pertama masuk.</p>
+        {!makeAdmin && (legacy ?? []).length > 0 && (
+          <label className={styles.muted}>
+            Pakai pustaka dari akun lama (opsional) — playlist dan lagu disukai dari sebelum login:
+            <select className={styles.input} value={legacyId} onChange={(event) => setLegacyId(event.target.value)}>
+              <option value="">Akun baru yang kosong</option>
+              {(legacy ?? []).map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.liked} lagu disukai · {account.playlists} playlist{account.playlistNames.length ? ` (${account.playlistNames.join(', ')})` : ''}
+                  {account.lastSeen ? ` · aktif ${timeAgo(account.lastSeen)}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p className={styles.muted}>Sandi sementara dibuat otomatis dan hanya tampil sekali; pengguna wajib menggantinya saat pertama masuk. Admin: 12+ karakter dan tidak memutar musik.</p>
         {secret && (
           <div className={styles.secret}>
             <span className={styles.muted}>

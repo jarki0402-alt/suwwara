@@ -141,6 +141,11 @@ Setiap request /api (kecuali /api/auth/login|logout|session|password|sessions):
 Cookie (bukan header) dipakai karena elemen `<audio>` tak bisa mengirim header. Audio, stream Jam dan Connect ikut digerbang.
 Router yang dipasang di `server/src/index.ts` harus berada **sebelum** `authRouter`/`libraryRouter` (yang memakai `deviceAuth` seluruh router), kecuali memang butuh `deviceAuth`.
 
+Dua peran, dua pengalaman, satu URL:
+- **user**: aplikasi musik (sesi 90 hari, sandi min. 8).
+- **admin**: konsol pengelolaan berdiri sendiri (`src/views/admin/AdminConsole.tsx`, dimuat malas hanya untuk admin) — tanpa `AudioEngine`, sinkronisasi pustaka/profil, Connect, atau Jam; sesi 7 hari, sandi min. 12 (`server/src/auth/policy.ts`). Peran menentukan layar setelah masuk (`App.tsx`) dan dicek ulang di server (`requireAdmin`, 403).
+- Admin pertama dibuat kosong saat boot; pendengar dibuat admin di konsol, opsional memakai pustaka dari **akun lama** (akun sebelum login yang belum dimiliki siapa pun; `GET /api/admin/legacy-accounts`, hanya hitungan dan nama playlist). Promosi ke admin memaksa ganti sandi.
+
 Dashboard admin (`routes/admin.ts`, `src/views/admin/`): pengguna, bandwidth (byte per pengguna per hari dari `socket.bytesWritten` respons audio, tanpa nama lagu), kesehatan server, log keamanan. Admin tidak melihat apa yang diputar.
 
 ## 5. Alur sinkronisasi (pustaka, riwayat, mix)

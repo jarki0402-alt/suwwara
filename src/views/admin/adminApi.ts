@@ -41,6 +41,15 @@ export interface SystemInfo {
   database: { sizeBytes: number; tables: Array<{ name: string; bytes: number; rows: number }> };
 }
 
+export interface LegacyAccount {
+  id: string;
+  liked: number;
+  playlists: number;
+  devices: number;
+  lastSeen: string | null;
+  playlistNames: string[];
+}
+
 export interface AuditEvent {
   id: string;
   at: string;
@@ -77,7 +86,9 @@ export const adminApi = {
   usage: (days: number) => call<Usage>(`/usage?days=${days}`),
   system: () => call<SystemInfo>('/system'),
   audit: () => call<AuditLog>('/audit?limit=100'),
-  createUser: (username: string, role: 'user' | 'admin') => call<{ username: string; temporaryPassword: string }>('/users', { method: 'POST', body: JSON.stringify({ username, role }) }),
+  legacyAccounts: () => call<{ accounts: LegacyAccount[] }>('/legacy-accounts').then((r) => r.accounts),
+  createUser: (username: string, role: 'user' | 'admin', legacyAccountId?: string) =>
+    call<{ username: string; temporaryPassword: string }>('/users', { method: 'POST', body: JSON.stringify({ username, role, legacyAccountId }) }),
   resetPassword: (id: string) => call<{ temporaryPassword: string }>(`/users/${id}/reset-password`, { method: 'POST' }),
   update: (id: string, change: { disabled?: boolean; role?: 'user' | 'admin' }) => call<void>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(change) }),
   signOutAll: (id: string) => call<void>(`/users/${id}/sign-out`, { method: 'POST' }),

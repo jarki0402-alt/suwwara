@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react';
 import { useUiStore } from '../stores/uiStore';
 import { DetailView } from '../views/detail/DetailView';
 import { HomeView } from '../views/home/HomeView';
@@ -7,8 +6,6 @@ import { SearchView } from '../views/search/SearchView';
 import { SettingsView } from '../views/settings/SettingsView';
 import styles from './ViewRouter.module.css';
 
-// Admin-only, so ordinary users never download it.
-const AdminView = lazy(() => import('../views/admin/AdminView').then((module) => ({ default: module.AdminView })));
 
 export function ViewRouter() {
   const currentView = useUiStore((state) => state.currentView);
@@ -32,12 +29,6 @@ function renderView(view: ReturnType<typeof useUiStore.getState>['currentView'])
       return <LibraryView />;
     case 'settings':
       return <SettingsView />;
-    case 'admin':
-      return (
-        <Suspense fallback={null}>
-          <AdminView />
-        </Suspense>
-      );
     default:
       return null;
   }

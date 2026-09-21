@@ -38,7 +38,7 @@ git log --oneline -3      # commit teratas harus "feat(playback): opening or ref
 
 ## 3. Atur admin di `.env`
 
-Login wajib untuk semua, jadi harus ada admin pertama. Buka `.env`:
+Login wajib untuk semua, jadi harus ada admin pertama. **Akun admin hanya untuk mengelola aplikasi** (konsol admin: pengguna, bandwidth, server, keamanan) — ia **tidak memutar musik**. Untuk mendengarkan, kamu akan membuat akun pengguna biasa sendiri di langkah 8. Buka `.env`:
 
 ```bash
 nano .env
@@ -47,18 +47,18 @@ nano .env
 Tambahkan dua baris (ganti nilainya):
 
 ```
-ADMIN_USERNAME=fajar
-ADMIN_PASSWORD=isi-sandi-kuat-minimal-8-karakter
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=isi-sandi-kuat-minimal-12-karakter
 ```
 
 Aturan penulisan supaya tidak salah tafsir oleh Docker Compose:
 - Tanpa spasi di sekitar `=`, tanpa tanda kutip.
-- Hindari karakter `$`, `#`, `"`, `'`, `\` di sandi (pakai huruf, angka, `-`, `_`, `.`).
+- Sandi admin **minimal 12 karakter** (kalau lebih pendek, diabaikan dan sandi acak dicetak di log). Hindari karakter `$`, `#`, `"`, `'`, `\` (pakai huruf, angka, `-`, `_`, `.`).
 - Nama pengguna: 3–32 karakter, huruf kecil/angka/`.`/`-`/`_`.
 
-Boleh juga **mengosongkan** `ADMIN_PASSWORD=`: sandi acak dibuat dan dicetak **sekali** di log (langkah 6), lalu wajib diganti saat pertama masuk.
+Boleh juga **mengosongkan** `ADMIN_PASSWORD=`: sandi acak dibuat dan dicetak **sekali** di log (langkah 6), lalu wajib diganti (12+ karakter) saat pertama masuk.
 
-Simpan: `Ctrl+O`, `Enter`, `Ctrl+X`. Admin hanya dibuat **sekali**, saat boot pertama ketika belum ada pengguna; mengubah dua baris ini setelahnya tidak membuat admin baru.
+Simpan: `Ctrl+O`, `Enter`, `Ctrl+X`. Admin hanya dibuat **sekali**, saat boot pertama ketika belum ada pengguna; mengubah dua baris ini setelahnya tidak membuat admin baru. Akun admin dibuat **kosong** — playlist lamamu tidak dihapus atau dipindahkan; ia menunggu di "akun lama" sampai kamu menautkannya (langkah 8).
 
 ## 4. Build (satu per satu — VM 1 GB)
 
@@ -94,7 +94,7 @@ Yang harus terlihat: `backend`, `frontend`, `postgres` **Up (healthy)**; `ytdlp-
 ```bash
 # a) Admin dibuat? (muncul hanya pada boot pertama dengan login)
 docker compose logs backend | grep -E "\[auth\]|listening"
-#    Diharapkan:  [auth] Admin "fajar" created from ADMIN_USERNAME / ADMIN_PASSWORD.
+#    Diharapkan:  [auth] Admin "admin" created from ADMIN_USERNAME / ADMIN_PASSWORD.
 #    (atau, bila sandi dikosongkan:  ... Temporary password (shown once ...): xxxxxxxxxxxx  → CATAT sekarang)
 
 # b) Gerbang aktif: tanpa sesi harus 401
@@ -130,22 +130,30 @@ Perhatikan ejaan host: **`fajarrizky`** (pakai "z").
    ```
    Semua baris harus `BYPASS`/`DYNAMIC` (tidak ada `HIT`) dan `last-modified` sama.
 
-## 8. Masuk pertama kali
+## 8. Masuk pertama kali dan membuat akun musikmu
 
-1. Buka `https://suwwara.fajarrizky.my.id` di browser laptop (tekan `Cmd/Ctrl+Shift+R`). Harus muncul **landing page** dengan formulir Masuk.
-2. Masuk dengan `ADMIN_USERNAME` / `ADMIN_PASSWORD`. Bila sandi sementara, kamu diminta membuat sandi baru.
-3. Periksa: playlist dan lagu disukai-mu **ada** (admin menempel ke akun dengan pustaka terbesar), lagu berbunyi, Pengaturan → **Akun** tampil, dan ada baris **Dashboard Admin**.
-4. Buka Dashboard Admin → **Keamanan** → lihat baris "Masuk" milikmu. Kolom IP harus IP-mu yang sebenarnya. Kalau yang tampil alamat `172.x`/`10.x` (IP tunnel), beri tahu saya (rentang `geo` di `nginx.conf` perlu disesuaikan).
-5. DevTools → Application → Cookies: cookie `suwwara_session` bertanda `HttpOnly`, dan `Secure` (bila `Secure` tak ada, tetap berfungsi, tapi kabari saya).
+**Admin dan pendengar adalah dua akun.** Akun admin membuka konsol pengelolaan; akun pengguna biasa membuka aplikasi musik.
+
+1. Buka `https://suwwara.fajarrizky.my.id` di laptop (`Cmd/Ctrl+Shift+R`). Harus muncul **landing page** dengan formulir Masuk.
+2. Masuk dengan `ADMIN_USERNAME` / `ADMIN_PASSWORD`. Kamu masuk ke **konsol admin** (sidebar: Ringkasan, Pengguna, Pemakaian, Sistem, Keamanan, Akun) — tanpa pemutar. Bila sandi sementara, kamu diminta membuat sandi baru (12+ karakter).
+3. **Buat akun musikmu** — tab **Pengguna** → *Tambah pengguna*:
+   - Isi nama, mis. `fajar` (jangan centang **Admin**).
+   - Di **"Pakai pustaka dari akun lama"** pilih baris yang berisi playlist-mu (tertulis jumlah lagu disukai, jumlah playlist, dan nama beberapa playlist). Kalau ada beberapa baris, yang berisi paling banyak biasanya milikmu; nama playlist membantu memastikan.
+   - Klik **Buat**, lalu **salin sandi sementara** (tampil sekali).
+   - Lewatkan pilihan pustaka lama dan akunmu akan kosong — data lama tidak hilang, ia tetap menunggu di daftar itu dan bisa ditautkan ke akun lain yang kamu buat kemudian (selama belum ada yang mengklaimnya).
+4. Di tab **Akun** klik **Keluar**, lalu masuk dengan `fajar` dan sandi sementara tadi. Kamu diminta membuat sandi baru (8+ karakter), lalu masuk ke **aplikasi musik**.
+5. Periksa: playlist dan lagu disukai-mu **ada**, lagu berbunyi, Pengaturan → **Akun** tampil (tanpa baris admin).
+6. Kembali ke akun admin, buka **Keamanan** → lihat baris "Masuk". Kolom IP harus IP-mu yang sebenarnya. Kalau yang tampil `172.x`/`10.x` (IP tunnel), beri tahu saya (rentang `geo` di `nginx.conf` perlu disesuaikan).
+7. DevTools → Application → Cookies: `suwwara_session` bertanda `HttpOnly` dan `Secure` (bila `Secure` tak ada, tetap berfungsi, tapi kabari saya). Cookie admin berumur 7 hari, cookie pengguna biasa 90 hari.
 
 ## 9. Perangkat lain (HP/PWA, laptop lain)
 
-- Buka/refresh aplikasi → akan tampil landing → masuk dengan akun yang sama. Playlist di perangkat itu digabung ke akun; Beranda menjadi sama di semua perangkat; panel **Perangkat** otomatis menampilkan perangkat lain (tanpa QR, bisa butuh sampai 1 menit).
+- Buka/refresh aplikasi → akan tampil landing → masuk dengan **akun musikmu (`fajar`), bukan admin**. Playlist di perangkat itu digabung ke akun; Beranda menjadi sama di semua perangkat; panel **Perangkat** otomatis menampilkan perangkat lain (tanpa QR, bisa butuh sampai 1 menit).
 - Kalau perangkat masih menampilkan **tampilan lama** (tanpa landing) atau muncul error: tutup aplikasi sepenuhnya lalu buka lagi. Bila masih lama: desktop → DevTools → Application → **Clear site data**; iPhone → hapus ikon PWA dari layar utama, buka situs di Safari, lalu Add to Home Screen lagi; Android → Info Aplikasi → Penyimpanan → Hapus data.
 
 ## 10. Tambah pengguna
 
-Pengaturan → Akun → Dashboard Admin → **Pengguna** → isi nama → **Buat**. Sandi sementara tampil **sekali**; salin dan kirim ke orangnya (mereka wajib menggantinya saat pertama masuk). Lupa sandi → tombol **Reset sandi** di kartu pengguna itu.
+Masuk sebagai admin → konsol → **Pengguna** → isi nama → **Buat**. Sandi sementara tampil **sekali**; salin dan kirim ke orangnya (mereka wajib menggantinya saat pertama masuk). Lupa sandi → tombol **Reset sandi** di kartu pengguna itu.
 
 ## 11. Cadangan rutin
 
@@ -207,9 +215,11 @@ docker compose ps && docker compose logs backend | tail -20
 
 | Gejala | Penyebab / tindakan |
 |---|---|
+| Admin tidak bisa memutar musik | Memang begitu: admin hanya mengelola. Masuk dengan akun pengguna biasa (langkah 8) |
 | Landing tak muncul di perangkat, tampilan lama | Bundel lama masih di-cache: langkah 9 (tutup-buka, Clear site data). Pastikan purge `sw.js` (langkah 7) |
 | "Layanan sedang tidak tersedia" saat masuk | Backend/database belum siap atau mati: `docker compose ps`, `docker compose logs backend | tail -40` |
 | "Terlalu banyak percobaan" | 5 kali salah sandi → terkunci 15 menit (per IP+pengguna). Admin bisa membukanya di Dashboard → Keamanan → Buka, atau restart backend |
+| Akun musik kosong padahal punya playlist lama | Playlist lama masih di "akun lama": konsol → Pengguna, buat/ulangi dengan pilihan pustaka lama (akun yang sudah dibuat kosong bisa dihapus dan dibuat ulang) |
 | Audio tak berbunyi setelah masuk | Cek cookie `suwwara_session` ada; `docker compose logs backend | grep audio | tail` |
 | Semua pengunjung tampak dari satu IP di log Keamanan | Sumber tunnel bukan IP privat: tambahkan rentangnya di blok `geo` `nginx.conf`, rebuild frontend |
 | Build gagal / dibunuh | Kehabisan RAM: swap sementara (langkah 4) |

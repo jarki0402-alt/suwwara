@@ -6,25 +6,7 @@
   max-width: 1100px;
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
 
-.back {
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--color-bg-elevated);
-  color: var(--color-text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
 
 .title {
   margin: 0;
@@ -33,36 +15,9 @@
   letter-spacing: -0.02em;
 }
 
-.tabs {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 2px;
-}
 
-.tabs::-webkit-scrollbar {
-  display: none;
-}
 
-.tab {
-  flex-shrink: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  padding: 7px 14px;
-  background: none;
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
 
-.tabActive {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-on-accent, #fff);
-}
 
 .grid {
   display: grid;
@@ -363,4 +318,23 @@
 .chips {
   display: flex;
   gap: var(--space-2);
+}
+
+/* Range chips (7 / 30 / 90 days) in the Pemakaian panel. */
+.tab {
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 7px 14px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent, #fff);
 }

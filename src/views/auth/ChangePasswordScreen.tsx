@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { changePassword, signOut } from '../../auth/authStore';
+import { changePassword, signOut, useAuthStore } from '../../auth/authStore';
 import styles from './AuthScreens.module.css';
 
 /** Shown right after signing in with an admin-issued temporary password: nothing else in the app opens until it is replaced. */
 export function ChangePasswordScreen() {
+  const minLength = useAuthStore((state) => (state.user?.role === 'admin' ? 12 : 8));
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [again, setAgain] = useState('');
@@ -13,7 +14,7 @@ export function ChangePasswordScreen() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy) return;
-    if (next.length < 8) return setError('Kata sandi baru minimal 8 karakter.');
+    if (next.length < minLength) return setError(`Kata sandi baru minimal ${minLength} karakter.`);
     if (next !== again) return setError('Kata sandi baru dan konfirmasinya belum sama.');
     if (next === current) return setError('Kata sandi baru harus berbeda dari yang sementara.');
     setBusy(true);
@@ -35,7 +36,7 @@ export function ChangePasswordScreen() {
           </label>
           <label className={styles.field}>
             <span className={styles.label}>Kata sandi baru</span>
-            <input className={styles.input} type="password" value={next} onChange={(event) => setNext(event.target.value)} autoComplete="new-password" minLength={8} required />
+            <input className={styles.input} type="password" value={next} onChange={(event) => setNext(event.target.value)} autoComplete="new-password" minLength={minLength} required />
           </label>
           <label className={styles.field}>
             <span className={styles.label}>Ulangi kata sandi baru</span>

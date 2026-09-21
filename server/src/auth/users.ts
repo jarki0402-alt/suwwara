@@ -1,16 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { sql } from '../db/client';
-import { generatePassword, hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, USERNAME_PATTERN } from './password';
+import { generatePassword, hashPassword, USERNAME_PATTERN } from './password';
+import { passwordProblem } from './policy';
 
 export function normalizeUsername(raw: unknown): string | null {
   const username = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
   return USERNAME_PATTERN.test(username) ? username : null;
-}
-
-export function passwordProblem(password: unknown): string | null {
-  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) return `Kata sandi minimal ${MIN_PASSWORD_LENGTH} karakter.`;
-  if (password.length > MAX_PASSWORD_LENGTH) return `Kata sandi maksimal ${MAX_PASSWORD_LENGTH} karakter.`;
-  return null;
 }
 
 export class UsernameTakenError extends Error {}
@@ -35,9 +30,11 @@ export async function createUser(params: { username: string; password: string; r
 }
 
 /**
- * First boot with login switched on: there is nobody who could sign in, so the admin is created here. It attaches to the
- * existing account with the biggest library — the owner's own, with their playlists — instead of an empty new one.
- * Credentials come from ADMIN_USERNAME / ADMIN_PASSWORD; without a password one is generated and printed once.
+ * First boot with login switched on: there is nobody who could sign in, so the admin is created here — an account of its
+ * own, EMPTY, that opens the admin console and cannot play music. Whoever also listens gets a separate ordinary account,
+ * which the admin creates (adopting the pre-login library if there is one — see the legacy accounts in routes/admin.ts).
+ * Credentials come from ADMIN_USERNAME / ADMIN_PASSWORD (12+ characters for an admin); without a usable password one is
+ * generated and printed once.
  */
 export async function bootstrapAdmin(): Promise<void> {
   const [{ count }] = await sql<{ count: string }[]>`select count(*) from users`;
@@ -45,15 +42,16 @@ export async function bootstrapAdmin(): Promise<void> {
 
   const username = normalizeUsername(process.env.ADMIN_USERNAME ?? 'admin') ?? 'admin';
   const configured = process.env.ADMIN_PASSWORD;
-  const generated = !configured || passwordProblem(configured) !== null;
+  const problem = configured ? passwordProblem(configured, 'admin') : null;
+  const generated = !configured || problem !== null;
   const password = generated ? generatePassword() : configured;
 
-  const [biggest] = await sql<{ account_id: string }[]>`
-    select account_id from library_snapshots
-    order by jsonb_array_length(liked_songs) + jsonb_array_length(playlists) desc, updated_at desc limit 1
-  `;
-  await createUser({ username, password, role: 'admin', mustChangePassword: generated, accountId: biggest?.account_id });
+  await createUser({ username, password, role: 'admin', mustChangePassword: generated });
 
+  if (configured && problem) {
+    // eslint-disable-next-line no-console
+    console.warn(`[auth] ADMIN_PASSWORD ignored: ${problem}`);
+  }
   // eslint-disable-next-line no-console
   console.log(
     generated

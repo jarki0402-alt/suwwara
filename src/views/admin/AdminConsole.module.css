@@ -1,0 +1,212 @@
+.shell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  overflow: hidden;
+}
+
+/* ---- phone: a top bar and a row of tabs ---- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: calc(var(--space-3) + env(safe-area-inset-top)) var(--space-4) var(--space-2);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.brandMark {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--gradient-brand);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adminBadge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 7px 14px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent, #fff);
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom));
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 1100px;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.iconButton {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 7px 14px;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---- desktop: a sidebar, like the music app's ---- */
+.sidebar {
+  display: none;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .shell {
+    flex-direction: row;
+  }
+
+  .topbar,
+  .tabs {
+    display: none;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-3) var(--space-4);
+    border-right: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+
+  .sidebar .brand {
+    padding: 0 var(--space-3) var(--space-5);
+  }
+
+  .navItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    border-radius: 10px;
+    background: none;
+    color: var(--color-text-tertiary);
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+
+  .navItem:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+  }
+
+  .navActive {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+  }
+
+  .navActive svg {
+    color: var(--color-accent);
+  }
+
+  .sidebarFooter {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-elevated);
+    font-size: 0.8rem;
+  }
+
+  .content {
+    padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-6) var(--space-6);
+  }
+
+  .desktopOnly {
+    display: block;
+  }
+}
+
+.navItem {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .navItem {
+    display: flex;
+  }
+}
+
+.muted {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}

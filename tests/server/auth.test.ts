@@ -93,3 +93,21 @@ describe('parseCookie', () => {
     expect(parseCookie(undefined, 'x')).toBeNull();
   });
 });
+
+import { MIN_PASSWORD_LENGTH, passwordProblem, SESSION_DAYS } from '../../server/src/auth/policy';
+
+describe('policy: admin accounts are held to stricter rules', () => {
+  it('admin sessions are short, ordinary ones long', () => {
+    expect(SESSION_DAYS.admin).toBe(7);
+    expect(SESSION_DAYS.user).toBe(90);
+  });
+
+  it('an admin password needs 12 characters, an ordinary one 8', () => {
+    expect(MIN_PASSWORD_LENGTH).toEqual({ admin: 12, user: 8 });
+    expect(passwordProblem('12345678', 'user')).toBeNull();
+    expect(passwordProblem('12345678', 'admin')).toMatch(/minimal 12/);
+    expect(passwordProblem('a-long-enough-one', 'admin')).toBeNull();
+    expect(passwordProblem('x'.repeat(129), 'user')).toMatch(/maksimal 128/);
+    expect(passwordProblem(undefined, 'user')).toMatch(/minimal 8/);
+  });
+});

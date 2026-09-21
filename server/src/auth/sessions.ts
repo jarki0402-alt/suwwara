@@ -2,11 +2,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { sql } from '../db/client';
 import { parseCookie } from './cookie';
+import { SESSION_DAYS, type Role } from './policy';
 
 export { parseCookie };
 
 export const SESSION_COOKIE = 'suwwara_session';
-const SESSION_DAYS = 90;
 const MAX_SESSIONS_PER_ACCOUNT = 30;
 // Every audio chunk is its own request, so the session check must not be a database round trip each time: answers are
 // kept in memory for a short while. Revoking or disabling forgets them at once (same process), so the delay only ever
@@ -45,18 +45,18 @@ export function clientIp(req: Request): string {
   return (typeof forwarded === 'string' && forwarded) || req.socket.remoteAddress || 'unknown';
 }
 
-export function sessionCookie(token: string, req: Request, maxAgeSec = SESSION_DAYS * 24 * 60 * 60): string {
+export function sessionCookie(token: string, req: Request, maxAgeSec: number): string {
   // Secure only when the visitor is on HTTPS (Cloudflare says so in x-forwarded-proto) — plain http://localhost must still work.
   const secure = String(req.headers['x-forwarded-proto'] ?? '').includes('https') ? '; Secure' : '';
   return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure}`;
 }
 
-export async function createSession(accountId: string, req: Request): Promise<string> {
+export async function createSession(accountId: string, req: Request, role: Role): Promise<string> {
   const token = randomBytes(32).toString('base64url');
   const userAgent = String(req.headers['user-agent'] ?? '').slice(0, 300);
   await sql`
     insert into sessions (token_hash, account_id, user_agent, ip, expires_at)
-    values (${hashToken(token)}, ${accountId}, ${userAgent}, ${clientIp(req)}, now() + make_interval(days => ${SESSION_DAYS}))
+    values (${hashToken(token)}, ${accountId}, ${userAgent}, ${clientIp(req)}, now() + make_interval(days => ${SESSION_DAYS[role]}))
   `;
   // Signing in again and again from the same browser must not pile sessions up forever: keep the 30 most recently used.
   void sql`
@@ -90,7 +90,7 @@ async function lookup(tokenHash: string): Promise<SessionInfo | null> {
   let touchedAt = Number(row.last_seen_ms);
   if (now - touchedAt > TOUCH_AFTER_MS) {
     touchedAt = now;
-    void sql`update sessions set last_seen_at = now(), expires_at = now() + make_interval(days => ${SESSION_DAYS}) where token_hash = ${tokenHash}`.catch(() => {});
+    void sql`update sessions set last_seen_at = now(), expires_at = now() + make_interval(days => ${SESSION_DAYS[info.role]}) where token_hash = ${tokenHash}`.catch(() => {});
   }
   cache.delete(tokenHash);
   cache.set(tokenHash, { info, checkedAt: now, touchedAt });

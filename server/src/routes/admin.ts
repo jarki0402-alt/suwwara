@@ -41,19 +41,52 @@ adminRouter.get('/admin/users', async (_req, res) => {
 adminRouter.post('/admin/users', async (req, res) => {
   const username = normalizeUsername(req.body?.username);
   const role = req.body?.role === 'admin' ? 'admin' : 'user';
+  const legacyAccountId = typeof req.body?.legacyAccountId === 'string' && req.body.legacyAccountId ? req.body.legacyAccountId : null;
   if (!username) {
     res.status(400).json({ error: 'invalid', message: 'Nama pengguna 3–32 karakter: huruf kecil, angka, titik, minus, garis bawah.' });
     return;
   }
+  if (legacyAccountId && role === 'admin') {
+    res.status(400).json({ error: 'invalid', message: 'Akun admin tidak memakai pustaka musik.' });
+    return;
+  }
+  if (legacyAccountId) {
+    // Only an account from before sign-in existed, that nobody has claimed yet.
+    const [free] = await sql<{ id: string }[]>`select a.id from accounts a where a.id = ${legacyAccountId} and not exists (select 1 from users u where u.account_id = a.id)`;
+    if (!free) {
+      res.status(400).json({ error: 'invalid', message: 'Akun lama itu tidak ditemukan atau sudah dipakai.' });
+      return;
+    }
+  }
   const temporaryPassword = generatePassword();
   try {
-    const id = await createUser({ username, password: temporaryPassword, role, mustChangePassword: true });
-    audit('admin_user_created', { accountId: id, username: actor(req), ip: clientIp(req), detail: `${username} (${role})` });
+    const id = await createUser({ username, password: temporaryPassword, role, mustChangePassword: true, accountId: legacyAccountId ?? undefined });
+    audit('admin_user_created', { accountId: id, username: actor(req), ip: clientIp(req), detail: `${username} (${role})${legacyAccountId ? ' + pustaka lama' : ''}` });
     res.status(201).json({ id, username, role, temporaryPassword });
   } catch (error) {
     if (error instanceof UsernameTakenError) res.status(409).json({ error: 'taken', message: 'Nama pengguna itu sudah dipakai.' });
     else res.status(502).json({ error: 'failed', message: 'Gagal membuat pengguna.' });
   }
+});
+
+/**
+ * Accounts from before sign-in that still hold a library (liked songs / playlists) and belong to nobody: what the owner's own
+ * playlists, or a friend's, became. Counts and up to three playlist names — enough to recognise whose it is — never the songs.
+ */
+adminRouter.get('/admin/legacy-accounts', async (_req, res) => {
+  const rows = await sql<{ id: string; liked: number; playlists: number; devices: number; last_seen: Date | null; names: string[] | null }[]>`
+    select a.id,
+      jsonb_array_length(l.liked_songs)::int as liked,
+      jsonb_array_length(l.playlists)::int as playlists,
+      (select count(*)::int from devices d where d.account_id = a.id) as devices,
+      (select max(d.last_seen_at) from devices d where d.account_id = a.id) as last_seen,
+      (select array_agg(p->>'name') from (select p from jsonb_array_elements(l.playlists) p limit 3) x) as names
+    from accounts a join library_snapshots l on l.account_id = a.id
+    where not exists (select 1 from users u where u.account_id = a.id)
+      and jsonb_array_length(l.liked_songs) + jsonb_array_length(l.playlists) > 0
+    order by jsonb_array_length(l.liked_songs) + jsonb_array_length(l.playlists) desc, 1 limit 50
+  `;
+  res.json({ accounts: rows.map((row) => ({ id: row.id, liked: row.liked, playlists: row.playlists, devices: row.devices, lastSeen: row.last_seen, playlistNames: row.names ?? [] })) });
 });
 
 async function targetUser(id: string): Promise<{ account_id: string; username: string; role: string; disabled: boolean } | null> {
@@ -89,9 +122,11 @@ adminRouter.patch('/admin/users/:id', async (req, res) => {
   if (losesAdmin && (await wouldLoseLastAdmin(user.account_id))) {
     return void res.status(400).json({ error: 'last_admin', message: 'Harus tetap ada minimal satu admin aktif.' });
   }
-  await sql`update users set disabled = ${disabled}, role = ${role} where account_id = ${user.account_id}`;
+  const promoted = role === 'admin' && user.role !== 'admin';
+  // An admin needs a stronger password than an ordinary account: on promotion the current one is not trusted, the next sign-in must choose a new one.
+  await sql`update users set disabled = ${disabled}, role = ${role}, must_change_password = must_change_password or ${promoted} where account_id = ${user.account_id}`;
   forgetSessions((info) => info.accountId === user.account_id);
-  if (disabled) await revokeAccountSessions(user.account_id);
+  if (disabled || promoted) await revokeAccountSessions(user.account_id);
   audit('admin_user_updated', { accountId: user.account_id, username: actor(req), ip: clientIp(req), detail: `${user.username}: disabled=${disabled} role=${role}` });
   res.status(204).end();
 });

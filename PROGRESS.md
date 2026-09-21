@@ -25,6 +25,16 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (konsol admin berdiri sendiri: admin mengelola, tidak mendengarkan)
+
+Keputusan: satu URL dan satu formulir masuk, tetapi **peran menentukan layar**. Pendengar melihat aplikasi musik; **admin langsung masuk ke konsol pengelolaan** tanpa pemutar. Pemilik punya dua akun: admin (mengelola) dan akun pengguna biasa (mendengarkan, dengan playlist lamanya).
+
+- **Konsol** (`views/admin/AdminConsole.tsx`, dimuat malas lewat `React.lazy` sehingga pendengar tak mengunduhnya): sidebar di desktop (lebar sama dengan sidebar aplikasi), tab di HP; Ringkasan, Pengguna, Pemakaian, Sistem, Keamanan, **Akun** (ganti sandi, daftar perangkat masuk, keluar). Tidak memuat `AudioEngine`, sinkronisasi pustaka/profil, Connect, atau Jam — diukur: nol permintaan `/api/library|profile|connect|devices|trending|durations`, nol elemen audio. Baris "Dashboard Admin" di Pengaturan dan tampilan `admin` di `ViewRouter` dihapus.
+- **Admin lebih ketat** (`server/src/auth/policy.ts`, 2 tes): sesi **7 hari** (pendengar 90) dan sandi **min. 12 karakter** (pendengar 8), ditegakkan di server dan formulir. Promosi pengguna ke admin memaksa ganti sandi dan mengeluarkan sesinya.
+- **Admin pertama dibuat kosong** (tak lagi menempel ke pustaka terbesar). Pustaka lama ditautkan lewat **"Pakai pustaka dari akun lama"** di form Tambah pengguna: `GET /api/admin/legacy-accounts` menampilkan akun sebelum-login yang belum dimiliki siapa pun (jumlah lagu disukai, jumlah playlist, sampai tiga nama playlist, perangkat, terakhir aktif — tak pernah judul lagu); `POST /api/admin/users` menerima `legacyAccountId` (divalidasi: harus ada, belum dimiliki, bukan untuk admin). `ADMIN_PASSWORD` yang kurang dari 12 karakter diabaikan dengan peringatan dan sandi acak dicetak.
+- Diuji: admin → konsol tanpa permintaan musik dan tanpa elemen audio; semua tab; aturan 12 karakter (UI dan server); pilihan pustaka lama muncul, menghilang setelah dipakai, dan pengguna baru masuk ke aplikasi musik dengan playlist + 2 lagu disukai lamanya; promosi memaksa ganti sandi; cookie admin `Max-Age=604800` vs pengguna `7776000`; tampilan iPhone. Regresi musik penuh dijalankan ulang dengan akun pengguna biasa.
+- Catatan: baris uji dengan versi pustaka 0 tak pernah muncul di produksi (penulisan pertama sudah versi ≥ 1); akun lama tanpa data tidak ditawarkan.
+
 ## Perubahan terbaru — 2026-09-21 (membuka/refresh aplikasi tak lagi memutar lagu sendiri)
 
 **Masalah**: antrean disimpan, jadi tiap aplikasi dibuka atau di-refresh, lagu terakhir dimuat dan langsung diputar (di browser yang mengizinkan autoplay — situs yang sering dipakai, PWA terpasang) sambil meminta server me-resolve lagu yang tak dipilih siapa pun.

@@ -69,7 +69,7 @@ Tidak ada CI otomatis terdeteksi di repo ini — verifikasi manual (Docker + cur
 |---|---|---|
 | `POSTGRES_PASSWORD` | `.env` (gitignored, copy dari `.env.example`) | Password Postgres, dipakai `postgres` & `backend` service |
 | `PORT` | backend | Default `8787` |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `.env` → backend | Admin dibuat saat boot pertama (login **wajib** untuk semua). `ADMIN_PASSWORD` kosong → dibuat acak dan dicetak sekali di `docker compose logs backend`; wajib diganti saat pertama masuk |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `.env` → backend | Admin (konsol pengelolaan, tanpa pemutar) dibuat saat boot pertama (login **wajib** untuk semua). Sandi admin min. 12 karakter; kosong/terlalu pendek → dibuat acak dan dicetak sekali di `docker compose logs backend`; wajib diganti saat pertama masuk |
 | `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` | backend | Di-set di `docker-compose.yml`, jangan diganti jadi satu connection string (lihat aturan #5 di atas) |
 
 ## Struktur singkat

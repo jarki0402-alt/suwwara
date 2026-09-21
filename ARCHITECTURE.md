@@ -115,36 +115,54 @@ Room idle (0 member) > 5 menit → GC setInterval tiap 60 detik → room dihapus
 
 Kontrol simetris penuh: tidak ada state "siapa host" yang membatasi siapa boleh apa. Sinkronisasi posisi antar device sengaja tidak sample-accurate (toleransi drift ~1.5 detik) karena tidak ada mekanisme sinkron clock `AudioContext` lintas device.
 
-## 4. Alur akun & pairing device
+## 4. Alur akun, login, dan sesi
+
+Login **wajib untuk semua** (nama pengguna + kata sandi). Akun hanya dibuat oleh admin; tidak ada pendaftaran publik.
 
 ```
-Boot pertama device → localStorage generate deviceId (crypto.randomUUID())
-Setiap request ke backend → Authorization: Bearer <deviceId>
-  → server/src/auth/deviceAuth.ts middleware
-    → device belum terdaftar? auto-create account + device row (Postgres)
-    → device sudah ada? lookup account_id-nya
+Boot pertama backend (tabel users kosong)
+  → server/src/auth/users.ts bootstrapAdmin(): admin dari ADMIN_USERNAME/ADMIN_PASSWORD (atau sandi acak
+    yang dicetak sekali di log), menempel ke akun dengan pustaka terbesar (playlist pemilik tetap utuh)
 
-Pairing device kedua:
-  Device A: POST /api/pairing/create → kode 6-karakter short-lived (in-memory, pairingManager.ts)
-  Device A: tampilkan kode + QR (encode link ?pair=<kode>, TANPA library scan kamera)
-  Device B: buka link lewat kamera OS (bukan in-app) → confirm di ConfirmPairSheet
-  Device B: POST /api/pairing/confirm {kode} → server repoint devices.account_id
-            milik device B ke account_id milik device A
+Masuk:  POST /api/auth/login {username, password}
+  → pembatas percobaan (auth/loginLimiter.ts): 5 gagal per (IP, pengguna) → kunci 15 menit,
+    + batas per IP (20) dan per pengguna (30); IP asli dari CF-Connecting-IP (dipercaya nginx hanya dari tunnel lokal)
+  → scrypt (auth/password.ts, maks. 2 hash bersamaan) → sesi baru → cookie suwwara_session
+    (HttpOnly, SameSite=Lax, Secure bila HTTPS; hanya SHA-256 token yang disimpan di tabel sessions; 90 hari, diperpanjang)
+  → sandi sementara dari admin (must_change_password) → semua /api lain 403 sampai diganti
+
+Setiap request /api (kecuali /api/auth/login|logout|session|password|sessions):
+  → requireSession (auth/sessions.ts): cookie → cache memori berbatas (500 entri, 60 dtk) → tabel sessions
+    → 401 tanpa sesi, 503 bila database mati (bukan 401, agar tak me-logout semua perangkat saat restart)
+  → deviceAuth (per router yang butuh perangkat): Bearer <deviceId> hanya menandai PERANGKAT MANA; akun diambil dari sesi
+    → satu pengguna = satu akun di semua perangkatnya, tanpa langkah pairing/QR
 ```
 
-## 5. Alur sinkronisasi library (liked songs & playlist)
+Cookie (bukan header) dipakai karena elemen `<audio>` tak bisa mengirim header. Audio, stream Jam dan Connect ikut digerbang.
+Router yang dipasang di `server/src/index.ts` harus berada **sebelum** `authRouter`/`libraryRouter` (yang memakai `deviceAuth` seluruh router), kecuali memang butuh `deviceAuth`.
+
+Dashboard admin (`routes/admin.ts`, `src/views/admin/`): pengguna, bandwidth (byte per pengguna per hari dari `socket.bytesWritten` respons audio, tanpa nama lagu), kesehatan server, log keamanan. Admin tidak melihat apa yang diputar.
+
+## 5. Alur sinkronisasi (pustaka, riwayat, mix)
 
 ```
-libraryStore berubah (like lagu / edit playlist)
-  → debounce 800ms → src/sync/librarySync.ts
-  → PUT /api/library {likedSongs, playlists} (Bearer deviceId)
-  → server/src/routes/library.ts → upsert ke library_snapshots (Postgres, whole-snapshot JSONB)
+Pustaka (liked songs & playlist)
+  libraryStore berubah → debounce → src/sync/librarySync.ts → PUT /api/library (nomor versi; 409 → gabung lalu simpan lagi)
+  → server/src/routes/library.ts → library_snapshots (whole-snapshot JSONB). addedAt disimpan di tiap entri lagu.
 
-Boot device (baru/reinstall):
-  → GET /api/library
-  → HANYA hydrate ke localStorage kalau local store masih KOSONG
-    (tidak pernah menimpa data yang sudah ada di device — one-way, best-effort)
+Profil (riwayat putar + mix Temuan Mingguan/Harian saat ini)
+  historyStore / mix berubah → debounce 4 dtk (juga saat dibuka lagi, tiap 5 menit) → src/sync/profileSync.ts
+  → PUT /api/profile: server MENGGABUNG (server/src/library/profileMerge.ts; komutatif, tanpa versi) dan menjawab dengan hasil gabungan
+  → klien mengadopsi hasilnya. Hapus riwayat menyimpan clearedAt agar tak dipulihkan perangkat lain.
+  Mix menunggu sinkron pertama (maks. 1,5 dtk) sebelum membuat mix baru.
+
+Tetap per perangkat: batas/retensi cache lagu, hemat data, volume, antrean berjalan.
 ```
+
+## 5b. Lagu terakhir saat aplikasi dibuka
+
+Antrean disimpan; saat dibuka, lagu terakhir **ditampilkan dalam keadaan jeda**, tidak dimuat (tanpa bunyi, tanpa permintaan audio).
+`AudioEngine.deferStart` menyimpan pemuatannya; `play()` pertama — semua jalur (tombol, layar kunci, Connect, Jam) berakhir di sana — menjalankannya; memuat lagu lain membatalkannya.
 
 ## Kenapa tidak ada ffmpeg di mana pun
 

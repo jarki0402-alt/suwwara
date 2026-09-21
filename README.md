@@ -7,8 +7,8 @@ Pemutar musik bebas iklan, ringan, dan smooth — PWA yang bisa dipasang di HP m
 ```
 suwwara/
 ├── src/            frontend — React 19 + Vite + TypeScript
-│   ├── api/            klien REST (musicClient: search/audio, authClient: akun/library/pairing)
-│   ├── auth/            identitas device tanpa password (src/auth/deviceIdentity.ts)
+│   ├── api/            klien REST (musicClient: search/audio, authClient: library/perangkat; auth/authApi+authStore: login & sesi)
+│   ├── auth/            login (authStore, authApi) + id perangkat (deviceIdentity.ts)
 │   ├── sync/            write-through sync library ⇄ server (src/sync/librarySync.ts)
 │   ├── audio-engine/   AudioEngine singleton (Web Audio graph, crossfade)
 │   ├── media-session/  integrasi lock-screen / notification media controls
@@ -21,17 +21,16 @@ suwwara/
 │   ├── app-shell/      shell aplikasi: bottom nav, mini player, RemoteBar (saat mengontrol perangkat lain)
 │   ├── connect/        kanal real-time antar-perangkat tertaut (SSE), pelapor status, penerima perintah
 │   ├── diagnostics/    catatan waktu pemuatan lagu di perangkat ini (Pengaturan → Diagnostik)
-│   ├── components/     komponen reusable (sheet, toast, dll — termasuk JamSheet/PairDeviceSheet)
+│   ├── components/     komponen reusable (sheet, toast, dll — termasuk JamSheet, JamIndicator)
 │   ├── pwa/             registrasi service worker, prompt install, estimasi storage
 │   └── sw.ts            service worker (Workbox, injectManifest)
 ├── server/          backend GCP — Express + TypeScript (audio, akun, library, Jam — butuh proses persisten)
 │   └── src/
 │       ├── routes/      /api/audio, /api/auth, /api/library, /api/jam (+ search/browse/details/similar/trending, dipertahankan sebagai fallback lokal — lihat nginx.conf)
 │       ├── db/           koneksi Postgres + schema (accounts, devices, library_snapshots, audio_cache)
-│       ├── auth/         middleware device-id bearer token
-│       ├── pairing/      kode pairing QR short-lived (pola sama dengan room code Jam)
+│       ├── auth/         sesi/cookie, sandi scrypt, pembatas login, audit, deviceAuth
+│       ├── metrics/      pemakaian bandwidth per hari + statistik resolve (dashboard admin)
 │       ├── connect/      hub in-memory perangkat tertaut per akun (kontrol jarak jauh)
-│       ├── linking/      permintaan tautan perangkat (QR ala WhatsApp Web) + rate limit
 │       ├── library/      penggabungan library dua akun
 │       ├── jam/          state room "Jam" in-memory + reducer antrean (mirror queueStore.ts)
 │       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses) — `priorityLimiter.ts`
@@ -78,11 +77,11 @@ Untuk deploy ke GCP + Vercel beneran, lihat bagian **Deploy** di bawah.
 
 ## Stack
 
-- **Frontend**: React 19, TypeScript, Vite, Zustand (state), Workbox (service worker via `vite-plugin-pwa`, strategi `injectManifest`), `qrcode` (render kode pairing sebagai QR)
+- **Frontend**: React 19, TypeScript, Vite, Zustand (state), Workbox (service worker via `vite-plugin-pwa`, strategi `injectManifest`)
 - **Backend (GCP)**: Express, `yt-dlp` (resolusi & proxy audio, cache di Postgres, dibatasi `p-limit` maks 3 proses bersamaan), `postgres` (klien DB, tanpa ORM), `ytmusic-api`/`youtube-sr` (fallback lokal untuk pencarian & metadata)
 - **Search/metadata (Vercel)**: Vercel Functions (Node runtime), `ytmusic-api`/`youtube-sr` — stateless, tanpa akses Postgres
 - **Database**: Postgres 16 (akun/device, snapshot library, cache resolve audio) — self-hosted di kontainer yang sama dengan backend, tidak pernah diekspos publik
-- **Akun**: tanpa password — device ID acak + pairing lintas device via kode/QR (lihat `src/auth/deviceIdentity.ts`, `server/src/pairing/pairingManager.ts`)
+- **Akun**: login wajib (nama pengguna + kata sandi, dibuat admin); sesi = cookie HttpOnly; kata sandi scrypt bawaan Node (lihat `server/src/auth/`, ARCHITECTURE.md §4). Deploy: lihat [DEPLOY.md](./DEPLOY.md)
 - **Audio**: Web Audio API (dua `<audio>` element paralel untuk crossfade)
 - **Lirik**: backend mencari di LRCLIB lalu YouTube Music (cache Postgres), parser LRC sendiri
 

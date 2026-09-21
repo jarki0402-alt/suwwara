@@ -55,8 +55,8 @@ Pemutar musik pribadi bebas iklan (PWA, installable di HP/desktop) yang meresolu
 - Auto-bubar setelah 5 menit tanpa member aktif.
 
 ### Akun tanpa password & sinkronisasi lintas device
-- Device generate ID acak sendiri (`crypto.randomUUID()`, [src/auth/deviceIdentity.ts](./src/auth/deviceIdentity.ts)), dikirim sebagai bearer token.
-- Pairing device kedua lewat kode 6-karakter + QR (mirip WhatsApp Web) — QR cuma encode link, discan pakai kamera OS (bukan in-app), jadi kompatibel iOS Safari tanpa `BarcodeDetector`.
+- Login wajib (nama pengguna + kata sandi; akun dibuat admin, sesi = cookie HttpOnly) — lihat [ARCHITECTURE.md](./ARCHITECTURE.md) §4. Perangkat masih punya id acak ([src/auth/deviceIdentity.ts](./src/auth/deviceIdentity.ts)) tetapi hanya untuk menandai *perangkat mana* (Connect), bukan sebagai kredensial.
+- Perangkat kedua cukup masuk dengan akun yang sama; tak ada lagi pairing/QR.
 - Playlist & lagu favorit sinkron ke server (`library_snapshots` table di Postgres), push debounced 800ms, hydrate dari server hanya kalau local kosong (gak pernah menimpa data device).
 
 ### PWA

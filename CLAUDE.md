@@ -1,6 +1,6 @@
 # CLAUDE.md — Panduan Dev Environment Suwwara
 
-Panduan ini buat siapa pun (manusia atau AI) yang mau kerja di codebase ini. Untuk status fitur & log perubahan, lihat [PROGRESS.md](./PROGRESS.md). Untuk peta fitur & rencana ke depan, lihat [PRD.md](./PRD.md). Untuk alur data teknis, lihat [ARCHITECTURE.md](./ARCHITECTURE.md).
+Panduan ini buat siapa pun (manusia atau AI) yang mau kerja di codebase ini. Untuk status fitur & log perubahan, lihat [PROGRESS.md](./PROGRESS.md). Untuk peta fitur & rencana ke depan, lihat [PRD.md](./PRD.md). Untuk alur data teknis, lihat [ARCHITECTURE.md](./ARCHITECTURE.md). Untuk cara deploy ke VPS, lihat [DEPLOY.md](./DEPLOY.md).
 
 ## Constraint paling penting: VM 1GB RAM
 

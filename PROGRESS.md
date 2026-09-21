@@ -25,6 +25,22 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (login tahap 4 dari 4: pengerasan, cadangan, cara deploy)
+
+- **Port backend hanya loopback** (`127.0.0.1:8787`): sesi adalah cookie di domain situs, jadi akses langsung `http://IP:8787` tak pernah bisa masuk, dan port terbuka membiarkan siapa pun memalsukan header IP yang dipercaya pembatas login. Dari VM sendiri tetap bisa.
+- **IP pengunjung yang jujur**: nginx hanya memercayai `CF-Connecting-IP` bila sumber koneksinya mesin ini (loopback / jaringan privat Docker — tempat `cloudflared` menyambung); permintaan yang mencapai port 8080 langsung dari internet dipaksa memakai alamat peer aslinya, jadi header palsu tak bisa menghindari penguncian. Diuji dua cabang (dari jaringan Docker: 9.9.9.9 dipercaya; dari sumber "publik": 1.2.3.4 palsu diabaikan). Bila `cloudflared` suatu hari menyambung dari IP publik, tambahkan rentangnya di blok `geo` `nginx.conf`.
+- **Header keamanan** (`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`) lewat `nginx-security-headers.inc`, disertakan di server dan di tiap `location` yang punya `add_header` sendiri (nginx tak mewarisinya).
+- **Cadangan database**: `scripts/backup-db.sh` (`pg_dump` terkompresi, diverifikasi `gzip -t`, simpan 14 terbaru, `backups/` di-gitignore). Cara restore dan cron ada di komentar skrip. Salin juga ke luar VM.
+- Diuji: skrip menghasilkan dump valid (304 KB), `nginx -t` OK, header hadir di `/`, `/sw.js`, aset ber-hash, dan `/api/*`.
+
+### Cara deploy login (sekali)
+1. Di `.env` VPS tambahkan `ADMIN_USERNAME=...` dan `ADMIN_PASSWORD=...` (min. 8 karakter) — atau kosongkan sandi dan baca sandi acak sekali dari `docker compose logs backend | grep "\[auth\]"`.
+2. `git pull && docker compose up -d --build --force-recreate backend frontend`.
+3. Admin otomatis menempel ke akun dengan pustaka terbesar (playlistmu). Perangkat yang sedang terbuka menampilkan landing saat di-refresh; masuk dengan akun admin, pustaka lokal perangkat itu digabung ke akun.
+4. Purge cache Cloudflare `/sw.js` bila belum (lihat entri PWA), lalu tambahkan **aturan Rate Limiting Cloudflare** untuk `POST /api/auth/login` (mis. 10 permintaan/menit/IP) sebagai lapisan kedua di luar pembatas aplikasi.
+5. Pasang cron cadangan: `15 3 * * * cd /path/suwwara && ./scripts/backup-db.sh >> backups/backup.log 2>&1`.
+6. Firewall GCP: tutup port 8787 (dan 8080 bila `cloudflared` menyambung lewat localhost) dari luar.
+
 ## Perubahan terbaru — 2026-09-21 (login tahap 3 dari 4: dashboard admin)
 
 Pengaturan → Akun → **Dashboard Admin** (hanya peran admin; dimuat malas sehingga pengguna biasa tak mengunduhnya). Senada dengan tema, rapi di desktop dan HP. Admin **tidak** melihat lagu apa yang diputar siapa — hanya hitungan dan ukuran.

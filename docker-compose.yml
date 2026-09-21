@@ -55,12 +55,11 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
 
     ports:
-      # Published to the host (not just the internal Docker network) on purpose: this
-      # lets audio streaming be pointed at directly, bypassing a Cloudflare-proxied
-      # hostname entirely if you want to keep heavy audio traffic off Cloudflare's edge
-      # (see the frontend's /api/ proxy in nginx.conf for the alternative — routing
-      # everything, audio included, through one origin).
-      - "8787:8787"
+      # Loopback only. It used to be open to the whole network so audio could bypass Cloudflare, but sign-in is now a
+      # cookie on the site's own domain, which a request straight to http://<vm-ip>:8787 could never carry — and an open
+      # port would let anyone forge the CF-Connecting-IP header the login rate limit trusts. From the VM itself
+      # (curl, debugging) http://localhost:8787 still works.
+      - "127.0.0.1:8787:8787"
 
   ytdlp-service:
     logging: *default-logging

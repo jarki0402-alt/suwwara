@@ -32,3 +32,6 @@ cookies.txt
 *.njsproj
 *.sln
 *.sw?
+
+# Database dumps from scripts/backup-db.sh
+backups/

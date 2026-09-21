@@ -58,7 +58,10 @@
 }
 
 .device {
-  flex-wrap: wrap;
+  /* The name gets the whole width (it was squeezed to "iP…" beside three buttons); the choices sit underneath. */
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
 }
 
 .actions {

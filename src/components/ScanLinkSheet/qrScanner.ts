@@ -12,7 +12,22 @@ interface BarcodeDetectorLike {
 }
 
 const SCAN_INTERVAL_MS = 120; // ~8 frames a second is plenty for a QR held still, and cheap on a phone
-const MAX_FRAME_WIDTH = 640; // decode a downscaled frame — QR codes survive it, and it is far less work
+// The largest side, in pixels, of the region handed to the pure-JS decoder. jsQR needs roughly 3+ pixels per QR
+// module, and a QR shown on a laptop screen and held at arm's length is only a fraction of the camera frame — so
+// the more of the sensor's own pixels reach the decoder, the more reliably it reads. The loop waits for each decode
+// to finish before scheduling the next, so a slower phone just scans fewer frames a second, never piles up work.
+const MAX_DECODE_SIDE = 960;
+
+/**
+ * The part of the camera frame the person actually sees in the (square, object-fit: cover) viewfinder: the centre
+ * square. Decoding only that, at the sensor's own resolution, gives the QR far more pixels than shrinking the whole
+ * 16:9 frame to fit a small width did (the old pipeline: 1280 px -> 640 px, halving every module).
+ */
+export function decodeRegion(videoWidth: number, videoHeight: number, maxSide = MAX_DECODE_SIDE) {
+  const side = Math.min(videoWidth, videoHeight);
+  const scale = Math.min(1, maxSide / side);
+  return { sx: Math.floor((videoWidth - side) / 2), sy: Math.floor((videoHeight - side) / 2), side, outSide: Math.max(1, Math.round(side * scale)) };
+}
 
 /** The 8-hex-char link code, from either the full `?link=` URL a QR encodes or the bare code. */
 export function extractLinkCode(text: string): string | null {
@@ -24,7 +39,7 @@ export function extractLinkCode(text: string): string | null {
 
 export async function startQrScanner(video: HTMLVideoElement, onText: (text: string) => void): Promise<ScannerHandle> {
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
     audio: false,
   });
   video.srcObject = stream;
@@ -48,11 +63,11 @@ export async function startQrScanner(video: HTMLVideoElement, onText: (text: str
       return found[0]?.rawValue ?? null;
     }
     if (!context || !jsQR) return null;
-    const scale = Math.min(1, MAX_FRAME_WIDTH / video.videoWidth);
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const image = context.getImageData(0, 0, canvas.width, canvas.height);
+    const { sx, sy, side, outSide } = decodeRegion(video.videoWidth, video.videoHeight);
+    canvas.width = outSide;
+    canvas.height = outSide;
+    context.drawImage(video, sx, sy, side, side, 0, 0, outSide, outSide);
+    const image = context.getImageData(0, 0, outSide, outSide);
     return jsQR(image.data, image.width, image.height, { inversionAttempts: 'dontInvert' })?.data ?? null;
   };
 

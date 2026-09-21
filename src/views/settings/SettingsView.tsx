@@ -6,6 +6,7 @@ import { CacheManager } from './CacheManager';
 import { DataSaverToggle } from './DataSaverToggle';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { LinkedDevices } from './LinkedDevices';
+import { UpdateRow } from './UpdateRow';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
 import { ThemeToggle } from './ThemeToggle';
@@ -30,6 +31,8 @@ export function SettingsView() {
         <span className={styles.sectionTitle}>Tampilan</span>
         <ThemeToggle />
       </div>
+
+      <UpdateRow />
 
       <div className={styles.section}>
         <span className={styles.sectionTitle}>Pemutaran</span>

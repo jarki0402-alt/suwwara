@@ -74,7 +74,7 @@ export function AlbumView({ route }: { route: Extract<DetailRoute, { type: 'albu
               <Icon name="play" size={24} />
             </button>
             <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffled(album.songs), 0)} aria-label="Putar acak">
-              <Icon name="shuffle" size={20} />
+              <Icon name="shuffle" size={22} />
             </button>
           </div>
         )}

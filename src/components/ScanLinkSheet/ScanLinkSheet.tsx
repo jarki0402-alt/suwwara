@@ -55,6 +55,8 @@ export function ScanLinkSheet({ prefillCode, onClose }: { prefillCode: string | 
     startQrScanner(videoRef.current, (text) => {
       const code = extractLinkCode(text);
       if (code) void lookUp(code);
+      // A QR was read but it isn't ours — say so, instead of looking like nothing was scanned at all.
+      else setError('QR terbaca, tapi bukan kode tautan Suwwara. Pindai QR dari Pengaturan → Perangkat → Tampilkan QR.');
     })
       .then((handle) => {
         if (cancelled) handle.stop();
@@ -113,7 +115,7 @@ export function ScanLinkSheet({ prefillCode, onClose }: { prefillCode: string | 
               <video ref={videoRef} className={styles.video} muted playsInline />
               <div className={styles.frame} />
             </div>
-            <p className={sheetStyles.expiryNote}>Arahkan kamera ke QR yang tampil di perangkat baru (Pengaturan → Perangkat → Tampilkan QR).</p>
+            <p className={sheetStyles.expiryNote}>Arahkan kamera ke QR yang tampil di perangkat baru (Pengaturan → Perangkat → Tampilkan QR). Pegang stabil, layar laptop cukup terang, dan jaga QR tetap di dalam bingkai.</p>
             {error && <p className={styles.error}>{error}</p>}
             <div className={styles.manualRow}>
               <input

@@ -77,8 +77,8 @@
 }
 
 .playButton {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border: none;
   border-radius: var(--radius-full);
   display: flex;
@@ -91,8 +91,8 @@
 }
 
 .roundButton {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border: none;
   border-radius: var(--radius-full);
   display: flex;

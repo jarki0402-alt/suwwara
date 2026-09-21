@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ImageVariant, Song } from '../../api/types';
+import { getDailyDiscoveryMix } from '../../recommendation/dailyDiscovery';
+import { getOnRepeatMix } from '../../recommendation/onRepeat';
 import { getTrendingSongsIndonesia } from '../../recommendation/trendingChart';
 import { getArtistMixByName } from '../../recommendation/topArtistMix';
 import { getWeeklyDiscoveryMix } from '../../recommendation/weeklyDiscovery';
@@ -12,6 +14,16 @@ const STATIC_META: Partial<Record<string, { title: string; description: string; 
     title: 'Temuan Mingguan',
     description: 'Campuran lagu berdasarkan riwayat putarmu, diperbarui tiap minggu.',
     fetch: getWeeklyDiscoveryMix,
+  },
+  'daily-discovery': {
+    title: 'Temuan Harian',
+    description: 'Lagu baru untukmu hari ini — beda dari Temuan Mingguan dan dari yang baru saja kamu dengarkan.',
+    fetch: getDailyDiscoveryMix,
+  },
+  'on-repeat': {
+    title: 'Sering Kamu Putar',
+    description: 'Lagu yang paling sering kamu putar dalam 30 hari terakhir.',
+    fetch: getOnRepeatMix,
   },
   'viral-indonesia': {
     title: 'Lagi Viral di Indonesia',

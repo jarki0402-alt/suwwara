@@ -9,7 +9,7 @@ export type ViewName = 'home' | 'search' | 'library' | 'settings';
  * artist, so the id has to encode WHICH artist rather than being a single
  * fixed value like the other two.
  */
-export type GeneratedCollectionId = 'weekly-discovery' | 'viral-indonesia' | `artist-mix:${string}`;
+export type GeneratedCollectionId = 'weekly-discovery' | 'daily-discovery' | 'on-repeat' | 'viral-indonesia' | `artist-mix:${string}`;
 
 /**
  * Artist and album pages are pushed on top of whichever menu is open (Spotify-style) rather than

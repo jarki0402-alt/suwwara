@@ -101,11 +101,14 @@
 
 .qr {
   align-self: center;
-  width: 180px;
-  height: 180px;
+  /* Natural size (the bitmap is drawn at 8 device px per module — see LinkDeviceSheet/linkQr.ts), never stretched:
+     scaling a QR by a fractional factor blurs module edges, which is what a camera then has to see through. */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  image-rendering: pixelated;
   border-radius: var(--radius-md);
   background: #fff;
-  padding: var(--space-2);
 }
 
 .code {

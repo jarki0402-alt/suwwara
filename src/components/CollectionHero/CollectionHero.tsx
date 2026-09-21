@@ -86,7 +86,7 @@ export function CollectionHero({ kind, title, onTitleClick, description, songs, 
                 <Icon name="play" size={24} />
               </button>
               <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffledCopy(songs), 0)} aria-label="Putar acak">
-                <Icon name="shuffle" size={20} />
+                <Icon name="shuffle" size={22} />
               </button>
             </>
           )}

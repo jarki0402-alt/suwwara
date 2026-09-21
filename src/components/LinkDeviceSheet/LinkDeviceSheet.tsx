@@ -1,6 +1,6 @@
 import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import QRCode from 'qrcode';
+import { makeLinkQr } from './linkQr';
 import { getLinkRequestStatus, requestLinkCode } from '../../api/authClient';
 import { describeThisDevice } from '../../auth/deviceInfo';
 import { resyncAfterLink } from '../../sync/librarySync';
@@ -36,7 +36,7 @@ export function LinkDeviceSheet({ onClose }: { onClose: () => void }) {
       // A link, not the bare code: scanned with an ordinary camera it still opens the app, and
       // the in-app scanner accepts both forms.
       const url = `${window.location.origin}${window.location.pathname}?link=${result.code}`;
-      setQr(await QRCode.toDataURL(url, { margin: 1, width: 240 }));
+      setQr(await makeLinkQr(url));
       setCode(result.code);
     } catch {
       setFailed(true);

@@ -1,3 +1,4 @@
+import { useUpdateStore } from '../pwa/updateStore';
 import { useState } from 'react';
 import { LazyImage } from '../components/Image/LazyImage';
 import { PlaylistNameDialog } from '../components/PlaylistNameDialog/PlaylistNameDialog';
@@ -22,6 +23,7 @@ export function BottomNav() {
   const likedCount = useLibraryStore((state) => state.likedSongs.length);
   const createPlaylist = useLibraryStore((state) => state.createPlaylist);
   const [isCreating, setIsCreating] = useState(false);
+  const hasUpdate = useUpdateStore((state) => state.status === 'available');
 
   return (
     <nav className={styles.nav}>
@@ -33,7 +35,10 @@ export function BottomNav() {
           className={[styles.tabButton, currentView === tab.view && !selectedPlaylistId ? styles.tabActive : ''].join(' ')}
           onClick={() => setView(tab.view)}
         >
-          <Icon name={tab.icon} size={22} />
+          <span className={styles.tabIcon}>
+            <Icon name={tab.icon} size={22} />
+            {tab.view === 'settings' && hasUpdate && <span className={styles.updateDot} aria-label="Ada pembaruan" />}
+          </span>
           <span>{tab.label}</span>
         </button>
       ))}
@@ -56,7 +61,7 @@ export function BottomNav() {
             onClick={() => setView('library')}
           >
             <span className={styles.libraryLikedIcon}>
-              <Icon name="heart-filled" size={20} />
+              <Icon name="heart-filled" size={22} />
             </span>
             <span className={styles.libraryText}>
               <span className={styles.libraryLabel}>Lagu Disukai</span>
@@ -74,7 +79,7 @@ export function BottomNav() {
                 <LazyImage images={playlist.songs[0].image} quality="50x50" alt={playlist.name} className={styles.libraryThumb} />
               ) : (
                 <span className={styles.libraryPlaceholderIcon}>
-                  <Icon name="library" size={20} />
+                  <Icon name="library" size={22} />
                 </span>
               )}
               <span className={styles.libraryText}>

@@ -99,7 +99,7 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
               <Icon name="play" size={24} />
             </button>
             <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffled(songs), 0)} aria-label="Putar acak">
-              <Icon name="shuffle" size={20} />
+              <Icon name="shuffle" size={22} />
             </button>
           </div>
         )}

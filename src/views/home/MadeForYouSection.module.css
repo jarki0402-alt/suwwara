@@ -55,6 +55,14 @@
   background: linear-gradient(135deg, #4c1d95 0%, var(--color-accent) 100%);
 }
 
+.tileDaily {
+  background: linear-gradient(135deg, #164e63 0%, #0891b2 100%);
+}
+
+.tileRepeat {
+  background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+}
+
 .tileViral {
   background: linear-gradient(135deg, #9d174d 0%, var(--color-accent-2) 100%);
 }

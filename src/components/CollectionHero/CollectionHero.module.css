@@ -149,8 +149,9 @@
 }
 
 .playButton {
-  width: 54px;
-  height: 54px;
+  /* Same 48px as the round buttons beside it (shuffle, ⋯) — the play button used to be visibly larger. */
+  width: 48px;
+  height: 48px;
   border: none;
   border-radius: var(--radius-full);
   display: flex;
@@ -174,8 +175,8 @@
 }
 
 .roundButton {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   border: none;
   border-radius: var(--radius-full);
   display: flex;

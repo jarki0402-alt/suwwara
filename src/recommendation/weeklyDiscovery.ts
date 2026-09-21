@@ -53,7 +53,17 @@ function writeStoredMix(mix: StoredMix): void {
  * similarity + artist affinity, see recommendationEngine.ts), just computed
  * once per week and cached instead of re-ranked on every render.
  */
-export async function getWeeklyDiscoveryMix(): Promise<Song[]> {
+// Home asks for this from two places at once now (its own tile and Temuan Harian, which skips its songs) — one build, shared.
+let inFlight: Promise<Song[]> | null = null;
+
+export function getWeeklyDiscoveryMix(): Promise<Song[]> {
+  inFlight ??= buildWeeklyMix().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function buildWeeklyMix(): Promise<Song[]> {
   const weekKey = getIsoWeekKey(new Date());
   const stored = readStoredMix();
   if (stored && stored.weekKey === weekKey && stored.songs.length > 0) {

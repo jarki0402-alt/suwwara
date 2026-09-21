@@ -36,6 +36,24 @@ body {
   transition: background-color var(--transition-base), color var(--transition-base);
 }
 
+/* Focusing a text field on iOS (and some Android browsers) zooms the page in when the field's text is under 16px.
+   The root font-size is 15px, so every field sized in rem (1rem = 15px) crossed that line. Pinned at 16px on touch
+   devices, for every field, whatever its own stylesheet says — desktop keeps the compact sizes. */
+@media (pointer: coarse) {
+  input:not([type='range']):not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* No double-tap-to-zoom anywhere (it also delays every tap while the browser waits for a possible second one);
+   pinch-zoom is untouched. */
+html,
+body {
+  touch-action: manipulation;
+}
+
 button {
   font-family: inherit;
   color: inherit;

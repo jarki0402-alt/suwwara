@@ -112,6 +112,12 @@
   padding: var(--space-2);
 }
 
+.linkButtonStrong {
+  color: var(--color-accent);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
 .storageBarTrack {
   margin: 0 var(--space-4);
   height: 6px;

@@ -165,7 +165,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     /* Own scrollbar reserved space, matching the rest of the app's hidden-but-scrollable pattern. */
     scrollbar-width: none;
   }
@@ -189,10 +189,10 @@
     gap: var(--space-3);
     border: none;
     background: none;
-    padding: var(--space-1) var(--space-2);
-    border-radius: 10px;
+    padding: 6px var(--space-2);
+    border-radius: 12px;
     color: var(--color-text-primary);
-    font-size: 0.84rem;
+    font-size: 0.92rem;
     font-weight: 600;
     cursor: pointer;
     text-align: left;
@@ -219,22 +219,22 @@
   }
 
   .librarySub {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 500;
     color: var(--color-text-tertiary);
   }
 
   .libraryThumb {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     border-radius: 10px;
     flex-shrink: 0;
   }
 
   .libraryLikedIcon,
   .libraryPlaceholderIcon {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     border-radius: 10px;
     flex-shrink: 0;
     display: flex;
@@ -252,4 +252,20 @@
     background: var(--color-bg-elevated);
     color: var(--color-text-tertiary);
   }
+}
+
+/* Wraps a tab's icon so the "update available" dot can sit on its corner without moving anything. */
+.tabIcon {
+  position: relative;
+  display: inline-flex;
+}
+
+.updateDot {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
 }

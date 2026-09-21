@@ -3,11 +3,13 @@ import { bestImageUrl } from '../../api/mappers';
 import type { Song } from '../../api/types';
 import { Icon, type IconName } from '../../components/Icon/Icon';
 import { getTrendingSongsIndonesia } from '../../recommendation/trendingChart';
+import { getDailyDiscoveryMix } from '../../recommendation/dailyDiscovery';
+import { getOnRepeatMix } from '../../recommendation/onRepeat';
 import { getWeeklyDiscoveryMix } from '../../recommendation/weeklyDiscovery';
 import { useUiStore, type GeneratedCollectionId } from '../../stores/uiStore';
 import styles from './MadeForYouSection.module.css';
 
-type Tint = 'weekly' | 'viral';
+type Tint = 'weekly' | 'daily' | 'repeat' | 'viral';
 
 interface Tile {
   id: GeneratedCollectionId;
@@ -19,7 +21,7 @@ interface Tile {
 }
 
 /**
- * Two auto-generated "playlist" tiles (Spotify's Daily Mix/Discover Weekly
+ * Four auto-generated "playlist" tiles (Temuan Mingguan, Temuan Harian, Sering Kamu Putar, Lagi Viral di Indonesia) (Spotify's Daily Mix/Discover Weekly
  * pattern) — clicking either opens the full track list (GeneratedCollectionView)
  * instead of playing immediately, since these represent a whole collection,
  * not a single track. The backdrop is a blurred collage of the collection's
@@ -28,13 +30,15 @@ interface Tile {
  * so clicking through never re-fetches), not a flat gradient — it changes
  * with whatever's actually in the mix, same as Spotify's own Daily Mix art.
  *
- * The per-artist "Mix {artist}" collections used to be extra tiles here; they now live in their own
- * sideways shelf (ArtistMixesSection) so this row stays two tiles and Home isn't crowded.
+ * The per-artist "Mix {artist}" collections live in their own sideways shelf (ArtistMixesSection); the four tiles
+ * here fill a 2×2 grid on a phone and one row on desktop.
  */
 export function MadeForYouSection() {
   const openCollection = useUiStore((state) => state.openCollection);
   const [tiles, setTiles] = useState<Tile[]>([
     { id: 'weekly-discovery', title: 'Temuan Mingguan', subtitle: 'Berdasarkan yang kamu dengarkan', icon: 'refresh', tint: 'weekly', covers: [] },
+    { id: 'daily-discovery', title: 'Temuan Harian', subtitle: 'Segar setiap hari, beda dari mingguan', icon: 'clock', tint: 'daily', covers: [] },
+    { id: 'on-repeat', title: 'Sering Kamu Putar', subtitle: 'Yang paling kamu ulang', icon: 'repeat', tint: 'repeat', covers: [] },
     { id: 'viral-indonesia', title: 'Lagi Viral di Indonesia', subtitle: 'Yang lagi rame diputar', icon: 'pulse', tint: 'viral', covers: [] },
   ]);
 
@@ -46,6 +50,20 @@ export function MadeForYouSection() {
       .then((songs) => {
         if (cancelled) return;
         setTiles((prev) => prev.map((tile) => (tile.id === 'weekly-discovery' ? { ...tile, covers: coversOf(songs) } : tile)));
+      })
+      .catch(() => {});
+
+    getDailyDiscoveryMix()
+      .then((songs) => {
+        if (cancelled) return;
+        setTiles((prev) => prev.map((tile) => (tile.id === 'daily-discovery' ? { ...tile, covers: coversOf(songs) } : tile)));
+      })
+      .catch(() => {});
+
+    getOnRepeatMix()
+      .then((songs) => {
+        if (cancelled) return;
+        setTiles((prev) => prev.map((tile) => (tile.id === 'on-repeat' ? { ...tile, covers: coversOf(songs) } : tile)));
       })
       .catch(() => {});
 
@@ -61,7 +79,7 @@ export function MadeForYouSection() {
     };
   }, []);
 
-  const tintClass: Record<Tint, string> = { weekly: styles.tileWeekly, viral: styles.tileViral };
+  const tintClass: Record<Tint, string> = { weekly: styles.tileWeekly, daily: styles.tileDaily, repeat: styles.tileRepeat, viral: styles.tileViral };
 
   return (
     <section className={styles.section}>

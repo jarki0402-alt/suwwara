@@ -1,7 +1,8 @@
 import type { Song } from '../api/types';
 import { loadHistory, recentlyPlayedIds } from './historyLog';
+import { profileReady } from '../sync/profileReady';
 import { getRecommendations } from './recommendationEngine';
-import { getWeeklyDiscoveryMix } from './weeklyDiscovery';
+import { getWeeklyDiscoveryMix, MIX_CHANGED_EVENT } from './weeklyDiscovery';
 
 const STORAGE_KEY = 'suwwara.daily-discovery.v1';
 const MIX_SIZE = 30;
@@ -18,7 +19,7 @@ export function dayKey(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function readStored(): StoredMix | null {
+export function readStored(): StoredMix | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? (JSON.parse(raw) as StoredMix) : null;
@@ -27,9 +28,10 @@ function readStored(): StoredMix | null {
   }
 }
 
-function writeStored(mix: StoredMix): void {
+export function writeStored(mix: StoredMix): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mix));
+    window.dispatchEvent(new Event(MIX_CHANGED_EVENT));
   } catch {
     // storage unavailable/full — the mix is then rebuilt on each visit instead of staying put for the day
   }
@@ -42,6 +44,7 @@ function writeStored(mix: StoredMix): void {
  * Stays put for the calendar day (cached), instead of reshuffling on every visit.
  */
 export async function getDailyDiscoveryMix(): Promise<Song[]> {
+  await profileReady(); // adopt today's mix another device already published, if any
   const today = dayKey(new Date());
   const stored = readStored();
   if (stored && stored.dayKey === today && stored.songs.length > 0) return stored.songs;

@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'suwwara-history';
 const MAX_ENTRIES = 300;
+const CLEARED_KEY = 'suwwara-history-cleared';
 
 export interface PlayEvent {
   songId: string;
@@ -43,6 +44,38 @@ export function recordPlay(event: PlayEvent): PlayEvent[] {
   return next;
 }
 
+/** When the person last cleared their history (ms), 0 if never. Sync uses it so a cleared history is not restored by another device. */
+export function historyClearedAt(): number {
+  try {
+    return Number(localStorage.getItem(CLEARED_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Replaces the log with a merged copy from the account (see sync/profileSync.ts). */
+export function replaceHistory(events: PlayEvent[], clearedAt: number): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(events.slice(-MAX_ENTRIES)));
+    localStorage.setItem(CLEARED_KEY, String(clearedAt));
+  } catch {
+    // the in-memory copy still works for this session
+  }
+}
+
+/** Same rule the server applies (server/src/library/profileMerge.ts): union by song+time, nothing older than the last clear, newest 300. */
+export function mergeHistory(a: PlayEvent[], b: PlayEvent[], clearedAt: number): PlayEvent[] {
+  const seen = new Set<string>();
+  const merged: PlayEvent[] = [];
+  for (const event of [...a, ...b]) {
+    const key = `${event.songId}|${event.timestamp}`;
+    if (event.timestamp <= clearedAt || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(event);
+  }
+  return merged.sort((x, y) => x.timestamp - y.timestamp).slice(-MAX_ENTRIES);
+}
+
 /** Song IDs played within the last `windowMs` — used to keep the radio queue from
  * resurfacing something the user just heard, while still letting it come back
  * around after enough time has passed that it won't feel like repetition. */
@@ -54,6 +87,7 @@ export function recentlyPlayedIds(windowMs: number, history: PlayEvent[] = loadH
 export function clearHistory(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(CLEARED_KEY, String(Date.now()));
   } catch {
     // ignore
   }

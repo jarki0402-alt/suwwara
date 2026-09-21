@@ -25,6 +25,17 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (login tahap 2 dari 4: riwayat dan mix ikut ke semua perangkat)
+
+Beranda kini sama di semua perangkat satu akun. Yang disinkronkan: **riwayat putar** (sumber "Baru Diputar", "Sering Kamu Putar", Temuan) dan **mix Temuan Mingguan/Harian saat ini** (tanpa ini tiap perangkat membuat mix sendiri, jadi walau riwayatnya sama tampilannya beda). Yang sengaja tetap per perangkat: batas/retensi cache lagu, hemat data, volume, antrean berjalan.
+
+- **Cara kerja** (`sync/profileSync.ts`, `routes/profile.ts`, `library/profileMerge.ts`): tiap sinkronisasi mengirim salinan perangkat ini dan mengadopsi hasil **gabungan dari server**. Penggabungan komutatif dan bisa diulang (riwayat = gabungan per lagu+waktu, 300 terbaru; mix = kunci minggu/hari terbaru, imbang → yang pertama terbit), jadi tanpa nomor versi/409 seperti pustaka. Pemicu: saat masuk, 4 dtk setelah perubahan lokal, saat aplikasi dibuka lagi, tiap 5 menit. Saat menerapkan, digabung ulang dengan isi lokal *saat itu* agar lagu yang baru diputar tak hilang.
+- **"Hapus riwayat" tak hidup lagi dari perangkat lain**: menyimpan waktu terakhir dihapus (`clearedAt`); server membuang semua yang lebih tua.
+- **Mix menunggu sinkronisasi pertama** (`sync/profileReady.ts`, maks. 1,5 dtk) sebelum membuat mix baru, supaya perangkat kedua memakai mix yang sudah diterbitkan perangkat pertama.
+- Masukan divalidasi dan dibatasi di server (300 peristiwa, 60 lagu per mix, 200 KB); batas ukuran body Express dinaikkan 100 KB → 1 MB (pustaka/profil besar sebelumnya bisa ditolak diam-diam).
+- **Koreksi**: pembersihan tautan QR sebelumnya merusak build produksi (`ConnectSheet` masih mengimpor CSS sheet yang dihapus; `tsc` tak memeriksa impor CSS). Diperbaiki; sejak itu verifikasi selalu memakai `npm run build` dan build Docker, bukan hanya `tsc`.
+- Diuji dengan dua browser satu akun: riwayat 6 lagu dari A muncul di B, mix mingguan dan harian identik, hapus riwayat di A mengosongkan server dan B. 7 tes penggabungan server + 3 tes klien.
+
 ## Perubahan terbaru — 2026-09-21 (login wajib: nama pengguna + kata sandi, tahap 1 dari 4)
 
 Keputusan: login **wajib untuk semua** (jalur audio, Jam, Connect, semua `/api`), pendaftaran **hanya oleh admin**, admin tidak bisa melihat lagu apa yang diputar pengguna, tanpa kuota bandwidth (pemakaian hanya ditampilkan), 5 kali gagal → terkunci 15 menit.

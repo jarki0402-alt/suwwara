@@ -5,6 +5,7 @@ import { useToast } from './components/Toast/ToastProvider';
 import { useThemeSync } from './hooks/useThemeSync';
 import { initServiceWorker } from './pwa/registerSW';
 import { initLibrarySync } from './sync/librarySync';
+import { initProfileSync } from './sync/profileSync';
 import { useUiStore } from './stores/uiStore';
 import { ChangePasswordScreen } from './views/auth/ChangePasswordScreen';
 import { LandingPage } from './views/auth/LandingPage';
@@ -30,6 +31,7 @@ function App() {
     if (status === 'signed-in' && !mustChangePassword && !syncStarted.current) {
       syncStarted.current = true;
       initLibrarySync();
+      initProfileSync();
     }
   }, [status, mustChangePassword]);
 

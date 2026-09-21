@@ -1,6 +1,9 @@
 import type { Song } from '../api/types';
+import { profileReady } from '../sync/profileReady';
 import { getRecommendations } from './recommendationEngine';
 
+/** Fired when a mix is stored, so profile sync can publish it to the account's other devices. */
+export const MIX_CHANGED_EVENT = 'suwwara:mix-changed';
 const STORAGE_KEY = 'suwwara.weekly-discovery.v1';
 const MIX_SIZE = 30;
 
@@ -26,7 +29,7 @@ function getIsoWeekKey(date: Date): string {
   return `${utc.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
 
-function readStoredMix(): StoredMix | null {
+export function readStoredMix(): StoredMix | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -36,9 +39,10 @@ function readStoredMix(): StoredMix | null {
   }
 }
 
-function writeStoredMix(mix: StoredMix): void {
+export function writeStoredMix(mix: StoredMix): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mix));
+    window.dispatchEvent(new Event(MIX_CHANGED_EVENT));
   } catch {
     // Storage full/unavailable (private browsing, quota) — the mix just
     // regenerates every visit instead of being stable for the week. Same
@@ -64,6 +68,7 @@ export function getWeeklyDiscoveryMix(): Promise<Song[]> {
 }
 
 async function buildWeeklyMix(): Promise<Song[]> {
+  await profileReady(); // adopt the week's mix another device already published, if any
   const weekKey = getIsoWeekKey(new Date());
   const stored = readStoredMix();
   if (stored && stored.weekKey === weekKey && stored.songs.length > 0) {

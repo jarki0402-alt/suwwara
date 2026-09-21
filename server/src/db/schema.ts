@@ -106,4 +106,16 @@ create table if not exists audit_log (
   detail text
 );
 create index if not exists audit_log_at_idx on audit_log (at);
+
+-- What makes the home page look the same on every device of an account: the play history that feeds the
+-- recommendations, and the current daily/weekly mixes (which every device would otherwise generate differently).
+-- Merged on the server (see library/profileMerge.ts), so a write never needs a version number.
+create table if not exists profiles (
+  account_id text primary key references accounts(id) on delete cascade,
+  history jsonb not null default '[]',
+  cleared_at bigint not null default 0,
+  weekly jsonb,
+  daily jsonb,
+  updated_at timestamptz not null default now()
+);
 `;

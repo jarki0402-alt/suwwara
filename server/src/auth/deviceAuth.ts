@@ -8,45 +8,44 @@ declare module 'express-serve-static-core' {
 }
 
 /**
- * Passwordless "device identity": the client generates a random id for
- * itself on first launch (src/auth/deviceIdentity.ts) and sends it back as
- * `Authorization: Bearer <deviceId>` on every request that touches
- * account-scoped data. No password, no email — the id itself is the
- * credential, which is an acceptable trade-off for a closed friends/family
- * circle with low-stakes data (playlists), not a bank.
- *
- * First time a device is ever seen, it gets its own brand-new account.
- * Pairing (see pairingManager.ts) later repoints a device's account_id to an
- * existing account instead of leaving it on its own solo one.
+ * Says WHICH DEVICE a request comes from (`Authorization: Bearer <deviceId>`, minted by the client on first launch —
+ * src/auth/deviceIdentity.ts). Who the user is now comes from the session cookie (auth/sessions.ts), checked before
+ * any of this runs: the device row is (re)pointed at the signed-in account, so all of a user's devices share one
+ * account without any pairing step. Nothing here creates accounts any more — only the admin does, see auth/users.ts.
  */
+const TOUCH_EVERY_MS = 60_000;
+const MAX_REMEMBERED = 500;
+const remembered = new Map<string, { accountId: string; touchedAt: number }>();
+
 export async function deviceAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
   const deviceId = header?.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
-  if (!deviceId) {
-    res.status(401).json({ error: 'Missing device identity.', message: 'Authorization: Bearer <deviceId> header is required.' });
+  if (!deviceId || !req.session) {
+    res.status(401).json({ error: 'auth_required', message: 'Silakan masuk dulu.' });
     return;
   }
 
-  try {
-    const [existing] = await sql<{ account_id: string }[]>`
-      select account_id from devices where device_id = ${deviceId}
-    `;
-
-    if (existing) {
-      await sql`update devices set last_seen_at = now() where device_id = ${deviceId}`;
-      req.accountId = existing.account_id;
-      next();
+  const accountId = req.session.accountId;
+  const known = remembered.get(deviceId);
+  const now = Date.now();
+  if (!known || known.accountId !== accountId || now - known.touchedAt > TOUCH_EVERY_MS) {
+    try {
+      await sql`
+        insert into devices (device_id, account_id) values (${deviceId}, ${accountId})
+        on conflict (device_id) do update set account_id = excluded.account_id, last_seen_at = now()
+      `;
+    } catch (error) {
+      res.status(502).json({ error: 'Auth backend unavailable.', message: (error as Error).message });
       return;
     }
-
-    const accountId = deviceId; // first-seen device's own id doubles as its fresh account id — simplest unique key available.
-    await sql.begin(async (tx) => {
-      await tx`insert into accounts (id) values (${accountId}) on conflict do nothing`;
-      await tx`insert into devices (device_id, account_id) values (${deviceId}, ${accountId}) on conflict do nothing`;
-    });
-    req.accountId = accountId;
-    next();
-  } catch (error) {
-    res.status(502).json({ error: 'Auth backend unavailable.', message: (error as Error).message });
+    remembered.delete(deviceId);
+    remembered.set(deviceId, { accountId, touchedAt: now });
+    while (remembered.size > MAX_REMEMBERED) {
+      const oldest = remembered.keys().next().value;
+      if (oldest === undefined) break;
+      remembered.delete(oldest);
+    }
   }
+  req.accountId = accountId;
+  next();
 }

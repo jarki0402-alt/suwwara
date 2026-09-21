@@ -1,3 +1,4 @@
+import { notifyUnauthorized } from '../auth/authStore';
 import { getDeviceId } from '../auth/deviceIdentity';
 import { pullLibrary } from '../sync/librarySync';
 import { handleRemoteCommand, type RemoteCommand } from './commandHandler';
@@ -46,6 +47,7 @@ async function loop(): Promise<void> {
     }, 15_000);
     try {
       const response = await fetch('/api/connect/stream', { headers: { ...authHeaders(), Accept: 'text/event-stream' }, signal: controller.signal, cache: 'no-store' });
+      notifyUnauthorized(response.status);
       if (!response.ok || !response.body) throw new Error(`stream ${response.status}`);
       backoffMs = 1000;
       useConnectStore.getState().setConnected(true);

@@ -23,7 +23,8 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
 // NetworkFirst's networkTimeoutSeconds cache-fallback logic is not an appropriate
 // strategy for a multi-minute streamed audio response either way.
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/audio/'),
+  // Sign-in and admin answers are never cached: a stale "you are signed in" served after a logout would be worse than an error.
+  ({ url }) => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/audio/') && !url.pathname.startsWith('/api/auth/') && !url.pathname.startsWith('/api/admin/'),
   new NetworkFirst({
     cacheName: 'music-api',
     networkTimeoutSeconds: 4,

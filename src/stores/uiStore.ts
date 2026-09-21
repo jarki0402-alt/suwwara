@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { withViewTransition } from '../utils/viewTransition';
 
-export type ViewName = 'home' | 'search' | 'library' | 'settings';
+export type ViewName = 'home' | 'search' | 'library' | 'settings' | 'admin';
 /**
  * `artist-mix:{artistName}` is a template literal type, not a fixed union
  * member — there can be several artist-mix tiles at once (see

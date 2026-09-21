@@ -22,11 +22,8 @@ import styles from './ConnectSheet.module.css';
  */
 function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
   const { showToast } = useToast();
-  const isDesktop = useIsDesktop();
   const { currentSong, playbackState } = usePlayback();
   const closeSheet = useUiStore((state) => state.closeConnectSheet);
-  const openLinkShow = useUiStore((state) => state.openLinkShow);
-  const openLinkScan = useUiStore((state) => state.openLinkScan);
   const devices = useConnectStore((state) => state.devices);
   const youRef = useConnectStore((state) => state.youRef);
   const controllingRef = useConnectStore((state) => state.controllingRef);
@@ -89,12 +86,7 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
       </button>
 
       {others.length === 0 ? (
-        <div className={styles.emptyBlock}>
-          <p className={styles.empty}>Belum ada perangkat lain yang aktif. Buka Suwwara di perangkat lain yang sudah tertaut — ia akan muncul di sini.</p>
-          <button type="button" className={styles.linkAction} onClick={() => (isDesktop ? openLinkShow() : openLinkScan())}>
-            Tautkan perangkat baru
-          </button>
-        </div>
+        <p className={styles.empty}>Belum ada perangkat lain yang aktif. Masuk dengan akun yang sama di perangkat lain — ia akan muncul di sini.</p>
       ) : (
         others.map((device) => (
           <div key={device.ref} className={[styles.device, controllingRef === device.ref ? styles.rowActive : ''].join(' ')}>

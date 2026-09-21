@@ -1,4 +1,5 @@
 import type { Song } from '../api/types';
+import { notifyUnauthorized } from '../auth/authStore';
 import type { RepeatMode } from '../stores/queueStore';
 
 // Only useful if the frontend and backend are ever hosted on different origins
@@ -50,6 +51,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
+    notifyUnauthorized(res.status);
     const message = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw new Error(typeof message?.error === 'string' ? message.error : `HTTP ${res.status}`);
   }

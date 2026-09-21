@@ -1,0 +1,359 @@
+.page {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  isolation: isolate;
+}
+
+/* Two soft brand glows behind everything — the same accent → accent-2 pair the rest of the app uses. */
+.page::before,
+.page::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.page::before {
+  top: -25vmax;
+  left: -15vmax;
+  background: var(--color-accent);
+}
+
+.page::after {
+  right: -20vmax;
+  bottom: -30vmax;
+  background: var(--color-accent-2);
+}
+
+.layout {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  gap: var(--space-5);
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
+}
+
+.hero,
+.extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.brand {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.brandMark {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--gradient-brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.headline {
+  margin: 0;
+  font-size: clamp(1.9rem, 6.5vw, 3.2rem);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.headline span {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lead {
+  margin: 0;
+  max-width: 34rem;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.features {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+}
+
+.featureIcon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.featureText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.featureTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.featureSub {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.cardSub {
+  margin: 0 0 var(--space-1);
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.inputWrap {
+  position: relative;
+  display: flex;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  /* 16px+: iOS zooms the page when a field under 16px is focused. */
+  font-size: 1rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.reveal {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-accent-strong);
+  cursor: pointer;
+}
+
+.error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--color-danger, #ef4444);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.notice {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary);
+}
+
+.submit {
+  margin-top: var(--space-1);
+  padding: 13px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--gradient-brand);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.submit:active {
+  transform: scale(0.98);
+}
+
+.submit:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.footnote {
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-text-tertiary);
+}
+
+.textButton {
+  border: none;
+  background: none;
+  padding: var(--space-2);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+/* A tiny player, drawn in CSS, so the page shows what the app is instead of only a form. Desktop only. */
+.mock {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 420px);
+    grid-template-areas:
+      'hero card'
+      'extras card';
+    column-gap: 64px;
+    row-gap: var(--space-4);
+    align-content: center;
+  }
+
+  .hero {
+    grid-area: hero;
+    align-self: end;
+  }
+
+  .extras {
+    grid-area: extras;
+    align-self: start;
+  }
+
+  .card {
+    grid-area: card;
+    align-self: center;
+  }
+
+  .mock {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    max-width: 380px;
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-elevated);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.25);
+  }
+
+  .mockArt {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    background: var(--gradient-brand);
+    flex-shrink: 0;
+  }
+
+  .mockBody {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mockLine {
+    height: 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-border);
+  }
+
+  .mockLine:first-child {
+    width: 62%;
+    background: var(--color-text-tertiary);
+    opacity: 0.6;
+  }
+
+  .mockBar {
+    height: 4px;
+    border-radius: var(--radius-full);
+    background: var(--color-border);
+    overflow: hidden;
+  }
+
+  .mockBar::after {
+    content: '';
+    display: block;
+    width: 38%;
+    height: 100%;
+    background: var(--color-accent);
+  }
+}

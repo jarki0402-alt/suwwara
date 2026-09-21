@@ -68,4 +68,42 @@ create table if not exists lyrics_cache (
   fetched_at timestamptz not null default now()
 );
 create index if not exists lyrics_cache_fetched_idx on lyrics_cache (fetched_at);
+
+-- Login (username + password). Every account that can use the app has exactly one user row; an account without one
+-- (an old anonymous device account) can no longer sign in. Accounts are created by the admin, never by visitors.
+create table if not exists users (
+  account_id text primary key references accounts(id) on delete cascade,
+  username text not null unique,
+  password_hash text not null,
+  role text not null default 'user',
+  disabled boolean not null default false,
+  must_change_password boolean not null default false,
+  created_at timestamptz not null default now(),
+  last_login_at timestamptz
+);
+
+-- One row per signed-in browser/PWA. Only the SHA-256 of the cookie token is stored, so a database leak cannot be
+-- replayed as a session. Pruned when expired.
+create table if not exists sessions (
+  token_hash text primary key,
+  account_id text not null references accounts(id) on delete cascade,
+  user_agent text,
+  ip text,
+  created_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+create index if not exists sessions_account_idx on sessions (account_id);
+
+-- Sign-ins (ok / failed / locked) and admin actions, for the admin dashboard. Kept 90 days, see auth/audit.ts.
+create table if not exists audit_log (
+  id bigserial primary key,
+  at timestamptz not null default now(),
+  event text not null,
+  account_id text,
+  username text,
+  ip text,
+  detail text
+);
+create index if not exists audit_log_at_idx on audit_log (at);
 `;

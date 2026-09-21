@@ -1,6 +1,10 @@
 import cors from 'cors';
 import express from 'express';
 import { migrate } from './db/client';
+import { pruneAuthTables } from './auth/audit';
+import { requireSession } from './auth/sessions';
+import { bootstrapAdmin } from './auth/users';
+import { sessionRouter } from './routes/session';
 import { pruneLyricsCache } from './youtube/lyrics';
 import { artistRouter } from './routes/artist';
 import { connectRouter } from './routes/connect';
@@ -22,6 +26,9 @@ const PORT = Number(process.env.PORT) || 8787;
 
 app.use(cors());
 app.use(express.json());
+// Sign-in lives outside the gate; everything registered after requireSession needs a valid session cookie.
+app.use('/api', sessionRouter);
+app.use('/api', requireSession);
 app.use('/api', searchRouter);
 app.use('/api', detailsRouter);
 app.use('/api', lyricsRouter);
@@ -52,6 +59,8 @@ app.get('/', (_req, res) => {
 
 async function start(): Promise<void> {
   await migrate();
+  await bootstrapAdmin();
+  void pruneAuthTables();
   void pruneLyricsCache();
   app.listen(PORT, '0.0.0.0', () => {
     // eslint-disable-next-line no-console

@@ -5,7 +5,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { CacheManager } from './CacheManager';
 import { DataSaverToggle } from './DataSaverToggle';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
-import { LinkedDevices } from './LinkedDevices';
+import { AccountSection } from './AccountSection';
 import { UpdateRow } from './UpdateRow';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
@@ -48,7 +48,7 @@ export function SettingsView() {
         </div>
       </div>
 
-      <LinkedDevices />
+      <AccountSection />
 
       <CacheManager />
 

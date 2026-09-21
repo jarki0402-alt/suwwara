@@ -1,3 +1,4 @@
+import { notifyUnauthorized } from '../auth/authStore';
 import { getDeviceId } from '../auth/deviceIdentity';
 import type { Song } from './types';
 import type { UserPlaylist } from '../stores/libraryStore';
@@ -33,6 +34,7 @@ async function authFetch<T>(path: string, init?: RequestInit): Promise<T | null>
 
   if (res.status === 204) return null;
   if (!res.ok) {
+    notifyUnauthorized(res.status);
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     throw new ApiHttpError(res.status, body, typeof body?.error === 'string' ? body.error : `HTTP ${res.status}`);
   }

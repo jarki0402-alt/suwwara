@@ -1,3 +1,4 @@
+import { notifyUnauthorized } from '../auth/authStore';
 import { MusicApiError } from './types';
 
 const DEFAULT_TIMEOUT_MS = 12000;
@@ -33,6 +34,7 @@ export async function apiGet<T>(path: string, params: Record<string, string | nu
   }
 
   if (!response.ok) {
+    notifyUnauthorized(response.status);
     let message = `Music backend responded with status ${response.status}`;
     try {
       const body = (await response.json()) as { message?: string };

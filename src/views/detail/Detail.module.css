@@ -47,6 +47,24 @@
   overflow-wrap: anywhere;
 }
 
+.heroText {
+  min-width: 0;
+}
+
+.heroNameWithMeta {
+  padding-bottom: var(--space-1);
+}
+
+/* Monthly listeners, under the artist's name. */
+.heroMeta {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-4);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5);
+}
+
 .backButton {
   position: absolute;
   top: calc(var(--space-3) + env(safe-area-inset-top));
@@ -284,6 +302,14 @@
 
   .heroName {
     padding: var(--space-5) var(--space-6);
+  }
+
+  .heroNameWithMeta {
+    padding-bottom: var(--space-1);
+  }
+
+  .heroMeta {
+    padding: 0 var(--space-6) var(--space-5);
   }
 
   .card,

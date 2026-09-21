@@ -1,5 +1,5 @@
 import { CollectionHero } from '../../components/CollectionHero/CollectionHero';
-import { SongRow } from '../../components/SongRow/SongRow';
+import { SongRow, SongTable } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { playSongList } from '../../playback/playSongList';
 import { useLibraryStore } from '../../stores/libraryStore';
@@ -21,11 +21,11 @@ export function LikedSongsList() {
       {likedSongs.length === 0 ? (
         <p className={styles.empty}>Lagu yang kamu sukai akan muncul di sini.</p>
       ) : (
-        <div>
+        <SongTable>
           {likedSongs.map((song, index) => (
-            <SongRow key={song.id} song={song} onClick={() => playSongList(likedSongs, index)} trailing={<SongRowActions song={song} />} />
+            <SongRow key={song.id} song={song} table={{ addedAt: song.addedAt }} onClick={() => playSongList(likedSongs, index)} trailing={<SongRowActions song={song} />} />
           ))}
-        </div>
+        </SongTable>
       )}
     </>
   );

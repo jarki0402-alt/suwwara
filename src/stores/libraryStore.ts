@@ -3,15 +3,23 @@ import { persist } from 'zustand/middleware';
 import type { Song } from '../api/types';
 import { generateId } from '../utils/idGen';
 
+/**
+ * A song as kept in a playlist or in Lagu Disukai: the song itself plus when it was put there. The timestamp lives on
+ * the entry (not in a side table) so it travels with the playlist / liked list through account sync and merges without
+ * the server or the sync code knowing about it. Songs saved before this existed have none — shown as "—", never a
+ * made-up date.
+ */
+export type SavedSong = Song & { addedAt?: number };
+
 export interface UserPlaylist {
   id: string;
   name: string;
-  songs: Song[];
+  songs: SavedSong[];
   createdAt: number;
 }
 
 interface LibraryState {
-  likedSongs: Song[];
+  likedSongs: SavedSong[];
   playlists: UserPlaylist[];
   toggleLike: (song: Song) => void;
   isLiked: (songId: string) => boolean;
@@ -32,7 +40,7 @@ export const useLibraryStore = create<LibraryState>()(
         const { likedSongs } = get();
         const exists = likedSongs.some((s) => s.id === song.id);
         set({
-          likedSongs: exists ? likedSongs.filter((s) => s.id !== song.id) : [song, ...likedSongs],
+          likedSongs: exists ? likedSongs.filter((s) => s.id !== song.id) : [{ ...song, addedAt: Date.now() }, ...likedSongs],
         });
       },
 
@@ -64,7 +72,7 @@ export const useLibraryStore = create<LibraryState>()(
           playlists: get().playlists.map((p) => {
             if (p.id !== playlistId) return p;
             if (p.songs.some((s) => s.id === song.id)) return p;
-            return { ...p, songs: [...p.songs, song] };
+            return { ...p, songs: [...p.songs, { ...song, addedAt: Date.now() }] };
           }),
         });
       },

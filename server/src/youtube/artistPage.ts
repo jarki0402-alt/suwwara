@@ -1,4 +1,5 @@
 import { BoundedTtlCache } from './boundedCache';
+import { readArtistStats } from './artistStats';
 import type { SearchSong } from './search';
 import { bestThumbnail } from './search';
 import { cleanTitle } from './textClean';
@@ -19,6 +20,10 @@ export interface ArtistPage {
   /** Wide banner (YT Music serves these ~2.4:1) — the hero image. */
   banner: string;
   topSongs: SearchSong[];
+  /** Rounded, as YouTube Music reports it; null when the artist has none or the page could not be read for it. */
+  monthlyListeners: number | null;
+  /** videoId → plays for the top songs that show one (rounded, like monthlyListeners). */
+  playCounts: Record<string, number>;
   albums: AlbumSummary[];
   singles: AlbumSummary[];
   similarArtists: Array<{ id: string; name: string; thumbnail: string }>;
@@ -100,7 +105,14 @@ export function getArtistPage(artistId: string): Promise<ArtistPage> {
     const ytmusic = await getYTMusic();
     // Two calls in parallel: getArtist has the header, top songs and top releases (only ~8),
     // getArtistAlbums has the artist's full album list.
-    const [artist, allAlbums] = await Promise.all([ytmusic.getArtist(artistId), ytmusic.getArtistAlbums(artistId).catch(() => [])]);
+    // A third, raw call for what the library drops (monthly listeners, plays per song — see artistStats.ts). It is the
+    // same browse request getArtist makes internally, `constructRequest` is only private in the typings, and it runs
+    // in parallel so the page waits no longer. If it fails the numbers are simply absent.
+    const rawBrowse = (ytmusic as unknown as { constructRequest: (endpoint: string, body: object) => Promise<unknown> })
+      .constructRequest('browse', { browseId: artistId })
+      .catch(() => null);
+    const [artist, allAlbums, raw] = await Promise.all([ytmusic.getArtist(artistId), ytmusic.getArtistAlbums(artistId).catch(() => []), rawBrowse]);
+    const stats = readArtistStats(raw);
 
     const topSongs: SearchSong[] = [];
     for (const song of artist.topSongs) {
@@ -123,6 +135,8 @@ export function getArtistPage(artistId: string): Promise<ArtistPage> {
       name: artist.name,
       banner: pickBanner(artist.thumbnails),
       topSongs,
+      monthlyListeners: stats.monthlyListeners,
+      playCounts: stats.playCounts,
       albums: dedupeAlbums([...allAlbums, ...artist.topAlbums].map((album) => toAlbumSummary(album as RawAlbum)).filter(isRealRelease)).sort(byYearDesc),
       singles: dedupeAlbums(artist.topSingles.map((album) => toAlbumSummary(album as RawAlbum)).filter(isRealRelease)).sort(byYearDesc),
       // "Similar artists" also comes back containing playlists (ids like `VLRD…`) — only real

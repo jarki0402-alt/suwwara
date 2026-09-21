@@ -16,6 +16,10 @@ export interface ArtistPageData {
   name: string;
   banner: string;
   topSongs: Song[];
+  /** Rounded, as YouTube Music reports it; null when there is none for this artist. */
+  monthlyListeners: number | null;
+  /** song id → plays, for the top songs that have a count. */
+  playCounts: Record<string, number>;
   albums: AlbumSummary[];
   singles: AlbumSummary[];
   similarArtists: Array<{ id: string; name: string; thumbnail: string }>;

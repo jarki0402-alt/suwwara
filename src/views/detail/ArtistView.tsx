@@ -3,6 +3,8 @@ import { getArtistAllSongs, getArtistPage, resolveArtistId, type ArtistPageData 
 import type { Song } from '../../api/types';
 import { Icon } from '../../components/Icon/Icon';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
+import { useIsDesktop } from '../../hooks/useIsDesktop';
+import { formatCount } from '../../utils/formatCount';
 import { SongRow } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { playSongList } from '../../playback/playSongList';
@@ -70,6 +72,7 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
   const closeDetail = useUiStore((state) => state.closeDetail);
   const openAlbum = useUiStore((state) => state.openAlbum);
   const openArtist = useUiStore((state) => state.openArtist);
+  const isDesktop = useIsDesktop();
   const [showAll, setShowAll] = useState(false);
   const [bannerFailed, setBannerFailed] = useState(false);
   const allSongs = useLoaded<Song[]>(showAll ? `all:${data.artistId}` : 'all:idle', () =>
@@ -89,7 +92,10 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
         <button type="button" className={styles.backButton} onClick={closeDetail} aria-label="Kembali">
           <Icon name="chevron-left" size={18} />
         </button>
-        <h1 className={styles.heroName}>{data.name}</h1>
+        <div className={styles.heroText}>
+          <h1 className={[styles.heroName, data.monthlyListeners ? styles.heroNameWithMeta : ''].join(' ')}>{data.name}</h1>
+          {data.monthlyListeners ? <p className={styles.heroMeta}>{formatCount(data.monthlyListeners)} pendengar bulanan</p> : null}
+        </div>
       </div>
 
       <div className={styles.body}>
@@ -111,7 +117,14 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
               {visible.map((song, index) => (
                 <div key={song.id} className={styles.rankedRow}>
                   <span className={styles.rank}>{index + 1}</span>
-                  <SongRow song={song} onClick={() => playSongList(songs, index)} trailing={<SongRowActions song={song} />} />
+                  <SongRow
+                    song={song}
+                    plays={data.playCounts[song.id]}
+                    // A phone shows the play count under the title (Spotify's layout); desktop has it as a column instead.
+                    subtitle={!isDesktop && data.playCounts[song.id] !== undefined ? formatCount(data.playCounts[song.id]) : undefined}
+                    onClick={() => playSongList(songs, index)}
+                    trailing={<SongRowActions song={song} />}
+                  />
                 </div>
               ))}
             </div>

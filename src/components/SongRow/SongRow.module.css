@@ -72,3 +72,144 @@
   gap: var(--space-1);
   flex-shrink: 0;
 }
+
+/* ---- duration and play count: desktop only — a phone list stays title + artist, like Spotify's ---- */
+.duration,
+.plays {
+  display: none;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+@media (min-width: 960px) {
+  .duration {
+    display: block;
+    width: 48px;
+  }
+
+  .plays {
+    display: block;
+    width: 120px;
+  }
+}
+
+/* ---- table mode (playlist, Lagu Disukai) ---- */
+.tableWrap {
+  /* Columns follow THIS list's width, not the window's (a right-hand panel narrows the page without changing the window). */
+  container: songtable / inline-size;
+}
+
+.table {
+  /* heart + "⋯" (2 × 40px) and their gap. */
+  --col-trail: 88px;
+  --cols: minmax(0, 1fr) var(--col-trail);
+}
+
+.tableHead,
+.rowTable {
+  display: grid;
+  grid-template-columns: var(--cols);
+  column-gap: var(--space-3);
+  align-items: center;
+}
+
+.tableHead {
+  display: none;
+  padding: 0 var(--space-2) var(--space-2);
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.headAlbum,
+.headDate,
+.colAlbum,
+.colDate,
+.headDuration,
+.rowTable .duration {
+  display: none;
+}
+
+.headDuration {
+  justify-content: flex-end;
+}
+
+.rowTable .trailing {
+  justify-content: flex-end;
+}
+
+.colAlbum,
+.colDate {
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.albumLink {
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.albumLink:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+/* Widest first would need overrides; narrowest first adds one column at a time. */
+@container songtable (min-width: 480px) {
+  .table {
+    --cols: minmax(0, 1fr) 48px var(--col-trail);
+  }
+
+  .tableHead {
+    display: grid;
+  }
+
+  .headDuration {
+    display: flex;
+  }
+
+  .rowTable .duration {
+    display: block;
+  }
+}
+
+@container songtable (min-width: 560px) {
+  .table {
+    --cols: minmax(0, 3fr) minmax(0, 2fr) 48px var(--col-trail);
+  }
+
+  .headAlbum,
+  .colAlbum {
+    display: block;
+  }
+}
+
+@container songtable (min-width: 820px) {
+  .table {
+    --cols: minmax(0, 3fr) minmax(0, 2fr) 150px 48px var(--col-trail);
+  }
+
+  .headDate,
+  .colDate {
+    display: block;
+  }
+}

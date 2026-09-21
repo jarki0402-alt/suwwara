@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
 import { Icon } from '../../components/Icon/Icon';
 import { OptionsMenu } from '../../components/OptionsMenu/OptionsMenu';
 import { PlaylistNameDialog } from '../../components/PlaylistNameDialog/PlaylistNameDialog';
-import { SongRow } from '../../components/SongRow/SongRow';
+import { SongRow, SongTable } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { playSongList } from '../../playback/playSongList';
 import { useLibraryStore, type UserPlaylist } from '../../stores/libraryStore';
@@ -120,16 +120,17 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
       {playlist.songs.length === 0 ? (
         <p className={styles.empty}>Playlist ini masih kosong. Cari lagu di atas untuk menambahkannya.</p>
       ) : (
-        <div>
+        <SongTable>
           {playlist.songs.map((song, index) => (
             <SongRow
               key={song.id}
               song={song}
+              table={{ addedAt: song.addedAt }}
               onClick={() => playSongList(playlist.songs, index)}
               trailing={<SongRowActions song={song} onRemoveFromPlaylist={() => removeSongFromPlaylist(playlist.id, song.id)} />}
             />
           ))}
-        </div>
+        </SongTable>
       )}
 
       </div>

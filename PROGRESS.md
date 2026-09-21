@@ -25,6 +25,33 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (nama perangkat tak terpotong, tombol cek pembaruan, tanpa zoom saat mengetik, QR tautan terbaca)
+
+**AudioEngine, `usePlaybackController`, dan jalur audio backend tidak disentuh.** Frontend saja.
+
+- **Daftar perangkat (Connect)**: nama perangkat tak lagi terpotong jadi "iP…" — dulu nama berbagi satu baris dengan tiga tombol; kini nama dan status memakai lebar penuh dan pilihan (Kontrol / Putar di sini / Putar di sana) ada di bawahnya. Berlaku di panel kanan desktop dan sheet HP.
+- **Pengaturan → Aplikasi → "Cek pembaruan"** (`UpdateRow`, `pwa/updateStore.ts`): tombol Periksa memakai `registration.update()` lalu menunggu versi baru selesai diunduh sebelum menjawab: "Sudah versi terbaru · diperiksa HH:MM", **"Pembaruan tersedia"** + tombol **Perbarui** (menetap sampai dipakai — bukan toast yang hilang), atau pesan gagal bila offline. Tab Pengaturan diberi titik ungu saat ada pembaruan. Bila ada lagu diputar, keterangannya mengingatkan bahwa memuat ulang menghentikan lagu sebentar. Diuji ujung ke ujung dengan dua build berturut-turut: cek → terbaru, build baru → tersedia + titik, Perbarui → halaman dimuat ulang ke versi baru.
+  - **Bug yang ketemu di sini**: `updateSW(true)` bawaan plugin hanya memuat ulang bila "prompt waiting"-nya sempat berjalan; pembaruan yang ditemukan lewat cek manual mengaktifkan worker baru tetapi halaman tetap di versi lama. `applyUpdate()` sekarang mengirim SKIP_WAITING sendiri dan memuat ulang pada `controllerchange`; dipakai juga oleh aksi toast "Muat ulang" dan pembaruan otomatis saat player kosong.
+- **Zoom saat mengisi kolom (iPhone/Android)**: akar masalahnya regresi dari perombakan — `html { font-size: 15px }` membuat semua kolom berukuran `1rem` jadi 15px, di bawah ambang 16px yang memicu zoom otomatis iOS. Sekarang di perangkat sentuh (`pointer: coarse`) semua `input`/`textarea`/`select` (kecuali range/checkbox/radio) dikunci 16px; desktop tetap ringkas. Ditambah `touch-action: manipulation` di `html`/`body` (tanpa zoom ketuk-dua-kali dan tanpa jeda tunggu ketukan). Diperiksa lewat gaya terhitung di emulasi iPhone: kolom Cari, nama playlist, tambah lagu ke playlist, dan kode tautan semuanya 16px. Zoom sebenarnya hanya bisa dipastikan di iPhone asli.
+- **QR tautan perangkat tak terbaca HP**: dua sebab yang diukur lewat simulasi kamera memotret layar laptop (24 percobaan per jarak, blur + derau):
+  - *Pemindai* memperkecil seluruh frame 1280 → 640 px sebelum didekode jsQR, jadi tiap modul QR tinggal ~2–4 px. Kini yang didekode adalah persegi tengah frame (persis yang terlihat di jendela bidik) pada resolusi sensor (maks 960 px), kamera diminta 1920×1080. Hasil simulasi saat HP melihat seluruh layar laptop dari jarak lengan: pipeline lama 9/24 → 0/24 (makin jauh makin gagal), yang baru 24/24 sampai jarak jauh (23/24 di yang terjauh). Simulasi tanpa moiré layar, jadi angka batas atas.
+  - *QR* dibuat dengan margin 1 modul (standar 4), koreksi galat M, dan gambar 240px dikecilkan ke 164px. Sekarang margin 4, koreksi galat L (tautan muat di versi 3, 29 modul, modul lebih besar), bitmap tepat 8 px per modul ditampilkan pada ukuran aslinya (296px, `image-rendering: pixelated`) di atas latar putih — tangkapan layarnya terdekode benar.
+  - QR yang terbaca tetapi bukan kode tautan Suwwara kini memunculkan pesan (dulu diam saja). Tes: `tests/link/qr.test.ts`.
+- **Deploy**: hanya frontend berubah (`git pull && docker compose up -d --build --force-recreate frontend`; ingat `--force-recreate`, `up --build` saja bisa membiarkan container lama berjalan). Bila putaran-putaran sebelumnya belum naik ke VPS: `--force-recreate backend frontend`.
+
+## Perubahan terbaru — 2026-09-21 (Dibuat Untukmu kembali 4 tile, tombol play sama besar, sidebar playlist lebih besar)
+
+**AudioEngine, `usePlaybackController`, dan jalur audio backend tidak disentuh.** Frontend saja (tanpa perubahan backend).
+
+- **Dibuat Untukmu = 4 tile** (dulu sempat jadi 2 saat "Mix artis" dipindah ke shelf sendiri): **Temuan Mingguan**, **Temuan Harian** (baru), **Sering Kamu Putar** (baru, ala Spotify On Repeat), **Lagi Viral di Indonesia**. Grid 2×2 di HP, satu baris di desktop.
+  - *Temuan Harian* (`dailyDiscovery.ts`): mesin selera yang sama dengan mingguan, tetapi berganti tiap hari kalender lokal (di-cache per hari) dan sengaja melewati lagu yang sudah ada di Temuan Mingguan serta lagu yang diputar 24 jam terakhir — jadi dua tile itu tak pernah berisi lagu yang sama.
+  - *Sering Kamu Putar* (`onRepeat.ts`): lagu paling sering diputar dalam 30 hari terakhir dari riwayat lokal (seri: putaran terbaru menang); tanpa jaringan; baru muncul isinya bila ≥3 lagu berbeda.
+  - Temuan Mingguan kini berbagi satu proses bangun (in-flight) dengan Temuan Harian, jadi tidak dihitung dobel saat Beranda dibuka. Halaman koleksinya memakai banner yang sama; tile baru berwarna biru-hijau (harian) dan hijau (sering diputar).
+- **Tombol play sama besar dengan bulatan di sampingnya**: play, acak, dan ⋯ semuanya 48px di banner koleksi/playlist/Lagu Disukai dan halaman Artis/Album (dulu play 54–56px vs 42–44px).
+- **Playlist di sidebar lebih besar (tidak berlebihan)**: sampul/ikon 38 → 44px, nama 0,84 → 0,92rem, sub 0,75 → 0,78rem, jarak antar baris 2 → 4px, ikon hati/playlist 20 → 22px.
+- **Tes**: `tests/recommendation/mixes.test.ts` (peringkat putaran, kunci hari) — 82 tes lolos.
+- **Deploy**: frontend saja untuk perubahan ini (`docker compose up -d --build frontend`); bila belum menaikkan putaran-putaran sebelumnya, tetap `--force-recreate backend frontend`.
+
 ## Perubahan terbaru — 2026-09-21 (volume tak kegedean, shelf halaman artis tak mepet, ukuran ikon diseragamkan)
 
 **AudioEngine, `usePlaybackController`, dan jalur audio backend tidak disentuh** (diff kosong; `verify.cjs` tiga profil tanpa error).

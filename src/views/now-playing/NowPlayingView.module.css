@@ -136,12 +136,12 @@
   .overlay {
     left: auto;
     width: var(--now-playing-panel-width);
-    /* Stops above the desktop MiniPlayer bar (76px, MiniPlayer.module.css)
+    /* Stops above the desktop MiniPlayer bar (82px, MiniPlayer.module.css)
        instead of inheriting the base rule's bottom:0 — otherwise this panel's
        higher z-index (--z-sheet) would sit on top of and hide the transport
        bar underneath it, which stays visible/usable the whole time here
        (unlike mobile, where opening Now Playing IS the fullscreen takeover). */
-    bottom: 76px;
+    bottom: 82px;
     background: none;
     animation: slideInFromRight var(--transition-base);
     border-left: 1px solid rgba(255, 255, 255, 0.08);
@@ -244,8 +244,6 @@
 }
 
 .artSection {
-  /* Positioning context for the lyrics' timing control (LyricsPanel.module.css .syncControl). */
-  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -267,7 +265,9 @@
   width: min(78vw, 340px);
   height: min(78vw, 340px);
   border-radius: var(--radius-lg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  /* A shadow that stays inside .artSection: its overflow is hidden, and the old 0 20px 60px one was clipped at the
+     section's edges into a hard-edged black rectangle around the cover. Negative spread keeps it off the sides and top. */
+  box-shadow: 0 10px 14px -8px rgba(0, 0, 0, 0.55);
   /* No border: a 1px light outline drawn over the photo's edge read as a grey line cutting into the art. */
 }
 
@@ -312,18 +312,40 @@
   gap: var(--space-4);
 }
 
-.textButton {
-  border: none;
-  background: none;
-  color: var(--color-text-secondary);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  padding: var(--space-2) 0;
+.bottomIcons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
-.textButtonActive {
+.bottomIconButton {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottomIconButtonActive {
   color: var(--color-accent);
+}
+
+/* Another device is online right now. */
+.deviceDot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
 }
 
 .volumeRow {
@@ -331,30 +353,41 @@
   align-items: center;
   gap: var(--space-2);
   flex: 1;
-  max-width: 160px;
+  max-width: 220px;
   color: var(--color-text-secondary);
 }
 
+/* The phone's volume slider. The visible line is 4px, but the element a finger has to land on is the input itself,
+   so the input is tall (32px) with a transparent body and the line is drawn on its track: a bigger target and a
+   bigger handle, and the part below the handle is filled purple (--fill, set inline) so it reads as a slider. */
 .volumeSlider {
   flex: 1;
+  min-width: 0;
   -webkit-appearance: none;
   appearance: none;
+  height: 32px;
+  margin: 0;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+.volumeSlider::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: var(--radius-full);
-  background: var(--color-border);
-  outline: none;
+  background: linear-gradient(to right, var(--color-accent) 0, var(--color-accent) var(--fill, 0%), var(--color-border) var(--fill, 0%), var(--color-border) 100%);
 }
 
 .volumeSlider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 22px;
+  height: 22px;
+  margin-top: -9px; /* centres the 22px handle on the 4px line */
+  border: none;
   border-radius: 50%;
   background: var(--color-accent);
-  border: 2px solid var(--color-bg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .volumeSlider::-moz-range-track {
@@ -363,11 +396,16 @@
   background: var(--color-border);
 }
 
+.volumeSlider::-moz-range-progress {
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+
 .volumeSlider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--color-bg);
+  width: 22px;
+  height: 22px;
+  border: none;
   border-radius: 50%;
   background: var(--color-accent);
-  cursor: pointer;
 }

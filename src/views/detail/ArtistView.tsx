@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { getArtistAllSongs, getArtistPage, resolveArtistId, type ArtistPageData } from '../../api/endpoints/artistPage';
 import type { Song } from '../../api/types';
 import { Icon } from '../../components/Icon/Icon';
-import { LikeButton } from '../../components/LikeButton/LikeButton';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import { SongRow } from '../../components/SongRow/SongRow';
+import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { playSongList } from '../../playback/playSongList';
 import { useUiStore, type DetailRoute } from '../../stores/uiStore';
 import { ArtistInfo } from '../now-playing/ArtistInfo';
@@ -111,7 +111,7 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
               {visible.map((song, index) => (
                 <div key={song.id} className={styles.rankedRow}>
                   <span className={styles.rank}>{index + 1}</span>
-                  <SongRow song={song} onClick={() => playSongList(songs, index)} trailing={<LikeButton song={song} />} />
+                  <SongRow song={song} onClick={() => playSongList(songs, index)} trailing={<SongRowActions song={song} />} />
                 </div>
               ))}
             </div>

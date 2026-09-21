@@ -12,7 +12,8 @@ artistRouter.get('/artist/:name/songs', async (req, res) => {
   }
 
   try {
-    const result = await getArtistTopSongs(name);
+    const limit = Number(req.query.limit) || undefined;
+    const result = await getArtistTopSongs(name, limit);
     if (!result) {
       res.status(404).json({ error: 'Artist not found.' });
       return;

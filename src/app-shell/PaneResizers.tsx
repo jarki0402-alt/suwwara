@@ -62,7 +62,7 @@ export function PaneResizers({ panelOpen }: { panelOpen: boolean }) {
   return (
     <>
       <Handle pane="sidebar" label="Ubah lebar sidebar" />
-      {panelOpen && <Handle pane="panel" label="Ubah lebar panel Sedang Diputar" />}
+      {panelOpen && <Handle pane="panel" label="Ubah lebar panel kanan" />}
     </>
   );
 }

@@ -51,7 +51,7 @@ export function RemoteBar() {
   };
 
   return (
-    <div className={styles.wrapper} role="region" aria-label={`Mengontrol ${device.name}`}>
+    <div className={styles.wrapper} data-player-bar="" role="region" aria-label={`Mengontrol ${device.name}`}>
       <div className={styles.deviceLine}>
         <Icon name="devices" size={14} />
         <span>Mengontrol {device.name}</span>

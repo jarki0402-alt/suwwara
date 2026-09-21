@@ -60,6 +60,8 @@ function ShellBody() {
   // stays a fullscreen sheet there, see NowPlayingView.module.css), so this
   // class is a no-op below the desktop breakpoint.
   const showNowPlayingPanel = isNowPlayingOpen && currentSong !== null;
+  // The Perangkat (Connect) panel docks in the same right-hand column, so the page reserves the same room for it.
+  const showRightPanel = showNowPlayingPanel || isConnectSheetOpen;
 
   // <main> is the one scroll container shared by every menu, so without this a menu
   // opened after scrolling deep into another one starts from that same offset — the
@@ -71,11 +73,11 @@ function ShellBody() {
 
   return (
     <div className={styles.shell}>
-      <main ref={contentRef} className={[styles.content, showNowPlayingPanel ? styles.contentWithPanel : ''].join(' ')}>
+      <main ref={contentRef} className={[styles.content, showRightPanel ? styles.contentWithPanel : ''].join(' ')}>
         <TopBar />
         <ViewRouter />
       </main>
-      <PaneResizers panelOpen={showNowPlayingPanel} />
+      <PaneResizers panelOpen={showRightPanel} />
       <ConnectBridge />
       {/* While steering another device, its bar stands in for the local player — which stays untouched. */}
       {isRemoteControlling ? <RemoteBar /> : <MiniPlayer />}

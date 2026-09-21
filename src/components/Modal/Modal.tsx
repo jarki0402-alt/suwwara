@@ -37,6 +37,7 @@ export function Modal({ isOpen, onClose, label, variant = 'dialog', children }: 
     // every tap inside the popup) — so both layers stop them here.
     <div
       className={[styles.overlay, variant === 'sheet' ? styles.overlaySheet : ''].join(' ')}
+      data-overlay=""
       onClick={(event) => {
         event.stopPropagation();
         onClose();

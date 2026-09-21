@@ -3,6 +3,7 @@ import { findArtistMatch, searchSongs, type ArtistHit } from '../api/endpoints/s
 import type { Song } from '../api/types';
 import { primaryArtistNames } from '../api/mappers';
 import { Icon } from '../components/Icon/Icon';
+import { SongRowActions } from '../components/SongMenu/SongRowActions';
 import { LazyImage } from '../components/Image/LazyImage';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { playSongRadio } from '../playback/playSongRadio';
@@ -66,10 +67,13 @@ export function TopBar() {
     };
   }, []);
 
-  // Click anywhere outside closes the dropdown.
+  // Click anywhere outside closes the dropdown — except inside a floating layer opened from one of its rows (a song's
+  // ⋯ menu, the add-to-playlist dialog): those live in <body>, and closing the dropdown would unmount their owner.
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
-      if (boxRef.current && !boxRef.current.contains(event.target as Node)) setIsOpen(false);
+      const target = event.target as Element;
+      if (target.closest?.('[data-overlay]')) return;
+      if (boxRef.current && !boxRef.current.contains(target)) setIsOpen(false);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
@@ -203,19 +207,22 @@ export function TopBar() {
             )}
             {showResults &&
               results.map((song, index) => (
-                <button
+                <div
                   key={song.id}
-                  type="button"
-                  className={[styles.resultRow, index + (artist ? 1 : 0) === highlight ? styles.resultRowActive : ''].join(' ')}
+                  className={[styles.songRow, index + (artist ? 1 : 0) === highlight ? styles.resultRowActive : ''].join(' ')}
                   onMouseEnter={() => setHighlight(index + (artist ? 1 : 0))}
-                  onClick={() => choose(song)}
                 >
-                  <LazyImage images={song.image} quality="50x50" alt="" className={styles.resultThumb} />
-                  <span className={styles.resultText}>
-                    <span className={styles.resultTitle}>{song.name}</span>
-                    <span className={styles.resultArtist}>{primaryArtistNames(song)}</span>
+                  <button type="button" className={styles.songMain} onClick={() => choose(song)}>
+                    <LazyImage images={song.image} quality="50x50" alt="" className={styles.resultThumb} />
+                    <span className={styles.resultText}>
+                      <span className={styles.resultTitle}>{song.name}</span>
+                      <span className={styles.resultArtist}>{primaryArtistNames(song)}</span>
+                    </span>
+                  </button>
+                  <span className={styles.songActions}>
+                    <SongRowActions song={song} />
                   </span>
-                </button>
+                </div>
               ))}
           </div>
         )}

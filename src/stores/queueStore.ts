@@ -15,6 +15,8 @@ interface QueueState {
   shuffle: boolean;
   setQueue: (songs: Song[], startAt?: number) => void;
   addToQueue: (song: Song) => void;
+  /** Inserts `song` right after the one playing, so it is what plays next (whatever shuffle has planned moves back one). */
+  playNext: (song: Song) => void;
   removeFromQueue: (orderPosition: number) => void;
   reorder: (fromPosition: number, toPosition: number) => void;
   toggleShuffle: () => void;
@@ -68,6 +70,22 @@ export const useQueueStore = create<QueueState>()(
         const state = get();
         const newQueueIndex = state.queue.length;
         set({ queue: [...state.queue, song], order: [...state.order, newQueueIndex] });
+      },
+
+      playNext: (song) => {
+        const { queue, order, position } = get();
+        if (order.length === 0) {
+          set({ queue: [song], order: [0], position: 0 });
+          return;
+        }
+        if (queue.length >= MAX_QUEUE_LENGTH) {
+          // Make room from the far end of the play order — never the track that is playing, never the one about to.
+          get().removeFromQueue(position === order.length - 1 ? 0 : order.length - 1);
+        }
+        const state = get();
+        const newQueueIndex = state.queue.length;
+        const newOrder = [...state.order.slice(0, state.position + 1), newQueueIndex, ...state.order.slice(state.position + 1)];
+        set({ queue: [...state.queue, song], order: newOrder });
       },
 
       removeFromQueue: (orderPosition) => {

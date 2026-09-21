@@ -1,9 +1,9 @@
 import { getAlbumPage, type AlbumPageData } from '../../api/endpoints/artistPage';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
-import { LikeButton } from '../../components/LikeButton/LikeButton';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import { SongRow } from '../../components/SongRow/SongRow';
+import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { playSongList } from '../../playback/playSongList';
 import { useUiStore, type DetailRoute } from '../../stores/uiStore';
 import styles from './Detail.module.css';
@@ -84,7 +84,7 @@ export function AlbumView({ route }: { route: Extract<DetailRoute, { type: 'albu
         {album.songs.map((song, index) => (
           <div key={song.id} className={styles.rankedRow}>
             <span className={styles.rank}>{index + 1}</span>
-            <SongRow song={song} onClick={() => playSongList(album.songs, index)} trailing={<LikeButton song={song} />} />
+            <SongRow song={song} onClick={() => playSongList(album.songs, index)} trailing={<SongRowActions song={song} />} />
           </div>
         ))}
       </div>

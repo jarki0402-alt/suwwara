@@ -48,6 +48,8 @@ export async function getTrendingSongsIndonesia(): Promise<SearchSong[]> {
         artistId: item.artist?.artistId ?? null,
         durationSec: item.duration ?? 0,
         thumbnail: bestThumbnail(item.thumbnails),
+        album: item.album?.name ?? null,
+        albumId: item.album?.albumId ?? null,
         isOfficial: true,
       });
     }

@@ -18,13 +18,8 @@ export function LibraryView() {
   const playlists = useLibraryStore((state) => state.playlists);
   const selectedPlaylist = playlists.find((playlist) => playlist.id === selectedPlaylistId) ?? null;
 
-  if (selectedPlaylist) {
-    return (
-      <div className={styles.view}>
-        <PlaylistDetail playlist={selectedPlaylist} onBack={closePlaylist} />
-      </div>
-    );
-  }
+  // No padded wrapper: the playlist's banner runs edge to edge, and PlaylistDetail pads its own body.
+  if (selectedPlaylist) return <PlaylistDetail playlist={selectedPlaylist} onBack={closePlaylist} />;
 
   return (
     <div className={styles.view}>

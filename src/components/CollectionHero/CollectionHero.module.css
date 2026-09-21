@@ -1,0 +1,246 @@
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  /* What shows if the cover can't load: a tinted wash, not a hole. */
+  background: linear-gradient(135deg, var(--color-accent-soft), var(--color-bg-elevated));
+  padding: calc(var(--space-7) + env(safe-area-inset-top)) var(--space-4) var(--space-5);
+}
+
+/* The cover, enlarged and heavily blurred, as the colour of the page's top. Small source (the 150px tier): it is
+   blurred beyond recognition anyway, and a big blurred bitmap is the expensive kind on a phone. */
+.backdrop {
+  position: absolute;
+  inset: -40px;
+  width: calc(100% + 80px);
+  height: calc(100% + 80px);
+  object-fit: cover;
+  filter: blur(36px) saturate(1.5);
+  opacity: 0.55;
+  z-index: -2;
+}
+
+/* Fades the wash into the page so the list below starts on the plain background. */
+.tint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, transparent 35%, var(--color-bg) 100%);
+  z-index: -1;
+}
+
+.backButton {
+  position: absolute;
+  top: calc(var(--space-3) + env(safe-area-inset-top));
+  left: var(--space-3);
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.cover {
+  width: min(56vw, 196px);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  background: var(--color-bg-elevated);
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+}
+
+.coverFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-brand);
+  color: #ffffff;
+}
+
+.info {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kind {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.6rem, 6.5vw, 2.4rem);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.titleLink {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .titleLink:hover {
+    text-decoration: underline;
+  }
+}
+
+.description {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.meta {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) 0;
+}
+
+.playButton {
+  width: 54px;
+  height: 54px;
+  border: none;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-text-primary);
+  color: var(--color-bg);
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  transition: transform var(--transition-fast);
+}
+
+.playButton:active {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  .playButton:hover {
+    transform: scale(1.05);
+  }
+}
+
+.roundButton {
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+/* The same header as a rounded card inside a page (Lagu Disukai under the Koleksi tabs) — no back button, no bleed. */
+.rootCard .hero {
+  border-radius: 20px;
+  padding-top: var(--space-5);
+}
+
+.rootCard .actions {
+  padding-left: var(--space-1);
+}
+
+@media (min-width: 960px) {
+  .hero {
+    padding: var(--space-5) var(--space-5) var(--space-5);
+  }
+
+  /* On a phone the button floats in the corner above the centred cover. On desktop the cover is at the left edge,
+     right where a floating button lands — so here the button is an ordinary row above it, with room to spare. */
+  .backButton {
+    position: static;
+    margin-bottom: var(--space-4);
+  }
+
+  .rootCard .backButton {
+    display: none;
+  }
+
+  .inner {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: var(--space-5);
+  }
+
+  .cover {
+    width: 208px;
+  }
+
+  .title {
+    font-size: clamp(2rem, 3.6vw, 3.4rem);
+  }
+
+  .description {
+    font-size: 0.9rem;
+    max-width: 640px;
+  }
+
+  .actions {
+    padding: var(--space-3) var(--space-5) 0;
+  }
+
+  .rootCard .hero {
+    padding: var(--space-5);
+  }
+
+  .rootCard .cover {
+    width: 160px;
+  }
+}

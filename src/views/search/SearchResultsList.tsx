@@ -1,51 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { Song } from '../../api/types';
 import { prefetchAudioResolveOnly } from '../../api/musicClient';
-import { AddToPlaylistSheet } from '../../components/AddToPlaylistSheet/AddToPlaylistSheet';
-import { LikeButton } from '../../components/LikeButton/LikeButton';
-import { OptionsMenu } from '../../components/OptionsMenu/OptionsMenu';
 import { SongRow } from '../../components/SongRow/SongRow';
-import { addToQueue } from '../../jam/jamQueueActions';
+import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { playSongRadio } from '../../playback/playSongRadio';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { useToast } from '../../components/Toast/ToastProvider';
 import styles from './SearchView.module.css';
 
 function SearchResultRow({ song }: { song: Song }) {
-  const { showToast } = useToast();
-  const [addToPlaylistOpen, setAddToPlaylistOpen] = useState(false);
-
-  return (
-    <SongRow
-      song={song}
-      onClick={() => playSongRadio(song)}
-      trailing={
-        <>
-          <LikeButton song={song} />
-          <OptionsMenu
-            items={[
-              {
-                key: 'queue',
-                icon: 'queue',
-                label: 'Tambah ke Antrean',
-                onClick: () => {
-                  addToQueue(song);
-                  showToast('Ditambahkan ke antrean.');
-                },
-              },
-              {
-                key: 'playlist',
-                icon: 'plus',
-                label: 'Tambah ke Playlist',
-                onClick: () => setAddToPlaylistOpen(true),
-              },
-            ]}
-          />
-          <AddToPlaylistSheet song={song} isOpen={addToPlaylistOpen} onClose={() => setAddToPlaylistOpen(false)} />
-        </>
-      }
-    />
-  );
+  return <SongRow song={song} onClick={() => playSongRadio(song)} trailing={<SongRowActions song={song} />} />;
 }
 
 export function SearchResultsList({ songs, isCommitted }: { songs: Song[]; isCommitted: boolean }) {

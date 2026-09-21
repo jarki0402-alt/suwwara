@@ -27,6 +27,7 @@ export interface JamRoomSnapshot extends JamQueuePayload, JamTransportPayload {
 
 export type JamIntentType =
   | 'add-to-queue'
+  | 'play-next'
   | 'remove-from-queue'
   | 'reorder'
   | 'toggle-shuffle'

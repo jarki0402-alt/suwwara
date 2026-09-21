@@ -112,6 +112,8 @@ export function getArtistPage(artistId: string): Promise<ArtistPage> {
         artistId: song.artist?.artistId ?? artistId,
         durationSec: song.duration ?? 0,
         thumbnail: bestThumbnail(song.thumbnails),
+        album: song.album?.name ?? null,
+        albumId: song.album?.albumId ?? null,
         isOfficial: true,
       });
     }
@@ -148,6 +150,8 @@ export function getAlbumPage(albumId: string): Promise<AlbumPage> {
         durationSec: song.duration ?? 0,
         // Album tracks come back with the album art; falling back to it keeps every row square and consistent.
         thumbnail: bestThumbnail(song.thumbnails) || cover,
+        album: album.name,
+        albumId: album.albumId,
         isOfficial: true,
       });
     }

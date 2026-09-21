@@ -17,8 +17,9 @@ import styles from './MiniPlayer.module.css';
 export function MiniPlayer() {
   const openNowPlaying = useUiStore((state) => state.openNowPlaying);
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
-  // Only shown once at least one OTHER device is online — with none, there is nothing to pick.
-  const hasOtherDevices = useConnectStore((state) => state.devices.length > 1);
+  const closeConnectSheet = useUiStore((state) => state.closeConnectSheet);
+  const isConnectSheetOpen = useUiStore((state) => state.isConnectSheetOpen);
+  const isControllingRemote = useConnectStore((state) => state.controllingRef !== null);
   const isNowPlayingOpen = useUiStore((state) => state.isNowPlayingOpen);
   const isLyricsOpen = useUiStore((state) => state.isLyricsOpen);
   const toggleLyrics = useUiStore((state) => state.toggleLyrics);
@@ -52,6 +53,8 @@ export function MiniPlayer() {
   // behavior. Only opens (never closes) — closeNowPlaying already resets
   // isLyricsOpen, so a fresh open-via-this-button always lands on lyrics.
   const handleLyricsClick = () => {
+    // The Perangkat panel docks in the same column: switching to lyrics means leaving it.
+    if (isConnectSheetOpen) closeConnectSheet();
     if (!isNowPlayingOpen) {
       openNowPlaying();
       setLyricsOpen(true);
@@ -61,7 +64,7 @@ export function MiniPlayer() {
   };
 
   return (
-    <div className={styles.wrapper}>
+    <div className={styles.wrapper} data-player-bar="">
       <div className={styles.progressTrack}>
         <ProgressBar ariaLabel="Posisi lagu" ref={progressBarRef} compact />
       </div>
@@ -75,14 +78,6 @@ export function MiniPlayer() {
       </button>
 
       <div className={styles.centerColumn}>
-        {/* Desktop only (see .desktopSeekBar) — the docked Now Playing panel no
-            longer has its own seek bar (that duplicated this one, see
-            NowPlayingView's .mobileOnlyControls), so this is the single
-            interactive seek bar once a song is loaded on desktop. */}
-        <div className={styles.desktopSeekBar}>
-          <SeekBar duration={currentSong.duration} horizontal />
-        </div>
-
         <div className={styles.actions}>
           <button
             type="button"
@@ -121,6 +116,14 @@ export function MiniPlayer() {
             <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={18} />
           </button>
         </div>
+
+        {/* Desktop only (see .desktopSeekBar), below the transport buttons like Spotify's bottom bar — the docked Now Playing panel no
+            longer has its own seek bar (that duplicated this one, see
+            NowPlayingView's .mobileOnlyControls), so this is the single
+            interactive seek bar once a song is loaded on desktop. */}
+        <div className={styles.desktopSeekBar}>
+          <SeekBar duration={currentSong.duration} horizontal />
+        </div>
       </div>
 
       {/* Desktop only (see .rightControls) — mirrors Spotify's own bottom-bar
@@ -128,11 +131,16 @@ export function MiniPlayer() {
           lyrics and volume from inside the fullscreen Now Playing sheet
           itself, so it doesn't need a mini-player-level shortcut to them. */}
       <div className={styles.rightControls}>
-        {hasOtherDevices && (
-          <button type="button" className={styles.iconButton} onClick={openConnectSheet} aria-label="Perangkat">
-            <Icon name="devices" size={18} />
-          </button>
-        )}
+        {/* Always shown, like Spotify's Connect icon: the panel it opens also explains how to link another device. */}
+        <button
+          type="button"
+          className={[styles.iconButton, isConnectSheetOpen || isControllingRemote ? styles.iconButtonActive : ''].join(' ')}
+          onClick={isConnectSheetOpen ? closeConnectSheet : openConnectSheet}
+          aria-label="Perangkat"
+          aria-pressed={isConnectSheetOpen}
+        >
+          <Icon name="devices" size={18} />
+        </button>
         <button
           type="button"
           className={[styles.iconButton, isLyricsOpen ? styles.iconButtonActive : ''].join(' ')}

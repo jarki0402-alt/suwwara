@@ -28,6 +28,7 @@ export interface RoomSnapshot extends RoomQueueState, RoomTransportState {
 
 export type JamIntent =
   | { type: 'add-to-queue'; payload: { song: JamSong } }
+  | { type: 'play-next'; payload: { song: JamSong } }
   | { type: 'remove-from-queue'; payload: { orderPosition: number } }
   | { type: 'reorder'; payload: { fromPosition: number; toPosition: number } }
   | { type: 'toggle-shuffle' }

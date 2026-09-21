@@ -38,7 +38,7 @@ export function ArtistMixesSection() {
             <ShelfCard
               key={mix.artistName}
               title={`Mix ${mix.artistName}`}
-              subtitle={`${mix.songs.length} lagu`}
+              subtitle="Mix artis"
               images={mix.image.length > 0 ? mix.image : (mix.songs[0]?.image ?? [])}
               onClick={() => openCollection(`artist-mix:${mix.artistName}`)}
             />

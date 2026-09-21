@@ -58,14 +58,15 @@
   width: 64px;
   height: 64px;
   border-radius: var(--radius-full);
-  background: var(--gradient-brand);
-  color: #ffffff;
+  /* The Now Playing sheet is always dark, whatever the app theme: a white button, dark icon. */
+  background: #ffffff;
+  color: #111114;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   cursor: pointer;
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
   transition: transform var(--transition-fast);
 }
 

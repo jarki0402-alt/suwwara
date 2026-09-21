@@ -34,7 +34,13 @@ export type IconName =
   | 'spinner'
   | 'lyrics'
   | 'devices'
-  | 'expand';
+  | 'expand'
+  | 'play-next'
+  | 'radio'
+  | 'artist'
+  | 'album'
+  | 'share'
+  | 'edit';
 
 interface IconProps {
   name: IconName;
@@ -209,6 +215,45 @@ function IconPaths({ name }: { name: IconName }) {
       return <polyline points="6,15 12,9 18,15" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />;
     case 'chevron-left':
       return <polyline points="15,6 9,12 15,18" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />;
+    case 'play-next':
+      return (
+        <>
+          <line x1="4" y1="6" x2="20" y2="6" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+          <line x1="4" y1="11.5" x2="12" y2="11.5" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+          <line x1="4" y1="17" x2="10" y2="17" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+          <polygon points="15,10 21,14.5 15,19" fill="currentColor" />
+        </>
+      );
+    case 'radio':
+      return (
+        <>
+          <circle cx="12" cy="12" r="2" fill="currentColor" />
+          <path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.4 9.4 0 0 0 0 13.2M18.6 5.4a9.4 9.4 0 0 1 0 13.2" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'artist':
+      return (
+        <>
+          <circle cx="12" cy="8" r="3.6" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'album':
+      return (
+        <>
+          <circle cx="12" cy="12" r="8.5" stroke="currentColor" fill="none" strokeWidth={2} />
+          <circle cx="12" cy="12" r="2.4" stroke="currentColor" fill="none" strokeWidth={2} />
+        </>
+      );
+    case 'share':
+      return (
+        <>
+          <path d="M12 15V3.5M8 7.5l4-4 4 4" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M5 12v6.5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V12" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+    case 'edit':
+      return <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3zM13.5 8.5l3 3" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />;
     case 'more':
       return (
         <>

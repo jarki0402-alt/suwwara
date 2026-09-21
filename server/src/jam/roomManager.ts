@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { Response } from 'express';
-import { addToQueue, advanceOnEnded, cycleRepeat, next, playAtPosition, previous, removeFromQueue, reorder, setQueue, toggleShuffle } from './queueReducer';
+import { addToQueue, advanceOnEnded, cycleRepeat, next, playAtPosition, playNext, previous, removeFromQueue, reorder, setQueue, toggleShuffle } from './queueReducer';
 import type { JamIntent, RoomQueueState, RoomSnapshot, RoomTransportState } from './types';
 
 interface Member {
@@ -143,6 +143,10 @@ export function applyIntent(roomId: string, intent: JamIntent): boolean {
   switch (intent.type) {
     case 'add-to-queue':
       room.queueState = addToQueue(room.queueState, intent.payload.song);
+      queueChanged = true;
+      break;
+    case 'play-next':
+      room.queueState = playNext(room.queueState, intent.payload.song);
       queueChanged = true;
       break;
     case 'remove-from-queue':

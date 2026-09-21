@@ -52,6 +52,17 @@ export function addToQueue(state: RoomQueueState, song: JamSong): RoomQueueState
   return { ...working, queue: [...working.queue, song], order: [...working.order, newQueueIndex] };
 }
 
+export function playNext(state: RoomQueueState, song: JamSong): RoomQueueState {
+  if (state.order.length === 0) return { ...state, queue: [song], order: [0], position: 0 };
+  let working = state;
+  if (working.queue.length >= MAX_QUEUE_LENGTH) {
+    working = removeFromQueue(working, working.position === working.order.length - 1 ? 0 : working.order.length - 1);
+  }
+  const newQueueIndex = working.queue.length;
+  const order = [...working.order.slice(0, working.position + 1), newQueueIndex, ...working.order.slice(working.position + 1)];
+  return { ...working, queue: [...working.queue, song], order };
+}
+
 export function removeFromQueue(state: RoomQueueState, orderPosition: number): RoomQueueState {
   const { queue, order, position } = state;
   if (orderPosition < 0 || orderPosition >= order.length) return state;

@@ -84,10 +84,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gradient-brand);
-  color: #fff;
+  background: var(--color-text-primary);
+  color: var(--color-bg);
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .roundButton {

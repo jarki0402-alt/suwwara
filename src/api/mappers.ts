@@ -31,6 +31,8 @@ export interface BackendSong {
   durationSec: number;
   thumbnail: string;
   album?: string | null;
+  /** YT Music's album id (`MPREb_…`) — what an album page is keyed by. */
+  albumId?: string | null;
 }
 
 /**
@@ -73,7 +75,7 @@ export function mapBackendSong(raw: BackendSong): Song {
     id: raw.id,
     name: decodeHtmlEntities(raw.title || 'Untitled'),
     duration: raw.durationSec || 0,
-    album: albumName ? { id: albumName, name: albumName, url: '' } : null,
+    album: albumName ? { id: raw.albumId || albumName, name: albumName, url: '' } : null,
     year: null,
     language: '',
     hasLyrics: true,

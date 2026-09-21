@@ -15,14 +15,17 @@ export function HomeView() {
   const collection = useGeneratedCollection(openedCollectionId);
 
   if (collection) {
+    const isArtistMix = openedCollectionId?.startsWith('artist-mix:') ?? false;
     return (
       <GeneratedCollectionView
         title={collection.title}
         description={collection.description}
+        kind={isArtistMix ? 'Mix artis' : openedCollectionId === 'viral-indonesia' ? 'Chart' : 'Untukmu'}
         songs={collection.songs}
+        cover={collection.image}
         isLoading={collection.isLoading}
         onBack={closeCollection}
-        artistName={openedCollectionId?.startsWith('artist-mix:') ? openedCollectionId.slice('artist-mix:'.length) : undefined}
+        artistName={isArtistMix && openedCollectionId ? openedCollectionId.slice('artist-mix:'.length) : undefined}
       />
     );
   }

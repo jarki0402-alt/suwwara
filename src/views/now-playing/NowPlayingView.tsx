@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../../connect/connectStore';
@@ -29,6 +30,7 @@ export function NowPlayingView() {
   const openQueue = useUiStore((state) => state.openQueue);
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
   const hasOtherDevices = useConnectStore((state) => state.devices.length > 1);
+  const isControllingRemote = useConnectStore((state) => state.controllingRef !== null);
   const showLyrics = useUiStore((state) => state.isLyricsOpen);
   const toggleLyrics = useUiStore((state) => state.toggleLyrics);
 
@@ -76,11 +78,6 @@ export function NowPlayingView() {
           </button>
           <span className={styles.topBarLabel}>Sedang Diputar</span>
           <span className={styles.topBarActions}>
-            {hasOtherDevices && (
-              <button type="button" className={styles.iconButton} onClick={openConnectSheet} aria-label="Perangkat">
-                <Icon name="devices" size={20} />
-              </button>
-            )}
             <button type="button" className={styles.iconButton} onClick={openQueue} aria-label="Buka antrean">
               <Icon name="queue" size={20} />
             </button>
@@ -145,9 +142,27 @@ export function NowPlayingView() {
             />
 
             <div className={styles.bottomRow}>
-              <button type="button" className={[styles.textButton, showLyrics ? styles.textButtonActive : ''].join(' ')} onClick={toggleLyrics}>
-                Lirik
-              </button>
+              <div className={styles.bottomIcons}>
+                <button
+                  type="button"
+                  className={[styles.bottomIconButton, showLyrics ? styles.bottomIconButtonActive : ''].join(' ')}
+                  onClick={toggleLyrics}
+                  aria-label="Tampilkan lirik"
+                  aria-pressed={showLyrics}
+                >
+                  <Icon name="lyrics" size={22} />
+                </button>
+                {/* Always here (not only once another device is online): the Perangkat sheet also says how to link one. */}
+                <button
+                  type="button"
+                  className={[styles.bottomIconButton, isControllingRemote ? styles.bottomIconButtonActive : ''].join(' ')}
+                  onClick={openConnectSheet}
+                  aria-label="Perangkat"
+                >
+                  <Icon name="devices" size={22} />
+                  {hasOtherDevices && <span className={styles.deviceDot} aria-hidden="true" />}
+                </button>
+              </div>
               <div className={styles.volumeRow}>
                 <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={16} />
                 <input
@@ -157,6 +172,7 @@ export function NowPlayingView() {
                   value={Math.round(volume * 100)}
                   onChange={(event) => setVolume(Number(event.target.value) / 100)}
                   className={styles.volumeSlider}
+                  style={{ '--fill': `${Math.round(volume * 100)}%` } as CSSProperties}
                   aria-label="Volume"
                 />
               </div>

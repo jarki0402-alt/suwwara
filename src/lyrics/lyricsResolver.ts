@@ -4,7 +4,7 @@ import { readCachedLyrics, writeCachedLyrics } from './lyricsCache';
 import { parseLrc, type LrcLine } from './lrcParser';
 
 export type LyricsResult =
-  | { type: 'synced'; lines: LrcLine[]; /** How many seconds the matched recording differs in length from ours. */ deltaSec: number }
+  | { type: 'synced'; lines: LrcLine[] }
   | { type: 'plain'; text: string; source: 'lrclib' | 'ytmusic' }
   | { type: 'instrumental' }
   | { type: 'none' };
@@ -13,12 +13,12 @@ const MAX_MEMORY_ENTRIES = 60;
 const memory = new Map<string, LyricsResult>();
 const inFlight = new Map<string, Promise<LyricsResult>>();
 
-function toResult(payload: LyricsPayload, song: Song): LyricsResult {
+function toResult(payload: LyricsPayload): LyricsResult {
   switch (payload.type) {
     case 'synced': {
       const lines = parseLrc(payload.lrc);
       if (lines.length === 0) return { type: 'none' };
-      return { type: 'synced', lines, deltaSec: song.duration > 0 ? Math.abs(payload.matchedDurationSec - song.duration) : 0 };
+      return { type: 'synced', lines };
     }
     case 'plain':
       return payload.text ? { type: 'plain', text: payload.text, source: payload.source } : { type: 'none' };
@@ -50,7 +50,7 @@ export function resolveLyrics(song: Song): Promise<LyricsResult> {
 
   const stored = readCachedLyrics(song.id);
   if (stored) {
-    const result = toResult(stored, song);
+    const result = toResult(stored);
     remember(song.id, result);
     return Promise.resolve(result);
   }
@@ -60,7 +60,7 @@ export function resolveLyrics(song: Song): Promise<LyricsResult> {
 
   const loading = getLyricsPayload(song.id)
     .then((payload) => {
-      const result = toResult(payload, song);
+      const result = toResult(payload);
       remember(song.id, result);
       writeCachedLyrics(song.id, payload);
       return result;

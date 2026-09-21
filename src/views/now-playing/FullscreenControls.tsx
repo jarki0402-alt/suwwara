@@ -49,7 +49,6 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
       </div>
 
       <div className={styles.center}>
-        <SeekBar duration={song.duration} horizontal />
         <div className={styles.transport}>
           <button
             type="button"
@@ -78,6 +77,7 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
             <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={16} />
           </button>
         </div>
+        <SeekBar duration={song.duration} horizontal />
       </div>
 
       <div className={styles.right}>

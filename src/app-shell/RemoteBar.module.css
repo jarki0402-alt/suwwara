@@ -95,8 +95,8 @@
   border-radius: var(--radius-full);
   align-items: center;
   justify-content: center;
-  background: var(--gradient-brand);
-  color: #fff;
+  background: var(--color-text-primary);
+  color: var(--color-bg);
 }
 
 .track {

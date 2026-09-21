@@ -85,13 +85,24 @@ export async function getTopArtistMixes(): Promise<ArtistMix[]> {
   return mixes;
 }
 
-/** A single artist's mix by exact name — used when opening one specific tile (see useGeneratedCollection.ts), reusing the same cached batch when available instead of re-fetching. */
+// The Home shelf only needs each artist's five top songs (a cover and a name); the Mix page they open is built
+// longer, server-side (top songs + tracks from their releases + similar songs) — see MIX_LENGTH.
+const MIX_LENGTH = 20;
+const MAX_OPENED_MIXES = 20;
+const openedMixes = new Map<string, ArtistMix>();
+
+/** One artist's full Mix by exact name — what opening a "Mix {artist}" card shows. Remembered for the session, capped. */
 export async function getArtistMixByName(artistName: string): Promise<ArtistMix | null> {
-  if (cache) {
-    const found = cache.mixes.find((mix) => mix.artistName === artistName);
-    if (found) return found;
-  }
-  const result = await getArtistTopSongs(artistName);
+  const remembered = openedMixes.get(artistName);
+  if (remembered) return remembered;
+
+  const result = await getArtistTopSongs(artistName, MIX_LENGTH);
   if (!result || result.songs.length === 0) return null;
+  openedMixes.set(artistName, result);
+  while (openedMixes.size > MAX_OPENED_MIXES) {
+    const oldest = openedMixes.keys().next().value;
+    if (oldest === undefined) break;
+    openedMixes.delete(oldest);
+  }
   return result;
 }

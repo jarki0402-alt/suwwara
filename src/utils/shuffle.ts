@@ -16,3 +16,13 @@ export function buildPlayOrder(length: number, shuffle: boolean, anchorIndex: nu
 
   return indices.includes(anchorIndex) ? [anchorIndex, ...rest] : rest;
 }
+
+/** A shuffled copy of `items` (Fisher–Yates) — for the "Putar acak" button, which plays a fresh random order. */
+export function shuffledCopy<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[other]] = [copy[other], copy[index]];
+  }
+  return copy;
+}

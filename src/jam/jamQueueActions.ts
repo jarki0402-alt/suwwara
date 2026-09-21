@@ -29,6 +29,16 @@ export function addToQueue(song: Song): void {
   void sendJamIntent(ctx.roomId, ctx.clientId, 'add-to-queue', { song });
 }
 
+/** Puts `song` right after the one playing — the "Putar Selanjutnya" action. */
+export function playNext(song: Song): void {
+  const ctx = jamContext();
+  if (!ctx) {
+    useQueueStore.getState().playNext(song);
+    return;
+  }
+  void sendJamIntent(ctx.roomId, ctx.clientId, 'play-next', { song });
+}
+
 export function removeFromQueue(orderPosition: number): void {
   const ctx = jamContext();
   if (!ctx) {

@@ -11,6 +11,9 @@ export interface SearchSong {
   durationSec: number;
   thumbnail: string;
   isOfficial: boolean;
+  /** The release it is on, when the source says (album pages are keyed by `albumId`, `MPREb_…`). */
+  album?: string | null;
+  albumId?: string | null;
 }
 
 const MAX_DURATION_SEC = 15 * 60;
@@ -47,6 +50,8 @@ export async function searchSongs(query: string, limit = 20): Promise<SearchSong
       artistId: song.artist?.artistId ?? null,
       durationSec,
       thumbnail: bestThumbnail(song.thumbnails),
+      album: song.album?.name ?? null,
+      albumId: song.album?.albumId ?? null,
       // Every result from YT Music's "songs" search is catalog content by
       // definition (as opposed to arbitrary uploads), so this is always true
       // here — kept as a field since the app's Song mapping still reads it.

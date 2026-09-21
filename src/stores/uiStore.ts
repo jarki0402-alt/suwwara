@@ -121,8 +121,9 @@ export const useUiStore = create<UiState>((set) => ({
   openedCollectionId: null,
   isLyricsOpen: false,
   isNowPlayingFullscreen: false,
-  openConnectSheet: () => set({ isConnectSheetOpen: true }),
-  closeConnectSheet: () => set({ isConnectSheetOpen: false }),
+  // On desktop this is a docked right panel that reserves room from the page, so it opens/closes as one relayout step.
+  openConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: true })),
+  closeConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: false })),
   openLinkShow: () => set({ linkSheet: 'show', linkPrefillCode: null }),
   openLinkScan: (prefillCode) => set({ linkSheet: 'scan', linkPrefillCode: prefillCode ?? null }),
   closeLinkSheet: () => set({ linkSheet: 'none', linkPrefillCode: null }),
@@ -135,7 +136,8 @@ export const useUiStore = create<UiState>((set) => ({
     })),
   openAlbum: (albumId) => set((state) => ({ detailStack: [...state.detailStack, { type: 'album', albumId }], ...leaveNowPlaying() })),
   closeDetail: () => set((state) => ({ detailStack: state.detailStack.slice(0, -1) })),
-  openNowPlaying: () => withViewTransition(() => set({ isNowPlayingOpen: true })),
+  // Also closes the desktop Perangkat panel, which docks in the same column and would otherwise sit on top of it.
+  openNowPlaying: () => withViewTransition(() => set({ isNowPlayingOpen: true, isConnectSheetOpen: false })),
   closeNowPlaying: () =>
     withViewTransition(() => set({ isNowPlayingOpen: false, isQueueOpen: false, isLyricsOpen: false, isNowPlayingFullscreen: false })),
   openQueue: () => set({ isQueueOpen: true }),

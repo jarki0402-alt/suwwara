@@ -1,6 +1,6 @@
-import { LikeButton } from '../../components/LikeButton/LikeButton';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import { SongRow } from '../../components/SongRow/SongRow';
+import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { playSongRadio } from '../../playback/playSongRadio';
 import { useTrendingSongs } from '../../recommendation/useTrendingSongs';
 import sectionStyles from './RecentlyPlayedSection.module.css';
@@ -34,7 +34,7 @@ export function TopChartSection() {
           : songs.slice(0, VISIBLE_ROWS).map((song, index) => (
               <div key={song.id} className={styles.row}>
                 <span className={styles.rank}>{String(index + 1).padStart(2, '0')}</span>
-                <SongRow song={song} onClick={() => playSongRadio(song)} trailing={<LikeButton song={song} />} />
+                <SongRow song={song} onClick={() => playSongRadio(song)} trailing={<SongRowActions song={song} />} />
               </div>
             ))}
       </div>

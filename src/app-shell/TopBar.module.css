@@ -9,10 +9,10 @@
     position: sticky;
     top: 0;
     z-index: 6;
-    padding: var(--space-2) var(--space-5);
+    /* Air above and below the field: at 8px it sat hard against the top edge of the window. */
+    padding: 14px var(--space-5);
     background: var(--color-bg-overlay);
     backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--color-border);
   }
 
   /* Centred, and proportioned to the page: wide enough to type in, never a stretched slab. */
@@ -28,7 +28,7 @@
     gap: var(--space-3);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-full);
-    padding: 11px var(--space-4);
+    padding: 9px var(--space-4);
     background: var(--color-bg-elevated);
     color: var(--color-text-secondary);
     transition: border-color var(--transition-fast);
@@ -163,6 +163,36 @@
 
   .resultRowActive {
     background: var(--color-bg);
+  }
+
+  /* A song result: the row is a div holding the play button and the song's heart + ⋯ (buttons can't nest). */
+  .songRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    border-radius: 10px;
+    padding-right: var(--space-1);
+  }
+
+  .songMain {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    border: none;
+    background: none;
+    padding: 7px var(--space-2);
+    color: var(--color-text-primary);
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+
+  .songActions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
   }
 
   .resultThumb,

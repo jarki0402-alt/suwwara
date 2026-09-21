@@ -25,9 +25,8 @@ function findActiveIndex(lines: LrcLine[], currentTime: number): number {
  * Tracks the active lyric line against playback time via the shared
  * frameTicker. React only re-renders when the computed index actually
  * changes (a handful of times per song) — not on every animation frame.
- * `offsetSec` is the user's per-song timing nudge (lyricsOffset.ts): positive lights lines up earlier.
  */
-export function useLyricsSync(lines: LrcLine[], offsetSec = 0): number {
+export function useLyricsSync(lines: LrcLine[]): number {
   const [activeIndex, setActiveIndex] = useState(-1);
   const activeIndexRef = useRef(-1);
   const lastTimeRef = useRef(0);
@@ -42,7 +41,7 @@ export function useLyricsSync(lines: LrcLine[], offsetSec = 0): number {
     if (lines.length === 0) return;
 
     return frameTicker.subscribe(() => {
-      const currentTime = audioEngine.getCurrentTime() + offsetSec;
+      const currentTime = audioEngine.getCurrentTime();
       const previousTime = lastTimeRef.current;
       lastTimeRef.current = currentTime;
 
@@ -61,7 +60,7 @@ export function useLyricsSync(lines: LrcLine[], offsetSec = 0): number {
         setActiveIndex(index);
       }
     });
-  }, [lines, offsetSec]);
+  }, [lines]);
 
   return activeIndex;
 }

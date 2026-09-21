@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Song } from '../../api/types';
+import type { ImageVariant, Song } from '../../api/types';
 import { getTrendingSongsIndonesia } from '../../recommendation/trendingChart';
 import { getArtistMixByName } from '../../recommendation/topArtistMix';
 import { getWeeklyDiscoveryMix } from '../../recommendation/weeklyDiscovery';
@@ -26,6 +26,7 @@ export function useGeneratedCollection(collectionId: GeneratedCollectionId | nul
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
+  const [image, setImage] = useState<ImageVariant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -33,14 +34,17 @@ export function useGeneratedCollection(collectionId: GeneratedCollectionId | nul
     let cancelled = false;
     setIsLoading(true);
     setSongs([]);
+    setImage([]);
 
     if (collectionId.startsWith(ARTIST_MIX_PREFIX)) {
       const artistName = collectionId.slice(ARTIST_MIX_PREFIX.length);
       setTitle(`Mix ${artistName}`);
-      setDescription('Lagu-lagu populer dari artis yang paling sering kamu dengarkan.');
+      setDescription(`Lagu-lagu populer ${artistName} dan yang mirip dengannya.`);
       getArtistMixByName(artistName)
         .then((result) => {
-          if (!cancelled && result) setSongs(result.songs);
+          if (cancelled || !result) return;
+          setSongs(result.songs);
+          setImage(result.image);
         })
         .catch(() => {})
         .finally(() => {
@@ -68,5 +72,5 @@ export function useGeneratedCollection(collectionId: GeneratedCollectionId | nul
   }, [collectionId]);
 
   if (!collectionId) return null;
-  return { title, description, songs, isLoading };
+  return { title, description, songs, image, isLoading };
 }

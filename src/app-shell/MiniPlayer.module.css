@@ -102,8 +102,9 @@
   width: 34px;
   height: 34px;
   border-radius: var(--radius-full);
-  background: var(--gradient-brand);
-  color: #ffffff;
+  /* Plain white (dark text on a light theme) — the accent gradient is for accents, not for the one control you press most. */
+  background: var(--color-text-primary);
+  color: var(--color-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,7 +136,9 @@
   .wrapper {
     left: var(--sidebar-width);
     bottom: 0;
-    height: 66px;
+    /* Room for the transport row AND the seek bar under it with breathing space (was 66px, which left the
+       seek bar touching the bottom edge of the window). NowPlayingView's docked panel stops at this height. */
+    height: 82px;
     padding: 0 var(--space-5);
     /* Spotify-style 3-column layout: song info left, transport+seek bar
        center, lyrics/volume/expand right — all three actually populated now
@@ -174,7 +177,7 @@
     justify-self: center;
     justify-content: center;
     width: 100%;
-    gap: 2px;
+    gap: 4px;
   }
 
   .desktopSeekBar {
@@ -190,8 +193,8 @@
     width: 40px;
     height: 40px;
     border-radius: var(--radius-full);
-    background: var(--gradient-brand);
-    color: #ffffff;
+    background: var(--color-text-primary);
+    color: var(--color-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -201,7 +204,7 @@
 
   .playButton:hover {
     transform: scale(1.06);
-    box-shadow: var(--shadow-glow);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   }
 
   .rightControls {

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { searchSongs } from '../../api/endpoints/search';
 import type { Song } from '../../api/types';
+import { CollectionHero } from '../../components/CollectionHero/CollectionHero';
 import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
 import { Icon } from '../../components/Icon/Icon';
+import { OptionsMenu } from '../../components/OptionsMenu/OptionsMenu';
 import { PlaylistNameDialog } from '../../components/PlaylistNameDialog/PlaylistNameDialog';
 import { SongRow } from '../../components/SongRow/SongRow';
+import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { playSongList } from '../../playback/playSongList';
 import { useLibraryStore, type UserPlaylist } from '../../stores/libraryStore';
 import { debounce } from '../../utils/debounce';
@@ -58,17 +61,27 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
   };
 
   return (
-    <div>
-      <div className={styles.detailHeader}>
-        <button type="button" className={styles.iconButton} onClick={onBack} aria-label="Kembali">
-          <Icon name="chevron-left" size={18} />
-        </button>
-        <span className={styles.detailTitle}>{playlist.name}</span>
-        <button type="button" className={styles.iconButton} onClick={() => setRenameOpen(true)} aria-label="Ganti nama playlist">
-          <Icon name="more" size={18} />
-        </button>
-      </div>
+    <div className={styles.detail}>
+      <CollectionHero
+        kind="Playlist"
+        title={playlist.name}
+        songs={playlist.songs}
+        images={playlist.songs[0]?.image ?? []}
+        fallbackIcon="library"
+        onBack={onBack}
+        extraActions={
+          <OptionsMenu
+            ariaLabel="Opsi playlist"
+            triggerClassName={styles.heroMenuButton}
+            items={[
+              { key: 'rename', icon: 'edit', label: 'Ganti Nama', onClick: () => setRenameOpen(true) },
+              { key: 'delete', icon: 'trash', label: 'Hapus Playlist', onClick: () => setDeleteOpen(true), danger: true, separatorBefore: true },
+            ]}
+          />
+        }
+      />
 
+      <div className={styles.detailBody}>
       <div className={styles.addSongBox}>
         <Icon name="search" size={16} />
         <input
@@ -87,14 +100,17 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
               song={song}
               onClick={() => addSongToPlaylist(playlist.id, song)}
               trailing={
-                <button
-                  type="button"
-                  className={styles.iconButton}
-                  onClick={() => addSongToPlaylist(playlist.id, song)}
-                  aria-label="Tambahkan ke playlist"
-                >
-                  <Icon name="plus" size={16} />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    onClick={() => addSongToPlaylist(playlist.id, song)}
+                    aria-label="Tambahkan ke playlist ini"
+                  >
+                    <Icon name="plus" size={16} />
+                  </button>
+                  <SongRowActions song={song} />
+                </>
               }
             />
           ))}
@@ -110,24 +126,13 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
               key={song.id}
               song={song}
               onClick={() => playSongList(playlist.songs, index)}
-              trailing={
-                <button
-                  type="button"
-                  className={styles.iconButton}
-                  onClick={() => removeSongFromPlaylist(playlist.id, song.id)}
-                  aria-label="Hapus dari playlist"
-                >
-                  <Icon name="close" size={16} />
-                </button>
-              }
+              trailing={<SongRowActions song={song} onRemoveFromPlaylist={() => removeSongFromPlaylist(playlist.id, song.id)} />}
             />
           ))}
         </div>
       )}
 
-      <button type="button" className={styles.deleteButton} onClick={() => setDeleteOpen(true)}>
-        Hapus Playlist
-      </button>
+      </div>
 
       <PlaylistNameDialog
         isOpen={isRenameOpen}

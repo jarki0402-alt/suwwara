@@ -51,7 +51,6 @@
   height: 12px;
   border-radius: 50%;
   background: var(--color-accent);
-  border: 2px solid var(--color-bg);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   transform: translate(-50%, -50%);
   pointer-events: none;

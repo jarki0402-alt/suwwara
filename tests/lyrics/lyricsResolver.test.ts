@@ -21,12 +21,12 @@ describe('resolveLyrics', () => {
     expect(getLyricsPayload).toHaveBeenCalledTimes(2);
   });
 
-  it('parses synced lyrics and reports how far the matched recording is from ours', async () => {
+  it('parses synced lyrics into timed lines', async () => {
     const { resolveLyrics } = await import('../../src/lyrics/lyricsResolver');
     getLyricsPayload.mockResolvedValueOnce({ type: 'synced', source: 'lrclib', lrc: '[00:01.00]a\n[00:05.00]b', matchedDurationSec: 201.5 });
 
-    const result = await resolveLyrics(song('bbbbbbbbbbb', 200));
-    expect(result).toMatchObject({ type: 'synced', deltaSec: 1.5 });
+    const result = await resolveLyrics(song('bbbbbbbbbbb'));
+    expect(result.type).toBe('synced');
     expect(result.type === 'synced' && result.lines.map((line) => line.text)).toEqual(['a', 'b']);
   });
 

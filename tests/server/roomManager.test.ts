@@ -93,3 +93,13 @@ describe('jam advance-on-ended dedupe', () => {
     expect(snapshot.positionSec).toBeCloseTo(0, 0);
   });
 });
+
+describe('jam play-next intent', () => {
+  it('slots the song in right after the one playing, for everyone in the room', () => {
+    const roomId = createRoom('creator', queue(['a', 'b', 'c']));
+    applyIntent(roomId, { type: 'play-next', payload: { song: { id: 'x' } } });
+    const snapshot = getSnapshot(roomId);
+    expect(snapshot?.order.map((index) => snapshot.queue[index].id)).toEqual(['a', 'x', 'b', 'c']);
+    expect(snapshot?.position).toBe(0);
+  });
+});

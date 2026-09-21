@@ -119,7 +119,8 @@
 }
 
 .storageBarTrack {
-  margin: 0 var(--space-4);
+  /* Space above so the bar does not sit on the row's bottom border. */
+  margin: var(--space-3) var(--space-4) var(--space-1);
   height: 6px;
   border-radius: var(--radius-full);
   background: var(--color-border);

@@ -21,8 +21,12 @@ export async function requestPersistentStorage(): Promise<boolean> {
   }
 }
 
+/**
+ * Clears what the app filled while running (API answers, cover art). The precache — the app shell itself — stays: it
+ * is what lets the installed app open offline at all, and it is rebuilt only by installing a new version.
+ */
 export async function clearRuntimeCaches(): Promise<void> {
   if (!('caches' in window)) return;
-  const keys = await caches.keys();
+  const keys = (await caches.keys()).filter((key) => !key.startsWith('workbox-precache'));
   await Promise.all(keys.map((key) => caches.delete(key)));
 }

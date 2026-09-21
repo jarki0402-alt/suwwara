@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../../connect/connectStore';
+import { canSetVolume } from '../../audio-engine/volumeSupport';
 import { useIsDesktop } from '../../hooks/useIsDesktop';
 import { useJamStatus } from '../../jam/useJamStatus';
 import { Icon } from '../../components/Icon/Icon';
@@ -172,19 +173,21 @@ export function NowPlayingView() {
                   {hasOtherDevices && <span className={styles.deviceDot} aria-hidden="true" />}
                 </button>
               </div>
-              <div className={styles.volumeRow}>
-                <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={24} />
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round(volume * 100)}
-                  onChange={(event) => setVolume(Number(event.target.value) / 100)}
-                  className={styles.volumeSlider}
-                  style={{ '--fill': `${Math.round(volume * 100)}%` } as CSSProperties}
-                  aria-label="Volume"
-                />
-              </div>
+              {canSetVolume && (
+                <div className={styles.volumeRow}>
+                  <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={24} />
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Math.round(volume * 100)}
+                    onChange={(event) => setVolume(Number(event.target.value) / 100)}
+                    className={styles.volumeSlider}
+                    style={{ '--fill': `${Math.round(volume * 100)}%` } as CSSProperties}
+                    aria-label="Volume"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}

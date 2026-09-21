@@ -1,3 +1,4 @@
+import { canSetVolume } from '../../audio-engine/volumeSupport';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import type { Song } from '../../api/types';
 import { Icon } from '../../components/Icon/Icon';
@@ -91,18 +92,20 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
         >
           <Icon name="lyrics" size={20} />
         </button>
-        <div className={styles.volumeControl}>
-          <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={20} />
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={Math.round(volume * 100)}
-            onChange={(event) => setVolume(Number(event.target.value) / 100)}
-            className={styles.volumeSlider}
-            aria-label="Volume"
-          />
-        </div>
+        {canSetVolume && (
+          <div className={styles.volumeControl}>
+            <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={20} />
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(volume * 100)}
+              onChange={(event) => setVolume(Number(event.target.value) / 100)}
+              className={styles.volumeSlider}
+              aria-label="Volume"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

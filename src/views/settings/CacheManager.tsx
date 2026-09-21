@@ -1,31 +1,66 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { AudioCache } from '../../audio-engine/AudioCache';
+import { CACHE_LIMIT_OPTIONS_MB, CACHE_RETENTION_OPTIONS_DAYS } from '../../audio-engine/cachePolicy';
 import { useToast } from '../../components/Toast/ToastProvider';
-import { clearRuntimeCaches, getStorageEstimate, type StorageEstimateResult } from '../../pwa/storageEstimate';
+import { clearRuntimeCaches } from '../../pwa/storageEstimate';
 import { useInstallPrompt } from '../../pwa/useInstallPrompt';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { OptionSegments } from './OptionSegments';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
 
-function toMegabytes(bytes: number): string {
-  return (bytes / (1024 * 1024)).toFixed(1);
+const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 });
+
+function formatBytes(bytes: number): string {
+  const megabytes = bytes / (1024 * 1024);
+  return megabytes >= 1024 ? `${number.format(megabytes / 1024)} GB` : `${number.format(megabytes)} MB`;
 }
 
+const limitLabel = (megabytes: number) => (megabytes >= 1024 ? `${megabytes / 1024} GB` : `${megabytes} MB`);
+const LIMIT_OPTIONS = CACHE_LIMIT_OPTIONS_MB.map((value) => ({ value, label: limitLabel(value) }));
+const RETENTION_OPTIONS = CACHE_RETENTION_OPTIONS_DAYS.map((value) => ({ value, label: value === 0 ? 'Tak pernah' : `${value} hari` }));
+
 export function CacheManager() {
-  const [estimate, setEstimate] = useState<StorageEstimateResult | null>(null);
+  const [songs, setSongs] = useState<{ count: number; bytes: number } | null>(null);
   const { canInstall, isInstalled, isIOS, promptInstall } = useInstallPrompt();
   const { showToast } = useToast();
+  const limitMB = useSettingsStore((state) => state.audioCacheMB);
+  const retentionDays = useSettingsStore((state) => state.audioCacheDays);
+  const setLimitMB = useSettingsStore((state) => state.setAudioCacheMB);
+  const setRetentionDays = useSettingsStore((state) => state.setAudioCacheDays);
 
-  useEffect(() => {
-    void getStorageEstimate().then(setEstimate);
+  const refresh = useCallback(async () => {
+    setSongs(await AudioCache.usage());
   }, []);
 
-  const handleClearCache = async () => {
-    await clearRuntimeCaches();
-    showToast('Cache lagu & gambar offline berhasil dibersihkan.');
-    setEstimate(await getStorageEstimate());
+  useEffect(() => {
+    void AudioCache.usage().then(setSongs);
+  }, []);
+
+  // A new budget or window applies at once: what no longer fits is dropped now, not at the next download.
+  const applyLimits = async () => {
+    await AudioCache.enforceLimits();
+    await refresh();
   };
 
-  const usagePercent =
-    estimate && estimate.quotaBytes > 0 ? Math.min(100, (estimate.usageBytes / estimate.quotaBytes) * 100) : 0;
+  const handleLimit = (value: number) => {
+    setLimitMB(value);
+    void applyLimits();
+  };
+
+  const handleRetention = (value: number) => {
+    setRetentionDays(value);
+    void applyLimits();
+  };
+
+  const handleClearCache = async () => {
+    await Promise.all([clearRuntimeCaches(), AudioCache.clear()]);
+    showToast('Cache lagu & gambar offline berhasil dibersihkan.');
+    await refresh();
+  };
+
+  const supported = AudioCache.isSupported;
+  const usedPercent = songs ? Math.min(100, (songs.bytes / (limitMB * 1024 * 1024)) * 100) : 0;
 
   return (
     <>
@@ -34,19 +69,36 @@ export function CacheManager() {
         <div className={styles.card}>
           <SettingsRow
             icon="database"
-            title="Cache Offline"
+            title="Lagu Offline"
             subtitle={
-              estimate
-                ? `${toMegabytes(estimate.usageBytes)} MB terpakai dari ${toMegabytes(estimate.quotaBytes)} MB tersedia.`
-                : 'Informasi penyimpanan tidak tersedia di browser ini.'
+              !supported
+                ? 'Tidak dipakai di iPhone/iPad — Apple tidak mengizinkan memutar dari penyimpanan perangkat.'
+                : songs
+                  ? `${formatBytes(songs.bytes)} terpakai dari batas ${limitLabel(limitMB)}`
+                  : 'Informasi penyimpanan tidak tersedia di browser ini.'
             }
           />
-          {estimate && (
+          {supported && songs && (
+            <div className={styles.storageBarTrack}>
+              <div className={styles.storageBarFill} style={{ width: `${usedPercent}%` }} />
+            </div>
+          )}
+          {supported && (
             <>
-              <div className={styles.storageBarTrack}>
-                <div className={styles.storageBarFill} style={{ width: `${usagePercent}%` }} />
-              </div>
-              <div className={styles.storageCaption}>Lagu &amp; gambar yang baru diputar disimpan agar bisa diputar ulang offline.</div>
+              <OptionSegments
+                title="Batas cache lagu"
+                subtitle="Kalau penuh, lagu yang paling lama tidak diputar dihapus lebih dulu."
+                options={LIMIT_OPTIONS}
+                value={limitMB}
+                onChange={handleLimit}
+              />
+              <OptionSegments
+                title="Hapus lagu yang tak diputar selama"
+                subtitle="Otomatis, dihitung dari terakhir kali lagu itu diputar."
+                options={RETENTION_OPTIONS}
+                value={retentionDays}
+                onChange={handleRetention}
+              />
             </>
           )}
           <SettingsRow icon="trash" title="Bersihkan Cache" onClick={() => void handleClearCache()} />

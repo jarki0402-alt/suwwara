@@ -3,7 +3,7 @@ import { bearerDeviceId, deviceRef } from '../auth/deviceRef';
 import { deviceAuth } from '../auth/deviceAuth';
 import { COMMAND_TYPES, connectDevice, sendCommand, updateDeviceState, type DeviceState } from '../connect/connectHub';
 import { sql } from '../db/client';
-import { rateLimited } from '../linking/linkRequests';
+import { rateLimited } from '../auth/rateLimit';
 
 /** Per-route deviceAuth — see the note in routes/link.ts. */
 export const connectRouter = Router();

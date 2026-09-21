@@ -6,7 +6,6 @@ import { describeThisDevice } from '../auth/deviceInfo';
 import { useToast } from '../components/Toast/ToastProvider';
 import { usePlayback } from '../playback/PlaybackContext';
 import { useSettingsStore } from '../stores/settingsStore';
-import { useUiStore } from '../stores/uiStore';
 import { setConnectToast } from './commandHandler';
 import { reconnectNow, sendState, startConnect, stopConnect } from './connectClient';
 import { useConnectStore } from './connectStore';
@@ -28,14 +27,14 @@ export function ConnectBridge() {
   const { currentSong, playbackState } = usePlayback();
   const volume = useSettingsStore((state) => state.volume);
   const connected = useConnectStore((state) => state.connected);
-  const linkedTick = useUiStore((state) => state.linkedDevicesTick);
 
   useEffect(() => {
     setConnectToast(showToast);
   }, [showToast]);
 
   // Run the channel only when there is someone to talk to; re-check when the app comes back
-  // to the foreground (a device may have been linked or removed meanwhile).
+  // to the foreground and once a minute (a device of the same account may have signed in or out meanwhile —
+  // there is no pairing step any more, so nothing else tells this device that someone new appeared).
   useEffect(() => {
     let cancelled = false;
     const evaluate = () => {
@@ -54,11 +53,15 @@ export function ConnectBridge() {
       reconnectNow();
     };
     document.addEventListener('visibilitychange', onVisible);
+    const recheck = setInterval(() => {
+      if (document.visibilityState === 'visible') evaluate();
+    }, 60_000);
     return () => {
       cancelled = true;
+      clearInterval(recheck);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [linkedTick]);
+  }, []);
 
   const isPlaying = playbackState.status === 'playing' || playbackState.status === 'loading';
   const lastSent = useRef<{ positionSec: number; isPlaying: boolean; at: number } | null>(null);

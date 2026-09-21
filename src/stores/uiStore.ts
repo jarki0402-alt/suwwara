@@ -20,21 +20,13 @@ export type DetailRoute = { type: 'artist'; artistId: string | null; name?: stri
 
 interface UiState {
   currentView: ViewName;
-  /** 'show' = this device displays a QR to be linked; 'scan' = this device scans one (or confirms a code that arrived as a link). */
-  linkSheet: 'none' | 'show' | 'scan';
   isConnectSheetOpen: boolean;
-  linkPrefillCode: string | null;
-  /** Bumped whenever the set of linked devices changes, so the Settings list refetches. */
-  linkedDevicesTick: number;
   detailStack: DetailRoute[];
   isNowPlayingOpen: boolean;
   isQueueOpen: boolean;
   isJamSheetOpen: boolean;
   /** Non-null while the "Gabung Jam?" prompt (opened via a `?jam=<roomId>` link) is showing. */
   joinJamRoomId: string | null;
-  isPairingSheetOpen: boolean;
-  /** Non-null while the "Hubungkan device ini?" confirm prompt (opened via a `?pair=<code>` link) is showing. */
-  incomingPairCode: string | null;
   /**
    * Lifted up from LibraryView's own local state so the desktop sidebar
    * (BottomNav, which lists playlists directly like Spotify's "Your Library")
@@ -60,10 +52,6 @@ interface UiState {
   isNowPlayingFullscreen: boolean;
   openConnectSheet: () => void;
   closeConnectSheet: () => void;
-  openLinkShow: () => void;
-  openLinkScan: (prefillCode?: string) => void;
-  closeLinkSheet: () => void;
-  bumpLinkedDevices: () => void;
   setView: (view: ViewName) => void;
   openArtist: (target: { artistId?: string | null; name?: string }) => void;
   openAlbum: (albumId: string) => void;
@@ -76,10 +64,6 @@ interface UiState {
   closeJamSheet: () => void;
   openJoinJamSheet: (roomId: string) => void;
   closeJoinJamSheet: () => void;
-  openPairingSheet: () => void;
-  closePairingSheet: () => void;
-  openIncomingPair: (code: string) => void;
-  closeIncomingPair: () => void;
   /** Switches to the Koleksi tab and opens this playlist's detail view directly. */
   openPlaylist: (playlistId: string) => void;
   closePlaylist: () => void;
@@ -106,17 +90,12 @@ function leaveNowPlaying(): Partial<UiState> {
 /** Always boots to Home — avoids resuming into a Now Playing sheet with nothing loaded. */
 export const useUiStore = create<UiState>((set) => ({
   currentView: 'home',
-  linkSheet: 'none',
   isConnectSheetOpen: false,
-  linkPrefillCode: null,
-  linkedDevicesTick: 0,
   detailStack: [],
   isNowPlayingOpen: false,
   isQueueOpen: false,
   isJamSheetOpen: false,
   joinJamRoomId: null,
-  isPairingSheetOpen: false,
-  incomingPairCode: null,
   selectedPlaylistId: null,
   openedCollectionId: null,
   isLyricsOpen: false,
@@ -124,10 +103,6 @@ export const useUiStore = create<UiState>((set) => ({
   // On desktop this is a docked right panel that reserves room from the page, so it opens/closes as one relayout step.
   openConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: true })),
   closeConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: false })),
-  openLinkShow: () => set({ linkSheet: 'show', linkPrefillCode: null }),
-  openLinkScan: (prefillCode) => set({ linkSheet: 'scan', linkPrefillCode: prefillCode ?? null }),
-  closeLinkSheet: () => set({ linkSheet: 'none', linkPrefillCode: null }),
-  bumpLinkedDevices: () => set((state) => ({ linkedDevicesTick: state.linkedDevicesTick + 1 })),
   setView: (view) => set({ currentView: view, detailStack: [] }),
   openArtist: ({ artistId, name }) =>
     set((state) => ({
@@ -146,10 +121,6 @@ export const useUiStore = create<UiState>((set) => ({
   closeJamSheet: () => set({ isJamSheetOpen: false }),
   openJoinJamSheet: (roomId) => set({ joinJamRoomId: roomId }),
   closeJoinJamSheet: () => set({ joinJamRoomId: null }),
-  openPairingSheet: () => set({ isPairingSheetOpen: true }),
-  closePairingSheet: () => set({ isPairingSheetOpen: false }),
-  openIncomingPair: (code) => set({ incomingPairCode: code }),
-  closeIncomingPair: () => set({ incomingPairCode: null }),
   openPlaylist: (playlistId) => set({ currentView: 'library', selectedPlaylistId: playlistId, detailStack: [] }),
   closePlaylist: () => set({ selectedPlaylistId: null }),
   openCollection: (collectionId) => set({ openedCollectionId: collectionId }),

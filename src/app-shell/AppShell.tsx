@@ -1,11 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ConnectSheet } from '../components/ConnectSheet/ConnectSheet';
-import { ConfirmPairSheet } from '../components/ConfirmPairSheet/ConfirmPairSheet';
 import { JamSheet } from '../components/JamSheet/JamSheet';
-import { LinkDeviceSheet } from '../components/LinkDeviceSheet/LinkDeviceSheet';
-import { ScanLinkSheet } from '../components/ScanLinkSheet/ScanLinkSheet';
 import { JoinJamSheet } from '../components/JoinJamSheet/JoinJamSheet';
-import { PairDeviceSheet } from '../components/PairDeviceSheet/PairDeviceSheet';
 import { ConnectBridge } from '../connect/ConnectBridge';
 import { useConnectStore } from '../connect/connectStore';
 import { useJamSync } from '../jam/useJamSync';
@@ -41,16 +37,9 @@ function ShellBody() {
   const closeJamSheet = useUiStore((state) => state.closeJamSheet);
   const joinJamRoomId = useUiStore((state) => state.joinJamRoomId);
   const closeJoinJamSheet = useUiStore((state) => state.closeJoinJamSheet);
-  const isPairingSheetOpen = useUiStore((state) => state.isPairingSheetOpen);
-  const closePairingSheet = useUiStore((state) => state.closePairingSheet);
-  const incomingPairCode = useUiStore((state) => state.incomingPairCode);
-  const closeIncomingPair = useUiStore((state) => state.closeIncomingPair);
   const isNowPlayingOpen = useUiStore((state) => state.isNowPlayingOpen);
   const isConnectSheetOpen = useUiStore((state) => state.isConnectSheetOpen);
   const isRemoteControlling = useConnectStore((state) => state.controllingRef !== null && state.devices.some((device) => device.ref === state.controllingRef));
-  const linkSheet = useUiStore((state) => state.linkSheet);
-  const linkPrefillCode = useUiStore((state) => state.linkPrefillCode);
-  const closeLinkSheet = useUiStore((state) => state.closeLinkSheet);
   const currentView = useUiStore((state) => state.currentView);
   const detailDepth = useUiStore((state) => state.detailStack.length);
   const { currentSong } = usePlayback();
@@ -87,11 +76,7 @@ function ShellBody() {
       <NowPlayingView />
       <JamSheet isOpen={isJamSheetOpen} onClose={closeJamSheet} />
       {joinJamRoomId && <JoinJamSheet isOpen roomId={joinJamRoomId} onClose={closeJoinJamSheet} />}
-      <PairDeviceSheet isOpen={isPairingSheetOpen} onClose={closePairingSheet} />
       {isConnectSheetOpen && <ConnectSheet />}
-      {linkSheet === 'show' && <LinkDeviceSheet onClose={closeLinkSheet} />}
-      {linkSheet === 'scan' && <ScanLinkSheet prefillCode={linkPrefillCode} onClose={closeLinkSheet} />}
-      {incomingPairCode && <ConfirmPairSheet isOpen code={incomingPairCode} onClose={closeIncomingPair} />}
     </div>
   );
 }

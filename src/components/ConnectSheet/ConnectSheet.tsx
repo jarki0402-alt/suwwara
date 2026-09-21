@@ -9,7 +9,7 @@ import { useJamStore } from '../../stores/jamStore';
 import { useUiStore } from '../../stores/uiStore';
 import { Icon } from '../Icon/Icon';
 import { useToast } from '../Toast/ToastProvider';
-import sheetStyles from '../PairDeviceSheet/PairDeviceSheet.module.css';
+import sheetStyles from '../JamSheet/JamSheet.module.css';
 import styles from './ConnectSheet.module.css';
 
 /**

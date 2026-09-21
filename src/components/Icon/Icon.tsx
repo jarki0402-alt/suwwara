@@ -38,6 +38,7 @@ export type IconName =
   | 'play-next'
   | 'radio'
   | 'artist'
+  | 'users'
   | 'album'
   | 'share'
   | 'edit';
@@ -236,6 +237,15 @@ function IconPaths({ name }: { name: IconName }) {
         <>
           <circle cx="12" cy="8" r="3.6" stroke="currentColor" fill="none" strokeWidth={2} />
           <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'users':
+      // Two people, one in front — "listening together".
+      return (
+        <>
+          <circle cx="9" cy="8" r="3.3" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M2.8 19.5a6.2 6.2 0 0 1 12.4 0" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" />
+          <path d="M15.6 4.9a3.3 3.3 0 0 1 0 6.2M18.6 14.4a6.2 6.2 0 0 1 3 5.1" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" />
         </>
       );
     case 'album':

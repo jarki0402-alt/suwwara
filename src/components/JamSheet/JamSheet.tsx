@@ -3,11 +3,13 @@ import { useState } from 'react';
 import { audioEngine } from '../../audio-engine/AudioEngine';
 import { createRoom, endRoom, leaveRoom } from '../../jam/jamClient';
 import { joinJamRoom } from '../../jam/joinJam';
+import { jamShareLink } from '../../jam/shareJam';
 import { currentQueueSnapshot } from '../../jam/queueSnapshot';
 import { useJamStore } from '../../stores/jamStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useToast } from '../Toast/ToastProvider';
 import { Icon } from '../Icon/Icon';
+import { JamAvatars } from '../JamIndicator/JamIndicator';
 import styles from './JamSheet.module.css';
 
 const ROOM_CODE_LENGTH = 6;
@@ -69,7 +71,7 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
     }
   };
 
-  const shareLink = roomId ? `${window.location.origin}${window.location.pathname}?jam=${roomId}` : '';
+  const shareLink = roomId ? jamShareLink(roomId) : '';
 
   const handleCopyLink = async () => {
     try {
@@ -176,6 +178,9 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
           </div>
         ) : (
           <div className={styles.body}>
+            <div className={styles.people}>
+              <JamAvatars count={Math.max(memberCount, 1)} size={36} />
+            </div>
             <div className={styles.roomCode}>{roomId}</div>
             <p className={styles.memberCount}>{memberCount} orang dengerin bareng</p>
 

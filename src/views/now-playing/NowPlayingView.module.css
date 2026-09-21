@@ -409,3 +409,12 @@
   border-radius: 50%;
   background: var(--color-accent);
 }
+
+/* In a Jam the header says so (icon + head-count) instead of "Sedang Diputar". */
+.topBarLabelJam {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-accent);
+}

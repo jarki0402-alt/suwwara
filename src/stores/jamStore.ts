@@ -6,6 +6,9 @@ import type { RepeatMode } from './queueStore';
 
 export type JamRole = 'solo' | 'jam';
 
+/** The live link to the room: still connecting, connected, or dropped and retrying by itself (EventSource reconnects on its own). */
+export type JamConnection = 'connecting' | 'live' | 'reconnecting';
+
 export interface JamPlaybackMeta {
   isPlaying: boolean;
   positionSec: number;
@@ -29,6 +32,8 @@ interface JamState {
   isCreator: boolean;
   memberCount: number;
   playbackMeta: JamPlaybackMeta | null;
+  /** Not persisted: a reloaded tab is 'connecting' again until the room's first state arrives. */
+  connection: JamConnection;
   /** The device's own solo queue right before joining/creating a Jam — restored
    * verbatim when the Jam ends so nobody's personal queue is lost. Persisted
    * (see partialize below) alongside role/roomId/isCreator: a PWA tab commonly
@@ -42,6 +47,7 @@ interface JamState {
   exitJam: () => QueueSnapshot | null;
   setMemberCount: (count: number) => void;
   setPlaybackMeta: (meta: JamPlaybackMeta) => void;
+  setConnection: (connection: JamConnection) => void;
 }
 
 export const useJamStore = create<JamState>()(
@@ -53,6 +59,7 @@ export const useJamStore = create<JamState>()(
       isCreator: false,
       memberCount: 0,
       playbackMeta: null,
+      connection: 'connecting',
       preJamQueueSnapshot: null,
 
       enterJam: ({ roomId, isCreator, queueSnapshotToRestore }) =>
@@ -62,6 +69,7 @@ export const useJamStore = create<JamState>()(
           isCreator,
           memberCount: 1,
           playbackMeta: null,
+          connection: 'connecting',
           preJamQueueSnapshot: queueSnapshotToRestore,
         }),
 
@@ -80,6 +88,7 @@ export const useJamStore = create<JamState>()(
 
       setMemberCount: (count) => set({ memberCount: count }),
       setPlaybackMeta: (meta) => set({ playbackMeta: meta }),
+      setConnection: (connection) => set({ connection }),
     }),
     {
       name: 'suwwara-jam',

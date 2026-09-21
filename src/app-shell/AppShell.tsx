@@ -11,6 +11,7 @@ import { useConnectStore } from '../connect/connectStore';
 import { useJamSync } from '../jam/useJamSync';
 import { PlaybackProvider, usePlayback } from '../playback/PlaybackContext';
 import { useUiStore } from '../stores/uiStore';
+import { JamPill } from '../components/JamIndicator/JamIndicator';
 import { NowPlayingView } from '../views/now-playing/NowPlayingView';
 import styles from './AppShell.module.css';
 import { BottomNav } from './BottomNav';
@@ -82,6 +83,7 @@ function ShellBody() {
       {/* While steering another device, its bar stands in for the local player — which stays untouched. */}
       {isRemoteControlling ? <RemoteBar /> : <MiniPlayer />}
       <BottomNav />
+      <JamPill />
       <NowPlayingView />
       <JamSheet isOpen={isJamSheetOpen} onClose={closeJamSheet} />
       {joinJamRoomId && <JoinJamSheet isOpen roomId={joinJamRoomId} onClose={closeJoinJamSheet} />}

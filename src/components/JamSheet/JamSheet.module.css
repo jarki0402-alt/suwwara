@@ -211,3 +211,9 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* The people in the room, as the same overlapping avatars the sidebar card and the phone pill show. */
+.people {
+  align-self: center;
+  --jam-ring: var(--color-bg);
+}

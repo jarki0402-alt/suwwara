@@ -1,3 +1,4 @@
+import { JamSidebarCard } from '../components/JamIndicator/JamIndicator';
 import { useUpdateStore } from '../pwa/updateStore';
 import { useState } from 'react';
 import { LazyImage } from '../components/Image/LazyImage';
@@ -42,6 +43,9 @@ export function BottomNav() {
           <span>{tab.label}</span>
         </button>
       ))}
+
+      {/* Desktop: "you are in a Jam", under the menu (hidden on phones, which get JamPill in the corner). */}
+      <JamSidebarCard />
 
       {/* Desktop-only "Your Library" style shortcut list (hidden on mobile via
           CSS — see BottomNav.module.css) so playlists are reachable directly

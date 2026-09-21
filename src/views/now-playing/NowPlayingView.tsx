@@ -3,6 +3,7 @@ import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../../connect/connectStore';
 import { useIsDesktop } from '../../hooks/useIsDesktop';
+import { useJamStatus } from '../../jam/useJamStatus';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
@@ -27,6 +28,7 @@ export function NowPlayingView() {
   const closeNowPlaying = useUiStore((state) => state.closeNowPlaying);
   const closeFullscreenLyrics = useUiStore((state) => state.closeFullscreenLyrics);
   const isDesktop = useIsDesktop();
+  const jam = useJamStatus();
   const openQueue = useUiStore((state) => state.openQueue);
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
   const hasOtherDevices = useConnectStore((state) => state.devices.length > 1);
@@ -76,7 +78,14 @@ export function NowPlayingView() {
           <button type="button" className={styles.iconButton} onClick={handleBack} aria-label="Tutup">
             <Icon name="chevron-down" size={22} />
           </button>
-          <span className={styles.topBarLabel}>Sedang Diputar</span>
+          {jam.active ? (
+            <span className={[styles.topBarLabel, styles.topBarLabelJam].join(' ')}>
+              <Icon name={jam.live ? 'users' : 'wifi-off'} size={15} />
+              {jam.live ? `Jam · ${jam.count} pendengar` : jam.statusText}
+            </span>
+          ) : (
+            <span className={styles.topBarLabel}>Sedang Diputar</span>
+          )}
           <span className={styles.topBarActions}>
             <button type="button" className={styles.iconButton} onClick={openQueue} aria-label="Buka antrean">
               <Icon name="queue" size={20} />

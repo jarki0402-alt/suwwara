@@ -1,0 +1,247 @@
+/* ---- overlapping avatars (card, pill, sheet) ---- */
+.avatars {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  /* Cut-out around each avatar where they overlap; each surface sets --jam-ring to its own background. */
+  --ring: var(--jam-ring, transparent);
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  margin-left: calc(var(--avatar-size) * -0.3);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 2px var(--ring);
+  color: #ffffff;
+  font-size: calc(var(--avatar-size) * 0.4);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.avatar:first-child {
+  margin-left: 0;
+}
+
+/* The first avatar is you: the brand gradient. The rest each get a different tint so they read as different people. */
+.tint0 {
+  background: var(--gradient-brand);
+}
+
+.tint1 {
+  background: linear-gradient(135deg, #0e7490, #06b6d4);
+}
+
+.tint2 {
+  background: linear-gradient(135deg, #15803d, #22c55e);
+}
+
+.tint3 {
+  background: linear-gradient(135deg, #b45309, #f59e0b);
+}
+
+.tint4 {
+  background: linear-gradient(135deg, #be123c, #fb7185);
+}
+
+.avatarMore {
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+/* ---- phone: a pill pinned to the top-right corner ---- */
+.pill {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 8px);
+  right: 12px;
+  /* Under the Now Playing sheet (which carries its own "Jam · N" label) and every dialog, above the page. */
+  z-index: var(--z-mini-player);
+  --jam-ring: #5b21b6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+  box-shadow: var(--shadow-floating);
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--transition-fast);
+}
+
+.pill:active {
+  transform: scale(0.97);
+}
+
+.pillLabel {
+  white-space: nowrap;
+}
+
+/* Link to the room dropped: the same pill, but grey-amber instead of violet, so it does not look healthy. */
+.pillWarn {
+  padding-left: 12px;
+  background: linear-gradient(135deg, #451a03 0%, #92400e 100%);
+}
+
+/* ---- desktop: a card in the sidebar ---- */
+.card {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .pill {
+    display: none;
+  }
+
+  .card {
+    --jam-ring: #5b21b6;
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: var(--space-2) 0 0;
+    padding: var(--space-3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    /* Brand violet with a soft pink glow in one corner — the app's accent → accent-2 gradient, kept dark enough that white
+       text stays readable in both themes. */
+    background:
+      radial-gradient(120% 100% at 100% 0%, rgba(236, 72, 153, 0.38), transparent 62%),
+      linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+    box-shadow: var(--shadow-floating);
+    color: #ffffff;
+    overflow: hidden;
+  }
+
+  .cardWarn {
+    --jam-ring: #78350f;
+    background: linear-gradient(135deg, #451a03 0%, #92400e 100%);
+  }
+
+  .cardHead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .cardBadge {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .cardHeadText {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+  }
+
+  /* The role chip sits beside the title so the status line below keeps the card's whole width. */
+  .cardTitleRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cardTitle {
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  .cardStatus {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.78);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cardRole {
+    flex-shrink: 0;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.18);
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .cardPeople {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .cardPeopleText {
+    min-width: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cardActions {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .cardPrimary,
+  .cardSecondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform var(--transition-fast), background var(--transition-fast);
+  }
+
+  .cardPrimary {
+    flex: 1;
+    border: none;
+    background: #ffffff;
+    color: #4c1d95;
+  }
+
+  .cardSecondary {
+    padding: 0 var(--space-4);
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    background: transparent;
+    color: #ffffff;
+  }
+
+  .cardSecondary:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .cardPrimary:active,
+  .cardSecondary:active {
+    transform: scale(0.97);
+  }
+}

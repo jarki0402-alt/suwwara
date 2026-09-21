@@ -7,6 +7,7 @@ import { AudioCache } from '../audio-engine/AudioCache';
 import { useAudioEngine } from '../audio-engine/useAudioEngine';
 import { useToast } from '../components/Toast/ToastProvider';
 import { sendJamIntent } from '../jam/jamClient';
+import { canSyncToRoom, catchUpTarget, isLoadStillCurrent } from '../jam/jamPlaybackGuards';
 import { useMediaSession } from '../media-session/useMediaSession';
 import { useHistoryStore } from '../stores/historyStore';
 import { useJamStore } from '../stores/jamStore';
@@ -50,6 +51,11 @@ const RESTART_FROM_BEGINNING_THRESHOLD_SEC = 3;
 // micro-seeking that would otherwise make playback feel jerky.
 const JAM_DRIFT_THRESHOLD_SEC = 1.5;
 const JAM_DRIFT_CHECK_MS = 2000;
+// In a Jam, when the room's song changes again this soon after the previous change, wait this long (~0.45s) for things to
+// settle before starting the load: a host skipping through the queue used to make every follower start (and abandon)
+// a load — and a backend resolve — for each song skipped past, only the last of which anyone hears.
+const JAM_RAPID_CHANGE_WINDOW_MS = 700;
+const JAM_COALESCE_MS = 450;
 // Short enough to feel instant ("langsung play"), just long enough to avoid
 // an audible click between tracks — no longer user-configurable.
 const TRANSITION_FADE_SEC = 0.35;
@@ -125,6 +131,10 @@ export function usePlaybackController() {
   // Guards the "tap to resume audio" prompt below so a still-blocked remote
   // play doesn't spam a fresh toast every time a heartbeat re-evaluates it.
   const jamPlayPromptShownRef = useRef(false);
+  // Bumped every time a new track load begins. A load that was overtaken by a newer one still resolves normally, so its
+  // completion handler compares against this before doing anything (seeking, reporting an error).
+  const loadGenerationRef = useRef(0);
+  const lastSongChangeAtRef = useRef(0);
   // Tracks how many upcoming songs should be forced into low quality (Data Saver)
   // after a network timeout or rebuffer to prevent consecutive failures.
   const autoDataSaverTracksRemainingRef = useRef(0);
@@ -150,54 +160,87 @@ export function usePlaybackController() {
     if (loadedSongIdRef.current === currentSong.id) return;
 
     const wasIdle = loadedSongIdRef.current === null;
+    const previouslyLoadedId = loadedSongIdRef.current;
     loadedSongIdRef.current = currentSong.id;
     completedRef.current = false;
     advancedForSongIdRef.current = null;
     setCurrentSongId(currentSong.id);
     cacheSongs([currentSong]);
 
-    // In solo mode always autoplay (existing behavior, unchanged). In a Jam,
-    // the very first track loaded from idle should only autoplay if the
-    // room's canonical state already says something's playing — otherwise a
-    // song added to an empty shared queue would audibly blip into playback
-    // for an instant before the play/pause-sync effect below corrects it back
-    // to paused.
-    const jamStateAtLoad = useJamStore.getState();
-    const shouldAutoplay = jamStateAtLoad.role === 'solo' ? true : (jamStateAtLoad.playbackMeta?.isPlaying ?? true);
+    const song = currentSong;
+    const generation = ++loadGenerationRef.current;
+    const changedAt = Date.now();
+    const isRapidJamChange =
+      useJamStore.getState().role !== 'solo' && !wasIdle && changedAt - lastSongChangeAtRef.current < JAM_RAPID_CHANGE_WINDOW_MS;
+    lastSongChangeAtRef.current = changedAt;
 
-    const effectiveDataSaver = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
+    const startLoad = () => {
+      // In solo mode always autoplay (existing behavior, unchanged). In a Jam,
+      // the very first track loaded from idle should only autoplay if the
+      // room's canonical state already says something's playing — otherwise a
+      // song added to an empty shared queue would audibly blip into playback
+      // for an instant before the play/pause-sync effect below corrects it back
+      // to paused.
+      const jamStateAtLoad = useJamStore.getState();
+      const shouldAutoplay = jamStateAtLoad.role === 'solo' ? true : (jamStateAtLoad.playbackMeta?.isPlaying ?? true);
 
-    // No timeout-triggered quality fallback on purpose. A slow *start* is almost always
-    // the backend resolving a track it hasn't seen yet (or waiting its turn behind
-    // another resolve), not a lack of bandwidth — 'low' is a separate cache entry that
-    // needs its own fresh resolve, queued behind the one still running, so switching
-    // to it made the wait longer, not shorter. Real bandwidth problems are handled
-    // where they actually show up: a rebuffer mid-song (see the effect further down).
-    const action = wasIdle
-      ? audioEngine.loadTrack(currentSong, { dataSaver: effectiveDataSaver, autoplay: shouldAutoplay, fadeInSec: 0.6 })
-      : audioEngine.crossfadeTo(currentSong, TRANSITION_FADE_SEC, { dataSaver: effectiveDataSaver });
+      const effectiveDataSaver = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
 
-    action
-      .then(() => {
-        // loadTrack/crossfadeTo always start at position 0 — a Jam participant
-        // joining mid-song (or resyncing after a reconnect) needs an explicit
-        // catch-up seek to the room's last-known position.
-        const jamState = useJamStore.getState();
-        if (jamState.role === 'solo') return;
-        const meta = jamState.playbackMeta;
-        if (meta && meta.positionSec > 0) {
-          const elapsedSec = meta.isPlaying ? (Date.now() - meta.lastUpdatedAtMs) / 1000 : 0;
-          audioEngine.seek(meta.positionSec + Math.max(0, elapsedSec));
-        }
-      })
-      .catch((error: unknown) => {
-        const timedOut = error instanceof Error && error.message.includes('Timed out');
-        setPlaybackStatus({
-          isPlaying: false,
-          isBuffering: false,
-          error: timedOut ? 'Koneksi lambat — lagu gagal dimuat.' : 'Gagal memutar lagu ini.',
+      // No timeout-triggered quality fallback on purpose. A slow *start* is almost always
+      // the backend resolving a track it hasn't seen yet (or waiting its turn behind
+      // another resolve), not a lack of bandwidth — 'low' is a separate cache entry that
+      // needs its own fresh resolve, queued behind the one still running, so switching
+      // to it made the wait longer, not shorter. Real bandwidth problems are handled
+      // where they actually show up: a rebuffer mid-song (see the effect further down).
+      const action = wasIdle
+        ? audioEngine.loadTrack(song, { dataSaver: effectiveDataSaver, autoplay: shouldAutoplay, fadeInSec: 0.6 })
+        : audioEngine.crossfadeTo(song, TRANSITION_FADE_SEC, { dataSaver: effectiveDataSaver });
+
+      action
+        .then(() => {
+          // A newer load began meanwhile: this one was abandoned (it resolves normally when overtaken), and the audio
+          // element that is audible now may still be the OLD track — seeking it would replay a skipped song.
+          if (generation !== loadGenerationRef.current) return;
+          // loadTrack/crossfadeTo always start at position 0 — a Jam participant
+          // joining mid-song (or resyncing after a reconnect) needs an explicit
+          // catch-up seek to the room's last-known position.
+          const jamState = useJamStore.getState();
+          if (jamState.role === 'solo') return;
+          const meta = jamState.playbackMeta;
+          if (!meta) return;
+          if (!isLoadStillCurrent(song.id, audioEngine.getCurrentSong()?.id ?? null, useQueueStore.getState().currentSong()?.id ?? null)) return;
+          const target = catchUpTarget(meta, Date.now(), audioEngine.getCurrentTime(), JAM_DRIFT_THRESHOLD_SEC, song.duration);
+          if (target !== null) audioEngine.seek(target);
+        })
+        .catch((error: unknown) => {
+          // Nobody is waiting on a load that was abandoned for a newer one — its failure is not this track's error.
+          if (generation !== loadGenerationRef.current) return;
+          const timedOut = error instanceof Error && error.message.includes('Timed out');
+          setPlaybackStatus({
+            isPlaying: false,
+            isBuffering: false,
+            error: timedOut ? 'Koneksi lambat — lagu gagal dimuat.' : 'Gagal memutar lagu ini.',
+          });
         });
-      });
+    };
+
+    if (!isRapidJamChange) {
+      startLoad();
+      return;
+    }
+    // The room changed song again right after the last change (a host skipping): let it settle, then load only the
+    // song it settles on. The display already shows the new song; only the audio waits (~0.45s).
+    let started = false;
+    const timerId = setTimeout(() => {
+      started = true;
+      startLoad();
+    }, JAM_COALESCE_MS);
+    return () => {
+      clearTimeout(timerId);
+      // A load that never started must not be remembered as loaded (a re-run of this effect for the same song —
+      // React's dev double-invoke — would otherwise skip it forever).
+      if (!started) loadedSongIdRef.current = previouslyLoadedId;
+    };
     // Intentionally keyed on the song id only: dataSaver should apply to the *next* transition, not retrigger this one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.id]);
@@ -530,10 +573,14 @@ export function usePlaybackController() {
     const intervalId = setInterval(() => {
       const meta = useJamStore.getState().playbackMeta;
       if (!meta) return;
-      const elapsedSec = meta.isPlaying ? (Date.now() - meta.lastUpdatedAtMs) / 1000 : 0;
-      const projected = meta.positionSec + elapsedSec;
-      const drift = Math.abs(audioEngine.getCurrentTime() - projected);
-      if (drift > JAM_DRIFT_THRESHOLD_SEC) audioEngine.seek(projected);
+      // Only a track that is settled and is the room's current one may be nudged. During a transition the audible track
+      // is the previous one, and "where the room is" is a position in the NEW track — seeking the old one there replays
+      // the start of a song that has already been skipped.
+      const engineSong = audioEngine.getCurrentSong();
+      const roomSong = useQueueStore.getState().currentSong();
+      if (!canSyncToRoom(engineSong?.id ?? null, roomSong?.id ?? null, audioEngine.getSnapshot().status)) return;
+      const target = catchUpTarget(meta, Date.now(), audioEngine.getCurrentTime(), JAM_DRIFT_THRESHOLD_SEC, roomSong?.duration ?? 0);
+      if (target !== null) audioEngine.seek(target);
     }, JAM_DRIFT_CHECK_MS);
     return () => clearInterval(intervalId);
   }, [jamRole]);

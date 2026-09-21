@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  /* Lets the grid below react to the width of THIS column (it shrinks when a right-hand panel opens), not the window's. */
+  container-type: inline-size;
 }
 
 /* The tiles are self-explanatory — no "based on your taste" caption under the heading. */
@@ -14,9 +16,17 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* Four tiles: 2×2, or one row of 4 once the column is wide enough for them — auto-fit left a lone tile on a
+     second row at in-between widths (a window with the Now Playing panel open). */
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-2);
   padding: 0 var(--space-4);
+}
+
+@container (min-width: 860px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .tile {

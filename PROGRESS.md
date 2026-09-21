@@ -25,6 +25,15 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (PWA tak bisa diperbarui: header cache nginx + pemeriksaan versi langsung ke server)
+
+**Gejala**: setelah deploy, desktop dan PWA HP tetap di versi lama (tampilan Jam tak berubah) dan "Cek pembaruan" tak menolong.
+
+- **Penyebab utama**: `nginx.conf` tidak mengirim `Cache-Control` sama sekali untuk `sw.js`, `index.html`, dan `manifest.webmanifest`. Peramban menyimpan file tanpa header itu dengan heuristik (sebagian dari umurnya), dan CDN/tunnel di depan (Cloudflare menyimpan `.js` menurut ekstensi, berjam-jam) terus menyajikan `sw.js` lama — file yang justru dipakai perangkat untuk mengetahui ada versi baru. Hasilnya `registration.update()` melihat "tidak ada yang baru". Kini keempat file (plus `version.json`) memakai `Cache-Control: no-store, must-revalidate`; aset ber-hash di `/assets/` tetap `immutable`. Diukur: header benar di `/`, `/sw.js`, `/index.html`, `/manifest.webmanifest`, `/version.json`, dan jalur dalam (`/x/y`).
+- **Pemeriksaan kedua yang tak bergantung pada service worker**: `vite.config.ts` menulis `dist/version.json` (stempel build yang sama dengan `__APP_BUILD__`, sengaja tidak masuk precache). `checkForUpdate` dan pemeriksaan otomatis (saat aplikasi kembali dibuka, tiap jam) membandingkan stempel itu dengan versi yang sedang berjalan (query unik + `no-store` + timeout 8 dtk). Bila beda padahal worker bilang tak ada yang baru, status jadi "Versi baru tersedia" dan **Perbarui** memakai `hardUpdate()`: lepas semua worker, hapus semua cache, muat ulang dari jaringan. Hanya jalan atas ketukan pengguna (tak pernah memuat ulang sendiri, jadi tak bisa berputar).
+- **Diuji ujung ke ujung** (dua build berturut-turut, `sw.js` di server sengaja dibiarkan versi lama untuk meniru CDN): sebelum ada pemeriksaan versi jawabannya "Sudah versi terbaru"; kini "Versi baru tersedia" → Perbarui → halaman pindah ke build baru. Jalur normal (sw.js segar) tetap lewat service worker.
+- **Perangkat yang sudah terlanjur macet** tak bisa menolong dirinya sendiri (kode lamanya tak punya pemeriksaan ini): sekali saja perlu hapus PWA lalu pasang ulang (HP) atau hapus data situs (desktop); bila lewat Cloudflare, purge cache `/sw.js` dan `/`.
+
 ## Perubahan terbaru — 2026-09-21 (Jam: lagu yang di-skip diputar ulang 1 detik di pengikut, plus keterangan sesi Jam)
 
 **Jalur audio solo, prefetch, dan internal `AudioEngine` tidak disentuh.** Perubahan di controller hanya pada cabang Jam dan pada penanganan "load yang sudah dibatalkan".

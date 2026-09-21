@@ -1,13 +1,28 @@
 import react from '@vitejs/plugin-react';
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
+
+// One stamp per build: baked into the bundle (__APP_BUILD__) and written to /version.json.
+const BUILD_STAMP = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+
+// The update check compares the stamp the device is RUNNING with the one the server serves right now, read around every
+// cache. A service worker script that a proxy in front keeps serving stale hides a new version from
+// registration.update() entirely; this file cannot be hidden that way (no-store in nginx.conf, unique query per check).
+// Deliberately not in the SW precache (globPatterns below has no json).
+const emitVersion: Plugin = {
+  name: 'emit-version',
+  generateBundle() {
+    this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ build: BUILD_STAMP }) });
+  },
+};
 
 // https://vite.dev/config/
 export default defineConfig({
   define: {
     // Shown in Settings -> Diagnostik so it's obvious which build a phone is really running
     // (an installed PWA keeps serving its cached bundle until it is updated).
-    __APP_BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'),
+    __APP_BUILD__: JSON.stringify(BUILD_STAMP),
   },
   test: {
     include: ['tests/**/*.test.ts'],
@@ -26,6 +41,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    emitVersion,
     VitePWA({
       strategies: 'injectManifest',
       srcDir: 'src',

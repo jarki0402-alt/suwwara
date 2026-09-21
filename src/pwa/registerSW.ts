@@ -17,6 +17,55 @@ let applyWaitingUpdate: ((reload?: boolean) => Promise<void>) | null = null;
 
 /** How long a manual check waits for a found update to finish downloading before giving up. */
 const CHECK_TIMEOUT_MS = 30_000;
+const VERSION_FETCH_TIMEOUT_MS = 8000;
+
+/**
+ * True once the server is known to serve a newer build than this one while the service worker itself reports nothing
+ * new — i.e. something between us and the server keeps serving a stale sw.js. Applying the update then has to bypass
+ * the worker (see hardUpdate).
+ */
+let workerLooksStale = false;
+
+/**
+ * The build stamp the server serves right now, or null if it cannot be read. Read around every cache: a unique query
+ * so a CDN keyed on the URL cannot answer from an old copy, and `no-store` for the browser.
+ */
+async function fetchServedBuild(): Promise<string | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), VERSION_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`/version.json?_=${Date.now()}`, { cache: 'no-store', signal: controller.signal });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { build?: unknown };
+    return typeof body.build === 'string' ? body.build : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Marks the app as outdated when the server serves a different build than the one running. */
+async function serverHasNewerBuild(): Promise<boolean> {
+  const served = await fetchServedBuild();
+  workerLooksStale = served !== null && served !== __APP_BUILD__;
+  return workerLooksStale;
+}
+
+/**
+ * The update that does not need the service worker to cooperate: drop every worker and cache, then reload straight from
+ * the network. Only ever on a tap — a reload here that could repeat by itself would be a loop.
+ */
+async function hardUpdate(): Promise<void> {
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((item) => item.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+  } finally {
+    window.location.reload();
+  }
+}
 
 /**
  * Asks the server whether a newer version exists, and says what it found. This is the button in Pengaturan: the
@@ -45,6 +94,11 @@ export async function checkForUpdate(): Promise<UpdateStatus> {
   }
   const installing = registration.installing;
   if (!installing) {
+    // The worker says nothing is new — ask the server directly before believing it.
+    if (await serverHasNewerBuild()) {
+      store.set('available');
+      return 'available';
+    }
     store.set('latest');
     return 'latest';
   }
@@ -73,6 +127,10 @@ export async function checkForUpdate(): Promise<UpdateStatus> {
  */
 export function applyUpdate(): void {
   const waiting = registration?.waiting;
+  if (!waiting && workerLooksStale) {
+    void hardUpdate();
+    return;
+  }
   if (!waiting) {
     void applyWaitingUpdate?.(true);
     return;
@@ -91,7 +149,13 @@ export function initServiceWorker(showToast: ShowToastFn): void {
       // "check for a new service worker on navigation" never fires — a phone could keep
       // running an old bundle for days. Checking whenever the app comes back to the
       // foreground (and hourly while it stays open) is what actually gets updates to it.
-      const check = () => void swRegistration.update().catch(() => {});
+      const check = () => {
+        void swRegistration.update().catch(() => {});
+        // Also the second opinion: surfaces "versi baru tersedia" in Pengaturan when the worker could not see it.
+        void serverHasNewerBuild().then((newer) => {
+          if (newer && useUpdateStore.getState().status !== 'checking') useUpdateStore.getState().set('available');
+        });
+      };
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') check();
       });

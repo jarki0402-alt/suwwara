@@ -1,4 +1,5 @@
 import { Router, type Response } from 'express';
+import { recordAudio } from '../metrics/usage';
 import { invalidateAudio, resolveAudio, ResolveAbortedError, type AudioQuality, type ResolvedAudio } from '../youtube/stream';
 
 // The resolve-only route below exists purely to warm the cache for a track
@@ -491,8 +492,13 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
   const gone = new AbortController();
   const startedAt = Date.now();
   const timing = { firstByteAt: 0 };
+  // Bytes this response put on the wire, for the admin dashboard's bandwidth per user (sizes only, never which song).
+  const socket = res.socket;
+  const bytesBefore = socket?.bytesWritten ?? 0;
+  const accountId = req.session?.accountId;
   res.once('close', () => {
     gone.abort();
+    recordAudio(accountId, (socket?.bytesWritten ?? 0) - bytesBefore);
     // Only the requests worth looking at are logged — an iPhone makes ~14 per song and
     // cancels most of them on purpose. This is what lets a slow start on a real phone be
     // read off the server's log (docker compose logs backend | grep audio-slow).

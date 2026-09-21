@@ -50,6 +50,13 @@ function broadcastDevices(accountId: string): void {
   for (const connection of hub.values()) write(connection, 'devices', { you: connection.ref, devices });
 }
 
+/** Devices with an open Connect stream right now, across all accounts (admin dashboard). */
+export function onlineDeviceCount(): number {
+  let total = 0;
+  for (const hub of hubs.values()) total += hub.size;
+  return total;
+}
+
 export function connectDevice(accountId: string, ref: string, name: string, kind: string, res: Response): () => void {
   let hub = hubs.get(accountId);
   if (!hub) {

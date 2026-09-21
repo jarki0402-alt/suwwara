@@ -118,4 +118,15 @@ create table if not exists profiles (
   daily jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- Bandwidth per account per day: bytes the backend sent as audio, and how many audio requests. Counts only; never WHAT
+-- was played. Flushed from memory once a minute (metrics/usage.ts) and pruned after 400 days.
+create table if not exists usage_daily (
+  account_id text not null references accounts(id) on delete cascade,
+  day date not null,
+  audio_bytes bigint not null default 0,
+  audio_requests integer not null default 0,
+  primary key (account_id, day)
+);
+create index if not exists usage_daily_day_idx on usage_daily (day);
 `;

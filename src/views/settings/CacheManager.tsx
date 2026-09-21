@@ -5,16 +5,10 @@ import { useToast } from '../../components/Toast/ToastProvider';
 import { clearRuntimeCaches } from '../../pwa/storageEstimate';
 import { useInstallPrompt } from '../../pwa/useInstallPrompt';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { formatBytes } from '../../utils/formatBytes';
 import { OptionSegments } from './OptionSegments';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
-
-const number = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 });
-
-function formatBytes(bytes: number): string {
-  const megabytes = bytes / (1024 * 1024);
-  return megabytes >= 1024 ? `${number.format(megabytes / 1024)} GB` : `${number.format(megabytes)} MB`;
-}
 
 const limitLabel = (megabytes: number) => (megabytes >= 1024 ? `${megabytes / 1024} GB` : `${megabytes} MB`);
 const LIMIT_OPTIONS = CACHE_LIMIT_OPTIONS_MB.map((value) => ({ value, label: limitLabel(value) }));

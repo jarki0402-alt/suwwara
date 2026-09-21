@@ -15,6 +15,8 @@ export async function pruneAuthTables(): Promise<void> {
   try {
     await sql`delete from audit_log where at < now() - make_interval(days => ${KEEP_DAYS})`;
     await sql`delete from sessions where expires_at < now()`;
+    // A browser profile that has not been seen for half a year is gone; without this every reinstall leaves a row behind.
+    await sql`delete from devices where last_seen_at < now() - interval '180 days'`;
   } catch {
     // best-effort
   }

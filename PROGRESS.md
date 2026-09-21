@@ -25,6 +25,19 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-21 (login tahap 3 dari 4: dashboard admin)
+
+Pengaturan → Akun → **Dashboard Admin** (hanya peran admin; dimuat malas sehingga pengguna biasa tak mengunduhnya). Senada dengan tema, rapi di desktop dan HP. Admin **tidak** melihat lagu apa yang diputar siapa — hanya hitungan dan ukuran.
+
+- **Ringkasan**: pengguna (aktif 15 menit terakhir), bandwidth hari ini/30 hari, perangkat online (Connect), ruang Jam, resolve rata-rata/p95/terlama/gagal 1 jam, antrean `yt-dlp`, akun terkunci, grafik 14 hari.
+- **Pengguna**: buat (sandi sementara acak, tampil sekali, wajib diganti), reset sandi, keluarkan semua perangkat, nonaktifkan/aktifkan (sesi langsung mati), jadikan admin/biasa, hapus (cascade ke pustaka, profil, pemakaian). Dijaga: tak bisa menonaktifkan/menurunkan/menghapus diri sendiri, dan harus tersisa ≥ 1 admin aktif.
+- **Pemakaian**: 7/30/90 hari, grafik per hari + per pengguna. Dicatat di memori (`metrics/usage.ts`) dan ditulis sekali semenit ke `usage_daily`; byte diukur dari `socket.bytesWritten` per respons audio (satu kait 3 baris di handler `close` yang sudah ada — logika pemutaran tak disentuh), disimpan 400 hari. Total sisi Cloudflare tetap hanya di dashboard Cloudflare.
+- **Sistem**: RAM/swap host (dari `/proc/meminfo`), beban CPU, disk, memori proses backend, ukuran database dan tabel terbesar. Tanpa Docker socket.
+- **Keamanan**: log masuk berhasil/gagal/terkunci dan tindakan admin (90 hari), daftar akun terkunci + tombol Buka.
+- Statistik resolve (`metrics/resolveStats.ts`, ring buffer 200) dicatat di dua titik di `stream.ts` (sukses dan gagal; resolve yang dibatalkan tidak dihitung). Sesi per akun dibatasi 30 (yang tertua dibuang); baris `devices` tak terlihat 180 hari dibersihkan harian.
+- Diperbaiki di jalan: `current_date - $1` ambigu di Postgres (`::int`); `adminRouter` dipasang sebelum `authRouter` dan `requireAdmin` dibatasi ke path `/admin` (kalau tidak, menyapu router sesudahnya, jebakan yang sama dengan profil).
+- Diuji: API dengan curl (izin, dobel, nama jelek, diri sendiri, admin terakhir, audio → pemakaian tercatat 1.000.319 byte untuk rentang 1.000.000) dan UI penuh dengan dua pengguna (buat, ganti sandi sementara, tak ada baris admin untuk pengguna biasa, 403, nonaktif → kembali ke landing, hapus) + tampilan iPhone.
+
 ## Perubahan terbaru — 2026-09-21 (login tahap 2 dari 4: riwayat dan mix ikut ke semua perangkat)
 
 Beranda kini sama di semua perangkat satu akun. Yang disinkronkan: **riwayat putar** (sumber "Baru Diputar", "Sering Kamu Putar", Temuan) dan **mix Temuan Mingguan/Harian saat ini** (tanpa ini tiap perangkat membuat mix sendiri, jadi walau riwayatnya sama tampilannya beda). Yang sengaja tetap per perangkat: batas/retensi cache lagu, hemat data, volume, antrean berjalan.

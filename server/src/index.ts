@@ -14,6 +14,7 @@ import { browseRouter } from './routes/browse';
 import { detailsRouter } from './routes/details';
 import { jamRouter } from './routes/jam';
 import { libraryRouter } from './routes/library';
+import { adminRouter } from './routes/admin';
 import { linkRouter } from './routes/link';
 import { profileRouter } from './routes/profile';
 import { lyricsRouter } from './routes/lyrics';
@@ -55,6 +56,7 @@ app.use('/api', connectRouter);
 // Like the routers above, profile (and admin) must sit BEFORE authRouter/libraryRouter, whose router-wide deviceAuth would
 // otherwise answer 401 for them.
 app.use('/api', profileRouter);
+app.use('/api', adminRouter);
 app.use('/api', authRouter);
 app.use('/api', libraryRouter);
 

@@ -7,6 +7,7 @@ export { parseCookie };
 
 export const SESSION_COOKIE = 'suwwara_session';
 const SESSION_DAYS = 90;
+const MAX_SESSIONS_PER_ACCOUNT = 30;
 // Every audio chunk is its own request, so the session check must not be a database round trip each time: answers are
 // kept in memory for a short while. Revoking or disabling forgets them at once (same process), so the delay only ever
 // applies to a change made outside this process. Hard-capped like every cache here (CLAUDE.md rule 1).
@@ -57,6 +58,11 @@ export async function createSession(accountId: string, req: Request): Promise<st
     insert into sessions (token_hash, account_id, user_agent, ip, expires_at)
     values (${hashToken(token)}, ${accountId}, ${userAgent}, ${clientIp(req)}, now() + make_interval(days => ${SESSION_DAYS}))
   `;
+  // Signing in again and again from the same browser must not pile sessions up forever: keep the 30 most recently used.
+  void sql`
+    delete from sessions where account_id = ${accountId} and token_hash not in
+      (select token_hash from sessions where account_id = ${accountId} order by last_seen_at desc limit ${MAX_SESSIONS_PER_ACCOUNT})
+  `.catch(() => {});
   return token;
 }
 

@@ -1,4 +1,5 @@
 import { sql } from '../db/client';
+import { recordResolve } from '../metrics/resolveStats';
 import { PriorityLimiter, ResolveAbortedError, type ResolvePriority, type TaskHandle } from './priorityLimiter';
 
 export { ResolveAbortedError };
@@ -180,6 +181,11 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   });
 }
 
+/** Queue depth of the yt-dlp resolver, for the admin dashboard. */
+export function resolveQueueState(): { pending: number; active: number } {
+  return { pending: limit.pendingCount, active: limit.activeCount };
+}
+
 function startJob(videoId: string, quality: AudioQuality, priority: ResolvePriority): ResolveJob {
   const key = `${videoId}:${quality}`;
   const startedAt = Date.now();
@@ -201,7 +207,12 @@ function startJob(videoId: string, quality: AudioQuality, priority: ResolvePrior
       }
       // eslint-disable-next-line no-console
       console.log(`[audio] ${videoId} (${quality}) — resolved in ${Date.now() - startedAt}ms total`);
+      recordResolve(Date.now() - startedAt, true);
       return audio;
+    })
+    .catch((error: unknown) => {
+      if (!(error instanceof ResolveAbortedError)) recordResolve(Date.now() - startedAt, false);
+      throw error;
     })
     .finally(() => {
       if (inFlight.get(key) === job) inFlight.delete(key);

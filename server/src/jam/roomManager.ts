@@ -48,6 +48,11 @@ export function createRoom(creatorClientId: string, initialQueue: RoomQueueState
   return roomId;
 }
 
+/** Open Jam rooms right now (admin dashboard). */
+export function roomCount(): number {
+  return rooms.size;
+}
+
 export function roomExists(roomId: string): boolean {
   return rooms.has(roomId);
 }

@@ -1,6 +1,7 @@
 import { canSetVolume } from '../../audio-engine/volumeSupport';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import type { Song } from '../../api/types';
+import { DownloadButton } from '../../components/DownloadButton/DownloadButton';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
@@ -83,6 +84,7 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
 
       <div className={styles.right}>
         <LikeButton song={song} />
+        <DownloadButton song={song} />
         <button
           type="button"
           className={[styles.iconButton, isLyricsOpen ? styles.iconButtonActive : ''].join(' ')}

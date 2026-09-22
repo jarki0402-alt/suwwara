@@ -278,6 +278,12 @@
   gap: var(--space-3);
 }
 
+.metaActions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .metaText {
   min-width: 0;
   display: flex;

@@ -5,6 +5,7 @@ import { useConnectStore } from '../../connect/connectStore';
 import { canSetVolume } from '../../audio-engine/volumeSupport';
 import { useIsDesktop } from '../../hooks/useIsDesktop';
 import { useJamStatus } from '../../jam/useJamStatus';
+import { DownloadButton } from '../../components/DownloadButton/DownloadButton';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
@@ -113,7 +114,10 @@ export function NowPlayingView() {
                 <ArtistLinks song={currentSong} />
               </span>
             </div>
-            <LikeButton song={currentSong} size={24} />
+            <span className={styles.metaActions}>
+              <LikeButton song={currentSong} size={24} />
+              <DownloadButton song={currentSong} size={24} />
+            </span>
           </div>
         )}
 

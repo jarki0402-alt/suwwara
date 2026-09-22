@@ -188,6 +188,28 @@
   cursor: pointer;
 }
 
+.roundButton:disabled {
+  cursor: default;
+}
+
+/* "Unduh Playlist" (CollectionDownloadButton) states. */
+.downloadComplete {
+  color: var(--color-accent);
+}
+
+.spinning {
+  animation: collectionDownloadSpin 0.8s linear infinite;
+}
+
+@keyframes collectionDownloadSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* The same header as a rounded card inside a page (Lagu Disukai under the Koleksi tabs) — no back button, no bleed. */
 .rootCard .hero {
   border-radius: 20px;

@@ -1,10 +1,28 @@
 import type { Song } from '../api/types';
+import { downloadManager } from '../downloads/downloadManager';
+import { useSettingsStore } from '../stores/settingsStore';
 import { resolveAudioUrl } from './bitrateResolver';
 import { beginTrace, finishTrace, markTrace } from '../diagnostics/loadTraces';
 import { AudioCache } from './AudioCache';
 import { scheduleFadeIn, scheduleFadeOut, scheduleFadeTo, setGainImmediate } from './crossfade';
 import type { AudioEngineListener, LoadTrackOptions, PlaybackState } from './types';
 import { AudioEngineError } from './types';
+
+/**
+ * A locally stored blob: URL to play `songId` from instead of hitting the network — a deliberate offline
+ * download (checked first, and trusted even if local playback has looked flaky lately, since offline it's
+ * the only copy that exists at all) or AudioCache's own opportunistic cache (which already gates itself on
+ * the same "has this device proven blob: audio unreliable?" flag — see settingsStore.localAudioEnabled).
+ * Null means "resolve the network URL instead."
+ */
+async function localUrlFor(songId: string, dataSaver: boolean): Promise<string | null> {
+  const downloaded = await downloadManager.getBlobUrl(songId);
+  if (downloaded) {
+    if (useSettingsStore.getState().localAudioEnabled || !navigator.onLine) return downloaded;
+    URL.revokeObjectURL(downloaded); // network works fine and blob playback has looked flaky lately — skip it
+  }
+  return AudioCache.get(songId, dataSaver);
+}
 
 const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
@@ -376,9 +394,10 @@ class AudioEngine {
     const dataSaver = options.dataSaver ?? false;
     const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
     const usePreload = this.hasUsablePreload(song, dataSaver, elements[inactiveIndex]);
+    const networkUrl = resolveAudioUrl(song.id, dataSaver);
     let url = '';
     if (!usePreload) {
-      url = (await AudioCache.get(song.id, dataSaver)) ?? resolveAudioUrl(song.id, dataSaver);
+      url = (await localUrlFor(song.id, dataSaver)) ?? networkUrl;
     }
 
     this.cancelPendingCrossfade();
@@ -422,8 +441,8 @@ class AudioEngine {
       } else {
         newElement.volume = this.volume;
       }
-      
-      await waitForEvent(newElement, 'canplay', CANPLAY_TIMEOUT_MS);
+
+      await this.waitWithBlobFallback(newElement, networkUrl, requestId);
       if (requestId !== this.playRequestId) return;
       this.updateSnapshot({ duration: song.duration || newElement.duration });
       
@@ -447,10 +466,8 @@ class AudioEngine {
     this.preloaded = null;
     beginTrace(song, dataSaver ? 'low' : 'high', element, false);
     const oldSrc = element.src;
-    element.src = url;
-    element.load();
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
-    await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
+    await this.loadElementWithFallback(element, url, networkUrl, requestId);
     if (requestId !== this.playRequestId) return; // a newer request claimed this element meanwhile
 
     // Deliberately song.duration first, not element.duration: browsers can badly
@@ -511,14 +528,12 @@ class AudioEngine {
     const wasPlaying = !element.paused;
 
     this.updateSnapshot({ status: 'loading' });
-    let url = await AudioCache.get(song.id, true);
-    if (!url) url = resolveAudioUrl(song.id, true);
-    
+    const networkUrl = resolveAudioUrl(song.id, true);
+    const url = (await localUrlFor(song.id, true)) ?? networkUrl;
+
     const oldSrc = element.src;
-    element.src = url;
-    element.load();
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
-    await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
+    await this.loadElementWithFallback(element, url, networkUrl, requestId);
     if (requestId !== this.playRequestId) return; // superseded by a real track change meanwhile
 
     element.currentTime = resumeAt;
@@ -676,6 +691,38 @@ class AudioEngine {
     return preloaded !== null && preloaded.songId === song.id && preloaded.dataSaver === dataSaver && element.src !== '' && !element.error;
   }
 
+  /**
+   * Waits for `element` (whose src is already set) to become playable, retrying once against `networkUrl` if
+   * it was a local blob: URL that failed — iOS Safari has a documented history of unreliable blob: audio (see
+   * AudioCache's own note), and this is what lets a device actually hitting that recover silently instead of
+   * surfacing "Gagal memutar lagu ini." over something this fixable. recordLocalAudioFailure/Success is what
+   * lets the app notice a real pattern (not a one-off) and stop trying blobs at all on a device where they
+   * keep failing — see settingsStore.localAudioEnabled.
+   */
+  private async waitWithBlobFallback(element: HTMLAudioElement, networkUrl: string, requestId: number): Promise<void> {
+    const isBlob = element.src.startsWith('blob:');
+    try {
+      await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
+      if (isBlob) useSettingsStore.getState().recordLocalAudioSuccess();
+    } catch (error) {
+      if (!isBlob) throw error;
+      useSettingsStore.getState().recordLocalAudioFailure();
+      URL.revokeObjectURL(element.src);
+      if (requestId !== this.playRequestId) throw error; // a newer request has since claimed this element
+      element.src = networkUrl;
+      element.load();
+      await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
+    }
+  }
+
+  /** Same as waitWithBlobFallback, but also does the initial `element.src = url; element.load()` — for the
+   * (more common) case where the caller hasn't pointed the element at `url` yet. */
+  private async loadElementWithFallback(element: HTMLAudioElement, url: string, networkUrl: string, requestId: number): Promise<void> {
+    element.src = url;
+    element.load();
+    await this.waitWithBlobFallback(element, networkUrl, requestId);
+  }
+
   private cancelPendingCrossfade(): void {
     if (this.crossfadeTimeoutId !== null) {
       clearTimeout(this.crossfadeTimeoutId);
@@ -730,13 +777,14 @@ class AudioEngine {
     const incomingGain = gains[incomingIndex];
 
     const usePreload = this.hasUsablePreload(song, dataSaver, incomingElement);
+    const networkUrl = resolveAudioUrl(song.id, dataSaver);
     if (usePreload) {
       // Already preloaded natively by preloadNextTrack!
       beginTrace(song, dataSaver ? 'low' : 'high', incomingElement, true);
       this.preloadedUrl = null;
       this.preloaded = null;
     } else {
-      const url = (await AudioCache.get(song.id, dataSaver)) ?? resolveAudioUrl(song.id, dataSaver);
+      const url = (await localUrlFor(song.id, dataSaver)) ?? networkUrl;
       if (requestId !== this.playRequestId) {
         if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         return; // a newer request took over while the cache lookup ran
@@ -752,7 +800,7 @@ class AudioEngine {
     if (incomingGain && context) setGainImmediate(incomingGain, context, 0);
 
     try {
-      await waitForEvent(incomingElement, 'canplay', CANPLAY_TIMEOUT_MS);
+      await this.waitWithBlobFallback(incomingElement, networkUrl, requestId);
       if (requestId !== this.playRequestId) return; // a newer request has since claimed this same element
       await incomingElement.play();
       if (requestId !== this.playRequestId) {
@@ -818,7 +866,7 @@ class AudioEngine {
     const inactiveElement = this.elements[inactiveIndex];
     if (this.hasUsablePreload(song, dataSaver, inactiveElement)) return; // already sitting in the spare element
 
-    let url = await AudioCache.get(song.id, dataSaver);
+    let url = await localUrlFor(song.id, dataSaver);
     if (!url) url = resolveAudioUrl(song.id, dataSaver);
     const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
 

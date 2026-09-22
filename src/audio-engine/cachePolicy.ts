@@ -42,8 +42,8 @@ export function planEviction(records: CacheRecord[], limits: CacheLimits, now: n
   return [...doomed];
 }
 
-/** Choices offered in Pengaturan (megabytes / days). 0 days = never expire. */
-export const CACHE_LIMIT_OPTIONS_MB = [100, 250, 500, 1024, 2048] as const;
+/** Choices offered in Pengaturan for the auto-cache's own retention window (days). 0 = never expire. Only ever
+ * applies to the opportunistic cache (AudioCache) — a deliberate download (downloads/downloadManager.ts) is
+ * never subject to this, however long it's gone unplayed. */
 export const CACHE_RETENTION_OPTIONS_DAYS = [7, 30, 90, 0] as const;
-export const DEFAULT_CACHE_LIMIT_MB = 250;
 export const DEFAULT_CACHE_RETENTION_DAYS = 30;

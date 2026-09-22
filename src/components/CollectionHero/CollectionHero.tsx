@@ -4,6 +4,7 @@ import type { ImageVariant, Song } from '../../api/types';
 import { playSongList } from '../../playback/playSongList';
 import { collectionMeta } from '../../utils/collectionMeta';
 import { shuffledCopy } from '../../utils/shuffle';
+import { CollectionDownloadButton } from './CollectionDownloadButton';
 import { Icon, type IconName } from '../Icon/Icon';
 import { LazyImage } from '../Image/LazyImage';
 import styles from './CollectionHero.module.css';
@@ -88,6 +89,7 @@ export function CollectionHero({ kind, title, onTitleClick, description, songs, 
               <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffledCopy(songs), 0)} aria-label="Putar acak">
                 <Icon name="shuffle" size={22} />
               </button>
+              <CollectionDownloadButton songs={songs} />
             </>
           )}
           {extraActions}

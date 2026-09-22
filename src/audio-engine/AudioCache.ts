@@ -1,15 +1,14 @@
+import { downloadManager } from '../downloads/downloadManager';
 import { useSettingsStore } from '../stores/settingsStore';
 import { resolveAudioUrl } from './bitrateResolver';
 import { planEviction, type CacheLimits, type CacheRecord } from './cachePolicy';
-
-const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
 const DB_NAME = 'suwwara-audio-cache';
 const DB_VERSION = 2;
 const STORE_NAME = 'tracks';
 const TIMESTAMP_INDEX = 'timestamp';
-// ~4MB per track at the high tier. The size budget and the retention window are the user's (Pengaturan → Penyimpanan);
-// this is only a ceiling on the NUMBER of entries, so the key list the eviction pass walks stays small.
+// A ceiling on the NUMBER of entries (not a user setting) so the key list the eviction pass walks stays small,
+// regardless of how the shared quota (settingsStore.offlineQuotaMB) below is split with downloads.
 const MAX_ENTRIES = 600;
 // Retention is also enforced once per launch, a little after start, so expired tracks go even if nothing new is downloaded.
 const STARTUP_SWEEP_DELAY_MS = 20_000;
@@ -33,14 +32,8 @@ interface AudioEntry {
   size?: number;
 }
 
-function currentLimits(): CacheLimits {
-  const { audioCacheMB, audioCacheDays } = useSettingsStore.getState();
-  return {
-    maxBytes: audioCacheMB * 1024 * 1024,
-    maxAgeMs: audioCacheDays > 0 ? audioCacheDays * 24 * 60 * 60 * 1000 : Infinity,
-    maxEntries: MAX_ENTRIES,
-  };
-}
+/** The `songId` half of an entry's `"songId:quality"` key — video ids never contain ':', so this is exact. */
+const baseSongId = (key: string): string => key.split(':')[0];
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -75,18 +68,26 @@ function promisify<T>(request: IDBRequest<T>): Promise<T> {
 }
 
 export const AudioCache = {
-  /** Whether this browser can play audio back from IndexedDB blobs (everything but iOS). */
-  isSupported: !isIOS,
+  /** Whether this browser can store audio blobs at all. Used to be hard-`false` on iOS — Safari has a
+   * documented history of unreliable blob: URL audio — but that left iPhone/iPad users on a permanently
+   * slower/network-only path even after the underlying bug might be long fixed. It's tried here instead,
+   * and settingsStore.localAudioEnabled (checked in get() below) is what actually protects a device where
+   * it turns out to still fail: AudioEngine flips that off automatically after repeated playback failures. */
+  isSupported: typeof indexedDB !== 'undefined',
 
   /** Opens the database ahead of time so the first track change doesn't pay for it. */
   warm(): void {
-    if (isIOS) return;
+    if (!this.isSupported) return;
     getDB().catch(() => {});
     setTimeout(() => void this.enforceLimits(), STARTUP_SWEEP_DELAY_MS);
   },
 
   async get(songId: string, dataSaver: boolean): Promise<string | null> {
-    if (isIOS) return null; // iOS WebKit fails to play blob: URLs reliably. Bypass.
+    if (!this.isSupported) return null;
+    // A device that has recently shown it can't reliably play blob: audio (AudioEngine records this via
+    // recordLocalAudioFailure whenever a cached track fails to become playable) skips the cache entirely —
+    // the network URL below always works, so there's no point retrying a path already proven flaky here.
+    if (!useSettingsStore.getState().localAudioEnabled) return null;
 
     try {
       const db = await getDB();
@@ -124,7 +125,7 @@ export const AudioCache = {
 
   /** Replaces the set of tracks worth prefetching and queues any that are missing. */
   prefetchTracks(songIds: string[], dataSaver: boolean): void {
-    if (isIOS) return;
+    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled) return;
     const quality = dataSaver ? 'low' : 'high';
     this.wanted = new Set(songIds.map((songId) => `${songId}:${quality}`));
     for (const songId of songIds) void this.prefetchAndCache(songId, dataSaver);
@@ -133,7 +134,8 @@ export const AudioCache = {
   /** Downloads a track into IndexedDB in the background. Resolves once it's stored
    * (or skipped/failed — errors are swallowed on purpose, it's only an optimization). */
   prefetchAndCache(songId: string, dataSaver: boolean): Promise<void> {
-    if (isIOS) return Promise.resolve(); // Do not fill IndexedDB on iOS as we won't use it.
+    // No point filling storage with blobs a device with unreliable local playback won't end up using.
+    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled) return Promise.resolve();
 
     const id = `${songId}:${dataSaver ? 'low' : 'high'}`;
     const existing = this.inFlight.get(id);
@@ -148,6 +150,9 @@ export const AudioCache = {
 
   async download(id: string, songId: string, dataSaver: boolean): Promise<void> {
     if (!this.wanted.has(id)) return;
+    // A song the user deliberately kept ("Unduh untuk Offline") doesn't need a second, opportunistic copy of
+    // the same audio taking up the one shared quota too — see the merge note on settingsStore.offlineQuotaMB.
+    if (await downloadManager.has(songId)) return;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), PREFETCH_TIMEOUT_MS);
     try {
@@ -197,7 +202,7 @@ export const AudioCache = {
 
   /** What is stored right now, for Pengaturan. */
   async usage(): Promise<{ count: number; bytes: number } | null> {
-    if (isIOS) return null;
+    if (!this.isSupported) return null;
     try {
       const records = await this.listRecords();
       return { count: records.length, bytes: records.reduce((sum, record) => sum + record.size, 0) };
@@ -209,14 +214,34 @@ export const AudioCache = {
   // One pass at a time: a download finishing while the user is changing the limit must not run two overlapping deletes.
   enforcing: null as Promise<void> | null,
 
-  /** Applies the user's size budget and retention window (see cachePolicy.ts). Best-effort; the next pass retries. */
+  /**
+   * Applies the *shared* "Tersimpan Offline" budget (settingsStore.offlineQuotaMB): downloads get first claim
+   * on it (their own admission check in downloadManager.run() already refuses a new one once they alone fill
+   * it), so what's left over is all this cache is entitled to. It shrinks on its own as downloads grow, rather
+   * than the two competing over two separate numbers. Also applies the user's own retention window
+   * (settingsStore.audioCacheDays — their call, independent of whether the quota is even full), and drops any
+   * entry that's now redundant because the same song got permanently downloaded since it was cached (regardless
+   * of budget or retention — there's no reason to hold the same audio twice). Best-effort; the next pass (a
+   * setting change, a new download, the startup sweep) retries.
+   */
   enforceLimits(): Promise<void> {
-    if (isIOS) return Promise.resolve();
+    if (!this.isSupported) return Promise.resolve();
     if (this.enforcing) return this.enforcing;
     const pass = (async () => {
       try {
-        const doomed = planEviction(await this.listRecords(), currentLimits(), Date.now());
-        if (doomed.length === 0) return;
+        const [records, downloads] = await Promise.all([this.listRecords(), downloadManager.list()]);
+        const downloadedIds = new Set(downloads.map((entry) => entry.song.id));
+        const redundant = records.filter((record) => downloadedIds.has(baseSongId(record.key)));
+        const rest = records.filter((record) => !downloadedIds.has(baseSongId(record.key)));
+
+        const downloadedBytes = downloads.reduce((sum, entry) => sum + entry.size, 0);
+        const { offlineQuotaMB, audioCacheDays } = useSettingsStore.getState();
+        const quotaBytes = offlineQuotaMB * 1024 * 1024;
+        const maxAgeMs = audioCacheDays > 0 ? audioCacheDays * 24 * 60 * 60 * 1000 : Infinity;
+        const limits: CacheLimits = { maxBytes: Math.max(0, quotaBytes - downloadedBytes), maxAgeMs, maxEntries: MAX_ENTRIES };
+        const doomed = new Set([...redundant.map((record) => record.key), ...planEviction(rest, limits, Date.now())]);
+        if (doomed.size === 0) return;
+
         const db = await getDB();
         const store = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME);
         for (const key of doomed) store.delete(key);
@@ -230,9 +255,23 @@ export const AudioCache = {
     return pass;
   },
 
+  /** Removes any opportunistic-cache copies of `songId` (both qualities) — called once a permanent download of
+   * the same song lands, so the two don't both hold the same audio against the one shared quota. */
+  async forget(songId: string): Promise<void> {
+    if (!this.isSupported) return;
+    try {
+      const db = await getDB();
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(`${songId}:low`);
+      tx.objectStore(STORE_NAME).delete(`${songId}:high`);
+    } catch {
+      // best-effort
+    }
+  },
+
   /** Removes every stored track ("Bersihkan Cache"). A track that is playing right now keeps playing: its blob URL holds its own reference. */
   async clear(): Promise<void> {
-    if (isIOS) return;
+    if (!this.isSupported) return;
     try {
       const db = await getDB();
       await new Promise<void>((resolve, reject) => {

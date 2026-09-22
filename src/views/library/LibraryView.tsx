@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { useUiStore } from '../../stores/uiStore';
+import { DownloadedSongsList } from './DownloadedSongsList';
 import { LikedSongsList } from './LikedSongsList';
 import { PlaylistDetail } from './PlaylistDetail';
 import { PlaylistsList } from './PlaylistsList';
 import styles from './LibraryView.module.css';
 
-type Tab = 'liked' | 'playlists';
+type Tab = 'liked' | 'playlists' | 'downloaded';
 
 export function LibraryView() {
   const [tab, setTab] = useState<Tab>('liked');
@@ -39,9 +40,16 @@ export function LibraryView() {
         >
           Playlist
         </button>
+        <button
+          type="button"
+          className={[styles.tab, tab === 'downloaded' ? styles.tabActive : ''].join(' ')}
+          onClick={() => setTab('downloaded')}
+        >
+          Diunduh
+        </button>
       </div>
 
-      {tab === 'liked' ? <LikedSongsList /> : <PlaylistsList onSelectPlaylist={openPlaylist} />}
+      {tab === 'liked' ? <LikedSongsList /> : tab === 'playlists' ? <PlaylistsList onSelectPlaylist={openPlaylist} /> : <DownloadedSongsList />}
     </div>
   );
 }

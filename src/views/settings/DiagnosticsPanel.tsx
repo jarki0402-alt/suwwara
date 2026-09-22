@@ -3,7 +3,7 @@ import { useToast } from '../../components/Toast/ToastProvider';
 import { clearTraces, formatReport, getTraces, subscribeTraces, type LoadTrace } from '../../diagnostics/loadTraces';
 import styles from './SettingsView.module.css';
 
-const seconds = (ms: number | undefined): string => (ms === undefined ? '—' : `${(ms / 1000).toFixed(1)}s`);
+const seconds = (ms: number | undefined): string => (ms === undefined ? 'belum' : `${(ms / 1000).toFixed(1)}s`);
 
 function outcomeLabel(trace: LoadTrace): string {
   switch (trace.outcome) {
@@ -46,7 +46,7 @@ export function DiagnosticsPanel() {
           <span className={styles.diagValue}>{__APP_BUILD__}</span>
         </div>
         {traces.length === 0 ? (
-          <p className={styles.diagEmpty}>Putar sebuah lagu — waktu tiap tahap pemuatan akan tercatat di sini.</p>
+          <p className={styles.diagEmpty}>Putar sebuah lagu. Waktu tiap tahap pemuatan akan tercatat di sini.</p>
         ) : (
           <ul className={styles.diagList}>
             {traces.slice(0, 8).map((trace) => (

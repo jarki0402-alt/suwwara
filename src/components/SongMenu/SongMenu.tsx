@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { primaryArtistNames } from '../../api/mappers';
 import type { Song } from '../../api/types';
+import { downloadManager } from '../../downloads/downloadManager';
+import { useSongDownload } from '../../downloads/useSongDownload';
 import { enqueueSong } from '../../playback/enqueueSong';
 import { playSongRadio } from '../../playback/playSongRadio';
 import { useLibraryStore } from '../../stores/libraryStore';
@@ -32,6 +34,17 @@ export function SongMenu({ song, onRemoveFromPlaylist }: SongMenuProps) {
   const openAlbum = useUiStore((state) => state.openAlbum);
   const { showToast } = useToast();
   const [playlistOpen, setPlaylistOpen] = useState(false);
+  const { status: downloadStatus, toggle: toggleDownload } = useSongDownload(song);
+
+  const handleDownloadToggle = async () => {
+    const wasDownloaded = downloadStatus === 'downloaded';
+    const result = await toggleDownload();
+    if (!result.ok) {
+      showToast(result.reason === 'quota' ? 'Batas unduhan sudah penuh. Hapus lagu lama di Pengaturan dulu.' : 'Gagal mengunduh lagu ini.');
+      return;
+    }
+    showToast(wasDownloaded ? 'Unduhan dihapus.' : 'Lagu diunduh untuk offline.');
+  };
 
   const artists = song.artists.primary.filter((artist, index, all) => all.findIndex((other) => other.name === artist.name) === index).slice(0, MAX_ARTIST_ENTRIES);
   const albumId = song.album?.id && ALBUM_ID.test(song.album.id) ? song.album.id : null;
@@ -88,6 +101,13 @@ export function SongMenu({ song, onRemoveFromPlaylist }: SongMenuProps) {
             separatorBefore: true,
           },
           { key: 'playlist', icon: 'plus', label: 'Tambah ke Playlist', onClick: () => setPlaylistOpen(true) },
+          downloadManager.isSupported && {
+            key: 'download',
+            icon: downloadStatus === 'downloaded' ? 'check' : 'download',
+            label: downloadStatus === 'downloading' ? 'Mengunduh…' : downloadStatus === 'downloaded' ? 'Hapus Unduhan' : 'Unduh untuk Offline',
+            onClick: () => void handleDownloadToggle(),
+            disabled: downloadStatus === 'checking' || downloadStatus === 'downloading',
+          },
           onRemoveFromPlaylist && { key: 'remove', icon: 'trash', label: 'Hapus dari Playlist Ini', onClick: onRemoveFromPlaylist, danger: true },
           { key: 'radio', icon: 'radio', label: 'Buka Radio Lagu', onClick: () => playSongRadio(song), separatorBefore: true },
           ...artists.map((artist, index) => ({

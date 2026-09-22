@@ -205,9 +205,29 @@
   stroke-width: 2;
 }
 
-.axis {
-  font-size: 11px;
-  fill: var(--color-text-tertiary);
+/* HTML overlay for axis labels — see the comment in TrendChart.tsx for why these aren't SVG <text>. */
+.axisLabels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.axisYLabel,
+.axisXLabel {
+  position: absolute;
+  font-size: 0.68rem;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.axisYLabel {
+  transform: translate(-100%, -50%);
+  padding-right: 8px;
+}
+
+.axisXLabel {
+  bottom: 0;
+  transform: translateX(-50%);
 }
 
 .tooltip {

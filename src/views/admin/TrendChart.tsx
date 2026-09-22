@@ -63,27 +63,10 @@ export function TrendChart({ data, formatValue, ariaLabel, mini = false }: Trend
         {!mini &&
           Array.from({ length: GRID_LINES + 1 }, (_, i) => {
             const gy = padTop + (plotH / GRID_LINES) * i;
-            const value = max * (1 - i / GRID_LINES);
-            return (
-              <g key={i}>
-                <line className={styles.gridLine} x1={padLeft} x2={width - padRight} y1={gy} y2={gy} />
-                <text className={styles.axis} x={padLeft - 8} y={gy + 3} textAnchor="end">
-                  {formatValue(value)}
-                </text>
-              </g>
-            );
+            return <line key={i} className={styles.gridLine} x1={padLeft} x2={width - padRight} y1={gy} y2={gy} />;
           })}
         <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
         <path d={linePath} fill="none" stroke="var(--color-accent)" strokeWidth={mini ? 1.5 : 2.25} strokeLinecap="round" strokeLinejoin="round" />
-        {!mini &&
-          data.map(
-            (point, i) =>
-              (i % tickEvery === 0 || i === data.length - 1) && (
-                <text key={point.x + i} className={styles.axis} x={xAt(i)} y={height - 8} textAnchor="middle">
-                  {point.x}
-                </text>
-              ),
-          )}
         {hover !== null && (
           <>
             <line className={styles.crosshair} x1={xAt(hover)} x2={xAt(hover)} y1={padTop} y2={padTop + plotH} />
@@ -95,6 +78,35 @@ export function TrendChart({ data, formatValue, ariaLabel, mini = false }: Trend
             <rect key={point.x + i} x={xAt(i) - colWidth / 2} y={padTop} width={colWidth} height={plotH} fill="transparent" onMouseEnter={() => setHover(i)} />
           ))}
       </svg>
+      {/*
+       * Axis labels are plain HTML, not SVG <text>, on purpose: the chart above uses preserveAspectRatio="none" so it
+       * stretches to fill the card's actual width (never the same as the 720-unit viewBox), and that stretch scales X
+       * and Y independently. A <path> or <line> looks fine distorted that way, but SVG <text> glyphs are geometry too —
+       * they warp into visibly squashed/stretched letterforms. Percentage position here still lines up exactly with the
+       * SVG geometry beneath it (a viewBox-fraction always lands at the same rendered-box-fraction under `none`
+       * scaling), so only the *shape* moves to HTML, not the alignment.
+       */}
+      {!mini && (
+        <div className={styles.axisLabels} aria-hidden="true">
+          {Array.from({ length: GRID_LINES + 1 }, (_, i) => {
+            const gy = padTop + (plotH / GRID_LINES) * i;
+            const value = max * (1 - i / GRID_LINES);
+            return (
+              <span key={i} className={styles.axisYLabel} style={{ left: `${((padLeft - 8) / width) * 100}%`, top: `${(gy / height) * 100}%` }}>
+                {formatValue(value)}
+              </span>
+            );
+          })}
+          {pts.map(
+            (point, i) =>
+              (i % tickEvery === 0 || i === pts.length - 1) && (
+                <span key={point.x + i} className={styles.axisXLabel} style={{ left: `${(xAt(i) / width) * 100}%` }}>
+                  {point.x}
+                </span>
+              ),
+          )}
+        </div>
+      )}
       {hover !== null && !mini && (
         <div className={styles.tooltip} style={{ left: `${(xAt(hover) / width) * 100}%` }}>
           <strong>{formatValue(data[hover].value)}</strong>

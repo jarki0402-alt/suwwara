@@ -25,6 +25,12 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-22 (label sumbu grafik admin: teks gepeng/terdistorsi)
+
+**Penyebab**: `TrendChart` memakai `preserveAspectRatio="none"` supaya grafik mengisi lebar kartu (viewBox 720 unit, lebar kartu sungguhan bisa 900–1900px) — itu meregangkan sumbu X dan Y **secara berbeda**. Garis dan area tidak masalah diregangkan begitu, tapi elemen `<text>` di dalam SVG juga geometri: bentuk hurufnya ikut meregang tak proporsional, jadi angka "1.013,5 MB" dst. tampak gepeng/melebar, dan makin parah di layar lebar.
+
+**Perbaikan**: label sumbu-X dan sumbu-Y dipindah dari `<text>` SVG ke `<span>` HTML biasa yang diposisikan `position: absolute` di atas SVG, dengan posisi dihitung dari persentase (pecahan viewBox tetap jatuh di pecahan kotak yang sama walau `preserveAspectRatio="none"`, cuma bentuknya yang perlu dipindah, bukan posisinya). Teks jadi dirender font biasa oleh browser, tak lagi ikut transform SVG. Gridline dan garis kurva tetap di SVG (tidak masalah). Diuji lebar 900px dan 1920px — teks proporsional di keduanya.
+
 ## Perubahan terbaru — 2026-09-22 (dashboard admin: grafik dan tampilan dirapikan)
 
 Murni tampilan, hanya di `src/views/admin/` — tidak menyentuh jalur musik.

@@ -25,6 +25,17 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-22 (dashboard admin: grafik dan tampilan dirapikan)
+
+Murni tampilan, hanya di `src/views/admin/` — tidak menyentuh jalur musik.
+
+- **Grafik bandwidth diganti** dari bar tipis dengan banyak ruang kosong (hari tanpa data dilompati) menjadi kurva area kontinu (`TrendChart.tsx`): hari tanpa data diisi 0 (`fillDailySeries`), tinggi 260px dengan garis bantu dan label sumbu-Y (`formatBytes`), sumbu-X ~6 tanggal, crosshair + tooltip saat hover, dan baris "Total · Rata-rata/hari · Puncak" di bawah tiap grafik. Dipakai di Ringkasan dan Pemakaian.
+- **Ringkasan** dikelompokkan per bagian (Pengguna, Pemutaran, Bandwidth) dengan ikon di tiap kartu, bukan satu grid datar delapan angka.
+- **Sistem**: kartu "Pemantauan langsung" baru — RAM dan beban CPU dengan sparkline dan label status (Normal/Tinggi/Kritis), riwayat 30 menit terakhir disimpan di memori sisi klien (dipoll tiap 30 dtk, tanpa perubahan backend). **Bug yang ditemukan saat menguji dan diperbaiki sebelum commit**: array riwayat itu bukan React state, jadi mutasinya tak memicu render — sparkline diam di "Belum ada data" sampai polling tak terkait berikutnya (~30 dtk). Ditambah pemicu render eksplisit setelah tiap sampel. Titik data tunggal juga tadinya tak tergambar sama sekali (path SVG `M` tanpa `L`); sekarang dianggap garis datar.
+- **Pengguna → "Pakai pustaka dari akun lama"**: dulu teks dan `<select>` sebaris berdesakan; sekarang label tegas, keterangan di bawahnya, lalu dropdown selebar kartu dengan gaya konsisten.
+- Per-pengguna di Pemakaian: bar diberi nomor urut dan sedikit lebih tebal.
+- Diuji: 132 tes, `tsc`/`build`/lint bersih, dan verifikasi visual di Docker (empat tab, dropdown dengan akun lama sungguhan, tab Sistem segera setelah dibuka).
+
 ## Perubahan terbaru — 2026-09-21 (konsol admin berdiri sendiri: admin mengelola, tidak mendengarkan)
 
 Keputusan: satu URL dan satu formulir masuk, tetapi **peran menentukan layar**. Pendengar melihat aplikasi musik; **admin langsung masuk ke konsol pengelolaan** tanpa pemutar. Pemilik punya dua akun: admin (mengelola) dan akun pengguna biasa (mendengarkan, dengan playlist lamanya).

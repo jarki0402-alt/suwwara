@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useAuthStore } from '../../auth/authStore';
 import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
+import { Icon } from '../../components/Icon/Icon';
 import { useToast } from '../../components/Toast/ToastProvider';
 import { formatBytes } from '../../utils/formatBytes';
 import { timeAgo } from '../../utils/deviceLabel';
@@ -76,18 +77,22 @@ export function UsersPanel() {
           </button>
         </form>
         {!makeAdmin && (legacy ?? []).length > 0 && (
-          <label className={styles.muted}>
-            Pakai pustaka dari akun lama (opsional) — playlist dan lagu disukai dari sebelum login:
-            <select className={styles.input} value={legacyId} onChange={(event) => setLegacyId(event.target.value)}>
-              <option value="">Akun baru yang kosong</option>
-              {(legacy ?? []).map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.liked} lagu disukai · {account.playlists} playlist{account.playlistNames.length ? ` (${account.playlistNames.join(', ')})` : ''}
-                  {account.lastSeen ? ` · aktif ${timeAgo(account.lastSeen)}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className={styles.selectField}>
+            <span className={styles.selectLabel}>Pakai pustaka dari akun lama (opsional)</span>
+            <span className={styles.muted}>Playlist dan lagu disukai dari sebelum login — tak diklaim akun mana pun.</span>
+            <div className={styles.selectWrap}>
+              <select className={styles.select} value={legacyId} onChange={(event) => setLegacyId(event.target.value)}>
+                <option value="">Akun baru yang kosong</option>
+                {(legacy ?? []).map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.liked} lagu disukai · {account.playlists} playlist{account.playlistNames.length ? ` (${account.playlistNames.join(', ')})` : ''}
+                    {account.lastSeen ? ` · aktif ${timeAgo(account.lastSeen)}` : ''}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevron-down" size={16} className={styles.selectChevron} />
+            </div>
+          </div>
         )}
         <p className={styles.muted}>Sandi sementara dibuat otomatis dan hanya tampil sekali; pengguna wajib menggantinya saat pertama masuk. Admin: 12+ karakter dan tidak memutar musik.</p>
         {secret && (

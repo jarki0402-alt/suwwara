@@ -31,6 +31,22 @@
   }
 }
 
+/* A labeled group of stat tiles (Ringkasan is split into Pengguna / Pemutaran / Bandwidth instead of one flat grid). */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionLabel {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
 .stat,
 .card {
   border: 1px solid var(--color-border);
@@ -41,16 +57,34 @@
 
 .stat {
   display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.statIcon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.statBody {
+  display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 
 .statLabel {
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--color-text-tertiary);
 }
 
@@ -64,6 +98,23 @@
 .statSub {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
+}
+
+/* Total / average / peak line under a trend chart. */
+.chartFigures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.chartFigures strong {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .cardTitle {
@@ -119,24 +170,107 @@
   background: var(--color-danger, #ef4444);
 }
 
-/* ---- chart ---- */
+/* ---- trend chart (TrendChart.tsx) ---- */
+.chartWrap {
+  position: relative;
+}
+
 .chart {
   width: 100%;
-  height: 140px;
+  height: 260px;
+  display: block;
+  overflow: visible;
+}
+
+.chartMini {
+  width: 100%;
+  height: 56px;
   display: block;
 }
 
-.bar {
-  fill: url(#adminBarGradient);
+.gridLine {
+  stroke: var(--color-border);
+  stroke-width: 1;
 }
 
-.bar:hover {
-  opacity: 0.8;
+.crosshair {
+  stroke: var(--color-text-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.dot {
+  fill: var(--color-bg-elevated);
+  stroke: var(--color-accent);
+  stroke-width: 2;
 }
 
 .axis {
-  font-size: 10px;
+  font-size: 11px;
   fill: var(--color-text-tertiary);
+}
+
+.tooltip {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-floating);
+  font-size: 0.76rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.tooltip strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.tooltip span {
+  color: var(--color-text-tertiary);
+  font-size: 0.7rem;
+}
+
+/* ---- live monitoring (System tab) ---- */
+.monitorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.monitorCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+  padding: var(--space-4);
+}
+
+.monitorHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.monitorTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.monitorValue {
+  font-size: 1.2rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* ---- users ---- */
@@ -308,11 +442,72 @@
 
 .userBar {
   display: grid;
-  grid-template-columns: minmax(70px, 130px) minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(70px, 130px) minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  padding: 7px 0;
+  padding: 8px 0;
   font-size: 0.83rem;
+}
+
+.userBar .meter {
+  height: 10px;
+}
+
+.userBarRank {
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.76rem;
+}
+
+.userBarName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* ---- a select styled like the rest of the console (native <option> rendering stays the browser's own) ---- */
+.selectField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-2);
+}
+
+.selectLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.selectWrap {
+  position: relative;
+}
+
+.select {
+  width: 100%;
+  appearance: none;
+  padding: 11px 36px 11px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.selectChevron {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: var(--color-text-tertiary);
+  pointer-events: none;
 }
 
 .chips {

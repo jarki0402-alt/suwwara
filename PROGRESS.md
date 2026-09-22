@@ -25,6 +25,12 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-22 (tab Sistem: RAM/Swap/CPU/Disk sekarang pakai persentase)
+
+Semua baris di tab Sistem menampilkan persentase, bukan cuma angka mentah — supaya sekali lihat tahu server sudah hampir penuh atau belum: RAM (`15% · 1,1 GB / 7,7 GB`), Swap, tiap nilai beban CPU 1/5/15 menit (dibagi jumlah inti), dan Disk. Kartu "Pemantauan langsung" (RAM, Beban CPU) juga diberi persentase di depan angka mentahnya.
+
+Backend (`routes/admin.ts`) sekarang mengirim `swapTotalBytes` (sebelumnya hanya `swapUsedBytes` tanpa total, jadi swap tak bisa dipersenkan) — dibaca dari `/proc/meminfo` yang sudah di-parse untuk `swapUsedBytes`, jadi bukan pembacaan baru. Bila swap tidak dikonfigurasi (`swapTotalBytes` 0), baris Swap tetap tampil tanpa persentase/meter, tak menampilkan "dari 0 B (∞%)".
+
 ## Perubahan terbaru — 2026-09-22 (label sumbu grafik admin: teks gepeng/terdistorsi)
 
 **Penyebab**: `TrendChart` memakai `preserveAspectRatio="none"` supaya grafik mengisi lebar kartu (viewBox 720 unit, lebar kartu sungguhan bisa 900–1900px) — itu meregangkan sumbu X dan Y **secara berbeda**. Garis dan area tidak masalah diregangkan begitu, tapi elemen `<text>` di dalam SVG juga geometri: bentuk hurufnya ikut meregang tak proporsional, jadi angka "1.013,5 MB" dst. tampak gepeng/melebar, dan makin parah di layar lebar.

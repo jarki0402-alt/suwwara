@@ -195,13 +195,13 @@ adminRouter.get('/admin/overview', async (_req, res) => {
   });
 });
 
-async function memInfo(): Promise<{ totalBytes: number; availableBytes: number; swapUsedBytes: number }> {
+async function memInfo(): Promise<{ totalBytes: number; availableBytes: number; swapUsedBytes: number; swapTotalBytes: number }> {
   try {
     const text = await readFile('/proc/meminfo', 'utf8');
     const kb = (name: string) => Number(new RegExp(`^${name}:\\s+(\\d+)`, 'm').exec(text)?.[1] ?? 0) * 1024;
-    return { totalBytes: kb('MemTotal'), availableBytes: kb('MemAvailable'), swapUsedBytes: kb('SwapTotal') - kb('SwapFree') };
+    return { totalBytes: kb('MemTotal'), availableBytes: kb('MemAvailable'), swapUsedBytes: kb('SwapTotal') - kb('SwapFree'), swapTotalBytes: kb('SwapTotal') };
   } catch {
-    return { totalBytes: os.totalmem(), availableBytes: os.freemem(), swapUsedBytes: 0 };
+    return { totalBytes: os.totalmem(), availableBytes: os.freemem(), swapUsedBytes: 0, swapTotalBytes: 0 };
   }
 }
 

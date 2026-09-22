@@ -35,7 +35,7 @@ export interface Usage {
 }
 
 export interface SystemInfo {
-  host: { totalBytes: number; availableBytes: number; swapUsedBytes: number; load: number[]; cpus: number; uptimeSec: number };
+  host: { totalBytes: number; availableBytes: number; swapUsedBytes: number; swapTotalBytes: number; load: number[]; cpus: number; uptimeSec: number };
   process: { rssBytes: number; heapUsedBytes: number; uptimeSec: number; node: string };
   disk: { totalBytes: number; freeBytes: number } | null;
   database: { sizeBytes: number; tables: Array<{ name: string; bytes: number; rows: number }> };

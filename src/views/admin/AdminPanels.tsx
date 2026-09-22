@@ -212,8 +212,8 @@ export function SystemPanel() {
       <section className={styles.section}>
         <h3 className={styles.sectionLabel}>Pemantauan langsung · diperbarui tiap 30 dtk</h3>
         <div className={styles.monitorGrid}>
-          <Monitor title="RAM" valueLabel={`${formatBytes(usedMem)} / ${formatBytes(data.host.totalBytes)}`} fraction={ramFraction} history={ramHistory} />
-          <Monitor title="Beban CPU (1 mnt)" valueLabel={`${data.host.load[0].toFixed(2)} dari ${data.host.cpus} inti`} fraction={loadFraction} history={loadHistory} />
+          <Monitor title="RAM" valueLabel={`${percent(ramFraction * 100)} · ${formatBytes(usedMem)} / ${formatBytes(data.host.totalBytes)}`} fraction={ramFraction} history={ramHistory} />
+          <Monitor title="Beban CPU (1 mnt)" valueLabel={`${percent(loadFraction * 100)} · ${data.host.load[0].toFixed(2)} dari ${data.host.cpus} inti`} fraction={loadFraction} history={loadHistory} />
         </div>
       </section>
 
@@ -228,12 +228,16 @@ export function SystemPanel() {
         <Meter fraction={ramFraction} />
         <div className={styles.row}>
           <span>Swap terpakai</span>
-          <span className={styles.rowValue}>{formatBytes(data.host.swapUsedBytes)}</span>
-        </div>
-        <div className={styles.row}>
-          <span>Beban CPU (1 / 5 / 15 mnt)</span>
           <span className={styles.rowValue}>
-            {data.host.load.map((value) => value.toFixed(2)).join(' / ')} · {data.host.cpus} inti
+            {formatBytes(data.host.swapUsedBytes)}
+            {data.host.swapTotalBytes > 0 && ` dari ${formatBytes(data.host.swapTotalBytes)} (${percent((data.host.swapUsedBytes / data.host.swapTotalBytes) * 100)})`}
+          </span>
+        </div>
+        {data.host.swapTotalBytes > 0 && <Meter fraction={data.host.swapUsedBytes / data.host.swapTotalBytes} />}
+        <div className={styles.row}>
+          <span>Beban CPU (1 / 5 / 15 mnt) · {data.host.cpus} inti</span>
+          <span className={styles.rowValue}>
+            {data.host.load.map((value) => `${value.toFixed(2)} (${percent((value / Math.max(data.host.cpus, 1)) * 100)})`).join(' · ')}
           </span>
         </div>
         {data.disk && (
@@ -241,7 +245,7 @@ export function SystemPanel() {
             <div className={styles.row}>
               <span>Disk</span>
               <span className={styles.rowValue}>
-                {formatBytes(usedDisk)} dari {formatBytes(data.disk.totalBytes)}
+                {formatBytes(usedDisk)} dari {formatBytes(data.disk.totalBytes)} ({percent((usedDisk / Math.max(data.disk.totalBytes, 1)) * 100)})
               </span>
             </div>
             <Meter fraction={usedDisk / Math.max(data.disk.totalBytes, 1)} />

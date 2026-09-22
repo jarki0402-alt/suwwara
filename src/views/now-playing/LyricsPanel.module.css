@@ -63,6 +63,21 @@
   opacity: 1;
 }
 
+/* A synced line seeks the song there on tap/click, same as dragging the seek bar. */
+.lineClickable {
+  cursor: pointer;
+}
+
+.lineClickable:hover {
+  color: var(--color-text-secondary);
+  opacity: 0.85;
+}
+
+.lineClickable.activeLine:hover {
+  color: var(--color-text-primary);
+  opacity: 1;
+}
+
 .plainWrapper {
   height: 100%;
   overflow-y: auto;

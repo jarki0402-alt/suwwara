@@ -4,9 +4,9 @@ import { Icon, type IconName } from '../../components/Icon/Icon';
 import styles from './AuthScreens.module.css';
 
 const FEATURES: { icon: IconName; title: string; sub: string }[] = [
-  { icon: 'users', title: 'Dengerin bareng', sub: 'Satu antrean buat semua orang, dan siapa saja bisa ikut kontrol — kerasa real-time.' },
+  { icon: 'users', title: 'Dengerin bareng', sub: 'Satu antrean buat semua orang, dan siapa saja bisa ikut kontrol, langsung kerasa real-time.' },
   { icon: 'devices', title: 'Kendalikan perangkat lain', sub: 'Lagi asyik di HP, mau lanjut di laptop? Tinggal pindahkan, tanpa scan apa pun.' },
-  { icon: 'refresh', title: 'Sama di mana saja', sub: 'Playlist, riwayat dengerin, sampai rekomendasi — semuanya ikut ke perangkat mana pun kamu buka.' },
+  { icon: 'refresh', title: 'Sama di mana saja', sub: 'Playlist, riwayat dengerin, sampai rekomendasi, semuanya ikut ke perangkat mana pun kamu buka.' },
 ];
 
 /** What a signed-out visitor sees: the app in three lines, and the sign-in form. There is no sign-up — accounts are made by the admin. */
@@ -86,7 +86,7 @@ export function LandingPage() {
               {error}
             </p>
           )}
-          {offline && !error && <p className={styles.notice}>Tidak ada koneksi ke server — periksa internetmu.</p>}
+          {offline && !error && <p className={styles.notice}>Tidak ada koneksi ke server. Periksa internetmu.</p>}
 
           <button type="submit" className={styles.submit} disabled={busy || !username || !password}>
             {busy ? 'Memeriksa…' : 'Masuk'}
@@ -96,7 +96,7 @@ export function LandingPage() {
 
         {/* After the form on a phone, so signing in never needs a scroll; beside the headline on desktop. */}
         <section className={styles.extras}>
-          <p className={styles.lead}>Bebas iklan, dengerin bareng orang-orang terdekat, dan lanjut persis dari titik terakhir — di HP, laptop, mana saja.</p>
+          <p className={styles.lead}>Bebas iklan, dengerin bareng orang-orang terdekat, dan lanjut persis dari titik terakhir, di HP, laptop, atau di mana saja.</p>
           <ul className={styles.features}>
             {FEATURES.map((feature) => (
               <li key={feature.title} className={styles.feature}>

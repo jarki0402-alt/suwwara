@@ -25,6 +25,12 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-22 (klik baris lirik buat lompat, sisa tanda "—" di landing page)
+
+- **Klik/tap baris lirik tersinkron langsung memindahkan posisi lagu ke sana** (`LyricsPanel.tsx`), persis seperti menggeser seek bar — dan lewat jalur yang sama persis: fungsi `seekTo()` baru di file itu adalah salinan pola jam-atau-solo yang sudah ada di `SeekBar.tsx` (kirim intent Jam kalau sedang di Jam, kalau tidak `audioEngine.seek()` langsung), bukan jalur baru. Hanya baris lirik bersinkron waktu yang bisa diklik (kursor pointer, radius fokus buat keyboard/Enter/Spasi); lirik polos tanpa timestamp tak berubah. Diuji: klik baris ke-9 pada lagu yang sedang termuat memindahkan `currentTime` elemen audio yang benar persis ke waktu baris itu.
+- **Sisa tanda "—" di landing page dihapus** (permintaan lanjutan dari perubahan sebelumnya) — baris fitur, subjudul, dan pesan offline ditulis ulang tanpa tanda hubung sama sekali, bukan cuma yang jadi nilai kosong.
+- Diuji: `tsc`/build/lint/132 tes bersih.
+
 ## Perubahan terbaru — 2026-09-22 (kuota bandwidth bulanan, landing page dirapikan, tanda "—" kosong dihapus)
 
 - **Kartu "Kuota bulan ini (patokan)"** di Ringkasan: total audio yang dikirim server sejak awal bulan kalender (bukan 30 hari bergulir seperti stat lain) dibandingkan angka patokan — bawaan 200 GB, diatur lewat `BANDWIDTH_QUOTA_GB` di `.env` (didokumentasikan di `.env.example`, `docker-compose.yml`, `CLAUDE.md`). **Ini cuma pengingat, bukan batas yang ditegakkan** — tak ada yang diblokir kalau lewat. Dan **cuma menghitung audio yang lewat backend ini**, jadi cuma perkiraan dari kuota/tagihan egress cloud sungguhan; kartunya bilang begitu apa adanya supaya tak disalahartikan sebagai angka resmi.

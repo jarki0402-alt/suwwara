@@ -1,24 +1,54 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import type { Song } from '../../api/types';
+import { audioEngine } from '../../audio-engine/AudioEngine';
+import { sendJamIntent } from '../../jam/jamClient';
 import { resolveLyrics, type LyricsResult } from '../../lyrics/lyricsResolver';
 import { useLyricsSync } from '../../lyrics/useLyricsSync';
+import { useJamStore } from '../../stores/jamStore';
 import styles from './LyricsPanel.module.css';
+
+/** Same jam-or-solo branch SeekBar's own handleSeekFraction uses — a line tap is just another way to seek. */
+function seekTo(positionSec: number): void {
+  const { role, roomId, clientId } = useJamStore.getState();
+  if (role !== 'solo' && roomId) {
+    void sendJamIntent(roomId, clientId, 'seek', { positionSec });
+    return;
+  }
+  audioEngine.seek(positionSec);
+}
 
 const LyricsLine = memo(function LyricsLine({
   text,
+  time,
   isActive,
   isFullscreen,
   registerRef,
 }: {
   text: string;
+  /** Seconds into the song this line starts — undefined for an unsynced (plain-text) line, which isn't clickable. */
+  time: number | undefined;
   isActive: boolean;
   isFullscreen: boolean;
   registerRef: (node: HTMLParagraphElement | null) => void;
 }) {
+  const clickable = time !== undefined && !!text;
   return (
     <p
       ref={isActive ? registerRef : undefined}
-      className={[styles.line, isActive ? styles.activeLine : '', isFullscreen ? styles.lineFullscreen : ''].join(' ')}
+      className={[styles.line, isActive ? styles.activeLine : '', isFullscreen ? styles.lineFullscreen : '', clickable ? styles.lineClickable : ''].join(' ')}
+      onClick={clickable ? () => seekTo(time) : undefined}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                seekTo(time);
+              }
+            }
+          : undefined
+      }
     >
       {text || ' '}
     </p>
@@ -120,6 +150,7 @@ function LyricsBody({ song, isFullscreen }: { song: Song; isFullscreen: boolean 
         <LyricsLine
           key={`${line.time}-${index}`}
           text={line.text}
+          time={line.time}
           isActive={index === activeIndex}
           isFullscreen={isFullscreen}
           registerRef={(node) => {

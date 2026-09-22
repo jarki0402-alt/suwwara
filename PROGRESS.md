@@ -25,6 +25,16 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-22 (baris lirik aktif yang panjang terpotong di layar penuh)
+
+**Bukan lirik yang salah** — dicek langsung ke sumbernya (LRCLIB): teks aslinya lengkap "...sekarang rambu merah-merah". Yang terpotong cuma tampilannya.
+
+**Penyebab**: `.syncedWrapper` cuma menyetel `overflow-y: auto` tanpa `overflow-x` — sesuai spesifikasi CSS, browser lalu ikut menghitung `overflow-x` jadi `auto` juga (tak bisa salah satu "visible" sementara yang lain scroll). Baris yang sedang aktif membesar 6% lewat `transform: scale(1.06)` dari sisi kiri (`transform-origin: left center`), jadi tumbuh ke kanan. Untuk baris yang sudah nyaris penuh selebar panel (paling sering di mode layar penuh, panelnya lebih lebar jadi baris lebih panjang sebelum patah baris), pertumbuhan 6% itu mendorong huruf terakhir melewati tepi, dan tepi itu memotongnya alih-alih menampilkannya.
+
+**Perbaikan**: `.syncedWrapper` diberi ruang kosong ekstra 56px di kanan (lebih dari cukup untuk pertumbuhan 6% pada lebar kolom layar penuh ~900px), jadi baris aktif yang membesar tak lagi kepentok tepi. Tak mengubah efek "membesar saat aktif" itu sendiri.
+
+**Diuji**: lompat pakai fitur klik-lirik yang baru persis ke baris "merah-merah" (lagu Ambon "Tabola Bale"), diukur tepi kanan baris aktif vs wrapper (1006px vs 1044px, tak melebihi) dan `scrollWidth === clientWidth` (tak perlu geser horizontal) — dulu terpotong jadi "...merah-mera". Sekalian dikonfirmasi: proses klik-lirik yang ditambahkan sebelumnya cuma menambah `onClick`/`onKeyDown` di komponen lirik, tak menyentuh `AudioEngine`/`usePlaybackController`/pemuatan lagu sama sekali, jadi tak ada delay tambahan di jalur pemutaran.
+
 ## Perubahan terbaru — 2026-09-22 (klik baris lirik buat lompat, sisa tanda "—" di landing page)
 
 - **Klik/tap baris lirik tersinkron langsung memindahkan posisi lagu ke sana** (`LyricsPanel.tsx`), persis seperti menggeser seek bar — dan lewat jalur yang sama persis: fungsi `seekTo()` baru di file itu adalah salinan pola jam-atau-solo yang sudah ada di `SeekBar.tsx` (kirim intent Jam kalau sedang di Jam, kalau tidak `audioEngine.seek()` langsung), bukan jalur baru. Hanya baris lirik bersinkron waktu yang bisa diklik (kursor pointer, radius fokus buat keyboard/Enter/Spasi); lirik polos tanpa timestamp tak berubah. Diuji: klik baris ke-9 pada lagu yang sedang termuat memindahkan `currentTime` elemen audio yang benar persis ke waktu baris itu.

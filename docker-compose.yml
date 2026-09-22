@@ -53,6 +53,8 @@ services:
       # Leave ADMIN_PASSWORD empty to have one generated and printed once in `docker compose logs backend`.
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      # Admin dashboard's "Kuota bulan ini" display — a reference point, not an enforced limit. See .env.example.
+      - BANDWIDTH_QUOTA_GB=${BANDWIDTH_QUOTA_GB:-200}
 
     ports:
       # Loopback only. It used to be open to the whole network so audio could bypass Cloudflare, but sign-in is now a

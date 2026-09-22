@@ -26,6 +26,8 @@ export interface Overview {
   jamRooms: number;
   resolve: { count: number; failures: number; avgMs: number | null; p95Ms: number | null; maxMs: number | null; queue: { pending: number; active: number } };
   locked: number;
+  /** Bandwidth so far this calendar month against a configurable reference point (BANDWIDTH_QUOTA_GB) — a heads-up, not an enforced cap. */
+  bandwidthQuota: { usedBytes: number; quotaBytes: number };
 }
 
 export interface Usage {

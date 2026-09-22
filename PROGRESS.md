@@ -25,6 +25,13 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-22 (kuota bandwidth bulanan, landing page dirapikan, tanda "—" kosong dihapus)
+
+- **Kartu "Kuota bulan ini (patokan)"** di Ringkasan: total audio yang dikirim server sejak awal bulan kalender (bukan 30 hari bergulir seperti stat lain) dibandingkan angka patokan — bawaan 200 GB, diatur lewat `BANDWIDTH_QUOTA_GB` di `.env` (didokumentasikan di `.env.example`, `docker-compose.yml`, `CLAUDE.md`). **Ini cuma pengingat, bukan batas yang ditegakkan** — tak ada yang diblokir kalau lewat. Dan **cuma menghitung audio yang lewat backend ini**, jadi cuma perkiraan dari kuota/tagihan egress cloud sungguhan; kartunya bilang begitu apa adanya supaya tak disalahartikan sebagai angka resmi.
+- **Tanda "—" sebagai nilai kosong dihapus** dari dashboard admin (lingkup permintaan: konsol admin + landing/login, bukan tanda hubung dalam kalimat biasa yang tetap dipakai untuk copywriting, dan bukan "—" di kolom tanggal playlist yang sudah disetujui terpisah sebelumnya). "Resolve rata-rata" yang tadinya tampil "—" saat 1 jam terakhir sepi sekarang menulis "Belum ada data" + "1 jam terakhir sepi".
+- **Landing page**: kotak mockup dekoratif di bawah (cuma garis-garis abu-abu tanpa isi) dihapus karena memang tak menampilkan apa-apa. Copywriting ditulis ulang (judul, subjudul, tiga poin fitur, teks kartu masuk) supaya lebih hidup, nada tetap sama dengan gaya bahasa aplikasi.
+- Diuji: `tsc`/build/lint/132 tes bersih; verifikasi visual di Docker — kotak mock hilang, headline & copy baru tampil, tak ada baris "—" berdiri sendiri di Ringkasan, kartu kuota menghitung dan menampilkan persentase dengan benar.
+
 ## Perubahan terbaru — 2026-09-22 (tab Sistem: RAM/Swap/CPU/Disk sekarang pakai persentase)
 
 Semua baris di tab Sistem menampilkan persentase, bukan cuma angka mentah — supaya sekali lihat tahu server sudah hampir penuh atau belum: RAM (`15% · 1,1 GB / 7,7 GB`), Swap, tiap nilai beban CPU 1/5/15 menit (dibagi jumlah inti), dan Disk. Kartu "Pemantauan langsung" (RAM, Beban CPU) juga diberi persentase di depan angka mentahnya.

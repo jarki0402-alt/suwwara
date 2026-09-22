@@ -18,6 +18,14 @@ import { resolveQueueState } from '../youtube/stream';
  * Mounted before authRouter (see index.ts), and guarded with a PATH-scoped requireAdmin: a router-wide one would answer 403
  * for every non-admin route registered after it.
  */
+
+/**
+ * A reference point for "am I about to get an egress bill", not an enforced cap — nothing here throttles or blocks once
+ * it's passed. Only this backend's own audio bytes count towards it (the same figure the Ringkasan/Pemakaian tabs
+ * already show), so it is at best an approximation of whatever your cloud provider actually meters and bills for the
+ * VM's network egress; check your own provider's current quota/pricing for the real number and adjust the env var.
+ */
+const BANDWIDTH_QUOTA_BYTES = (Number(process.env.BANDWIDTH_QUOTA_GB) || 200) * 1024 ** 3;
 export const adminRouter = Router();
 adminRouter.use('/admin', requireAdmin);
 
@@ -173,14 +181,15 @@ adminRouter.get('/admin/usage', async (req, res) => {
 
 adminRouter.get('/admin/overview', async (_req, res) => {
   await flushUsage();
-  const [counts] = await sql<{ users: number; disabled: number; sessions: number; active_now: number; today_bytes: string; month_bytes: string }[]>`
+  const [counts] = await sql<{ users: number; disabled: number; sessions: number; active_now: number; today_bytes: string; month_bytes: string; billing_cycle_bytes: string }[]>`
     select
       (select count(*)::int from users) as users,
       (select count(*)::int from users where disabled) as disabled,
       (select count(*)::int from sessions where expires_at > now()) as sessions,
       (select count(distinct account_id)::int from sessions where last_seen_at > now() - interval '15 minutes' and expires_at > now()) as active_now,
       coalesce((select sum(audio_bytes) from usage_daily where day = current_date), 0)::bigint as today_bytes,
-      coalesce((select sum(audio_bytes) from usage_daily where day > current_date - 30), 0)::bigint as month_bytes`;
+      coalesce((select sum(audio_bytes) from usage_daily where day > current_date - 30), 0)::bigint as month_bytes,
+      coalesce((select sum(audio_bytes) from usage_daily where day >= date_trunc('month', current_date)::date), 0)::bigint as billing_cycle_bytes`;
   res.json({
     users: counts.users,
     disabled: counts.disabled,
@@ -192,6 +201,7 @@ adminRouter.get('/admin/overview', async (_req, res) => {
     jamRooms: roomCount(),
     resolve: { ...resolveSummary(), queue: resolveQueueState() },
     locked: loginLimiter.lockedNow().length,
+    bandwidthQuota: { usedBytes: Number(counts.billing_cycle_bytes), quotaBytes: BANDWIDTH_QUOTA_BYTES },
   });
 });
 

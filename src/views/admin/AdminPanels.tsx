@@ -8,7 +8,7 @@ import { fillDailySeries, TrendChart, type TrendPoint } from './TrendChart';
 import { useAdminData } from './useAdminData';
 
 const REFRESH_MS = 30_000;
-const ms = (value: number | null) => (value === null ? '—' : `${value.toLocaleString('id-ID')} ms`);
+const ms = (value: number) => `${value.toLocaleString('id-ID')} ms`;
 const percent = (value: number) => `${value.toFixed(0)}%`;
 const duration = (seconds: number) => {
   const days = Math.floor(seconds / 86400);
@@ -76,7 +76,12 @@ export function Overview() {
       </Section>
 
       <Section title="Pemutaran">
-        <Stat icon="refresh" label="Resolve rata-rata" value={ms(data.resolve.avgMs)} sub={`p95 ${ms(data.resolve.p95Ms)} · terlama ${ms(data.resolve.maxMs)}`} />
+        <Stat
+          icon="refresh"
+          label="Resolve rata-rata"
+          value={data.resolve.avgMs === null ? 'Belum ada data' : ms(data.resolve.avgMs)}
+          sub={data.resolve.avgMs === null ? '1 jam terakhir sepi' : `p95 ${ms(data.resolve.p95Ms as number)} · terlama ${ms(data.resolve.maxMs as number)}`}
+        />
         <Stat icon="queue" label="Resolve 1 jam terakhir" value={String(data.resolve.count)} sub={`${data.resolve.failures} gagal`} />
         <Stat icon="clock" label="Antrean yt-dlp" value={String(data.resolve.queue.pending)} sub={`${data.resolve.queue.active} sedang berjalan`} />
       </Section>
@@ -86,6 +91,21 @@ export function Overview() {
         <div className={styles.grid}>
           <Stat icon="pulse" label="Hari ini" value={formatBytes(data.todayBytes)} sub="audio yang dikirim server" />
           <Stat icon="pulse" label="30 hari terakhir" value={formatBytes(data.monthBytes)} />
+        </div>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Kuota bulan ini (patokan)</h2>
+          <div className={styles.row}>
+            <span>Terpakai bulan berjalan</span>
+            <span className={styles.rowValue}>
+              {formatBytes(data.bandwidthQuota.usedBytes)} dari {formatBytes(data.bandwidthQuota.quotaBytes)} (
+              {percent((data.bandwidthQuota.usedBytes / Math.max(data.bandwidthQuota.quotaBytes, 1)) * 100)})
+            </span>
+          </div>
+          <Meter fraction={data.bandwidthQuota.usedBytes / Math.max(data.bandwidthQuota.quotaBytes, 1)} />
+          <p className={styles.muted}>
+            Cuma jumlah audio yang lewat server ini, dihitung ulang tiap awal bulan — bukan angka resmi dari akun cloud-mu. Sesuaikan lewat env{' '}
+            <code>BANDWIDTH_QUOTA_GB</code> kalau kuota sebenarnya beda.
+          </p>
         </div>
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Tren 14 hari terakhir</h2>

@@ -4,9 +4,9 @@ import { Icon, type IconName } from '../../components/Icon/Icon';
 import styles from './AuthScreens.module.css';
 
 const FEATURES: { icon: IconName; title: string; sub: string }[] = [
-  { icon: 'users', title: 'Dengerin bareng', sub: 'Satu antrean, semua orang ikut mengontrol — real-time.' },
-  { icon: 'devices', title: 'Kendalikan perangkat lain', sub: 'Pindahkan lagu antara HP dan laptop, tanpa scan apa pun.' },
-  { icon: 'refresh', title: 'Sama di mana saja', sub: 'Playlist, riwayat, dan rekomendasi ikut ke semua perangkatmu.' },
+  { icon: 'users', title: 'Dengerin bareng', sub: 'Satu antrean buat semua orang, dan siapa saja bisa ikut kontrol — kerasa real-time.' },
+  { icon: 'devices', title: 'Kendalikan perangkat lain', sub: 'Lagi asyik di HP, mau lanjut di laptop? Tinggal pindahkan, tanpa scan apa pun.' },
+  { icon: 'refresh', title: 'Sama di mana saja', sub: 'Playlist, riwayat dengerin, sampai rekomendasi — semuanya ikut ke perangkat mana pun kamu buka.' },
 ];
 
 /** What a signed-out visitor sees: the app in three lines, and the sign-in form. There is no sign-up — accounts are made by the admin. */
@@ -42,13 +42,13 @@ export function LandingPage() {
             Suwwara
           </span>
           <h1 className={styles.headline}>
-            Musikmu, <span>di mana pun</span> kamu mendengar.
+            Musikmu, <span>ke mana pun</span> kamu pergi.
           </h1>
         </section>
 
         <form className={styles.card} onSubmit={(event) => void handleSubmit(event)}>
           <h2 className={styles.cardTitle}>Masuk</h2>
-          <p className={styles.cardSub}>Pakai akun yang dibuatkan admin.</p>
+          <p className={styles.cardSub}>Sudah dibuatkan akun? Masuk di sini.</p>
 
           <label className={styles.field}>
             <span className={styles.label}>Nama pengguna</span>
@@ -91,12 +91,12 @@ export function LandingPage() {
           <button type="submit" className={styles.submit} disabled={busy || !username || !password}>
             {busy ? 'Memeriksa…' : 'Masuk'}
           </button>
-          <p className={styles.footnote}>Belum punya akun? Minta admin membuatkannya.</p>
+          <p className={styles.footnote}>Belum kebagian akun? Tinggal minta ke admin.</p>
         </form>
 
         {/* After the form on a phone, so signing in never needs a scroll; beside the headline on desktop. */}
         <section className={styles.extras}>
-          <p className={styles.lead}>Putar tanpa iklan, dengerin bareng teman, dan lanjutkan dari perangkat mana saja — ringan, cepat, dan selalu sinkron.</p>
+          <p className={styles.lead}>Bebas iklan, dengerin bareng orang-orang terdekat, dan lanjut persis dari titik terakhir — di HP, laptop, mana saja.</p>
           <ul className={styles.features}>
             {FEATURES.map((feature) => (
               <li key={feature.title} className={styles.feature}>
@@ -110,14 +110,6 @@ export function LandingPage() {
               </li>
             ))}
           </ul>
-          <div className={styles.mock} aria-hidden="true">
-            <span className={styles.mockArt} />
-            <span className={styles.mockBody}>
-              <span className={styles.mockLine} />
-              <span className={styles.mockLine} />
-              <span className={styles.mockBar} />
-            </span>
-          </div>
         </section>
       </div>
     </div>

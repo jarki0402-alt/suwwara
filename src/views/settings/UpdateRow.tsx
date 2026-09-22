@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { checkForUpdate, applyUpdate } from '../../pwa/registerSW';
 import { useUpdateStore } from '../../pwa/updateStore';
 import { usePlayerStore } from '../../stores/playerStore';
@@ -14,25 +15,36 @@ export function UpdateRow() {
   const status = useUpdateStore((state) => state.status);
   const checkedAt = useUpdateStore((state) => state.checkedAt);
   const isPlaying = usePlayerStore((state) => state.currentSongId !== null);
+  // Own local flag, not part of UpdateStatus: applyUpdate() ends in a page reload (see its own fallback timer), so
+  // this only ever needs to cover the gap between the tap and that reload actually happening — without it, that gap
+  // looked exactly like the tap did nothing at all.
+  const [applying, setApplying] = useState(false);
 
-  const subtitle = (() => {
-    switch (status) {
-      case 'checking':
-        return 'Memeriksa versi terbaru…';
-      case 'available':
-        return isPlaying ? 'Versi baru tersedia — memuat ulang menghentikan lagu sebentar.' : 'Versi baru tersedia.';
-      case 'latest':
-        return `Sudah versi terbaru${checkedAt ? ` · diperiksa ${time(checkedAt)}` : ''}`;
-      case 'error':
-        return 'Belum bisa memeriksa — periksa koneksi, lalu coba lagi.';
-      case 'unsupported':
-        return 'Pembaruan otomatis tidak aktif di sini (hanya di versi terpasang).';
-      default:
-        return `Versi ${__APP_BUILD__}`;
-    }
-  })();
+  const subtitle = applying
+    ? 'Memuat ulang…'
+    : (() => {
+        switch (status) {
+          case 'checking':
+            return 'Memeriksa versi terbaru…';
+          case 'available':
+            return isPlaying ? 'Versi baru tersedia — memuat ulang menghentikan lagu sebentar.' : 'Versi baru tersedia.';
+          case 'latest':
+            return `Sudah versi terbaru${checkedAt ? ` · diperiksa ${time(checkedAt)}` : ''}`;
+          case 'error':
+            return 'Belum bisa memeriksa — periksa koneksi, lalu coba lagi.';
+          case 'unsupported':
+            return 'Pembaruan otomatis tidak aktif di sini (hanya di versi terpasang).';
+          default:
+            return `Versi ${__APP_BUILD__}`;
+        }
+      })();
 
-  const label = status === 'available' ? 'Perbarui' : status === 'checking' ? 'Memeriksa…' : status === 'idle' ? 'Periksa' : 'Periksa lagi';
+  const label = applying ? 'Memperbarui…' : status === 'available' ? 'Perbarui' : status === 'checking' ? 'Memeriksa…' : status === 'idle' ? 'Periksa' : 'Periksa lagi';
+
+  const handleApply = () => {
+    setApplying(true); // the page reloads shortly after this — no need to ever set it back to false
+    applyUpdate();
+  };
 
   return (
     <div className={styles.section}>
@@ -42,7 +54,7 @@ export function UpdateRow() {
           icon="refresh"
           title={status === 'available' ? 'Pembaruan tersedia' : 'Cek pembaruan'}
           subtitle={subtitle}
-          onClick={status === 'checking' ? undefined : status === 'available' ? applyUpdate : () => void checkForUpdate()}
+          onClick={applying || status === 'checking' ? undefined : status === 'available' ? handleApply : () => void checkForUpdate()}
           control={<span className={status === 'available' ? styles.linkButtonStrong : styles.linkButton}>{label}</span>}
         />
       </div>

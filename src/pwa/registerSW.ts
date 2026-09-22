@@ -119,23 +119,42 @@ export async function checkForUpdate(): Promise<UpdateStatus> {
   return outcome;
 }
 
+/** How long "Perbarui" waits for a reload to actually start before assuming a step silently didn't (see applyUpdate). */
+const APPLY_FALLBACK_MS = 5000;
+
 /**
  * Takes the waiting version live: tells it to skip waiting, and reloads once it has taken control. Done here rather
  * than through the plugin's own updateSW(true), which only reloads if its "waiting" prompt happened to run first —
  * a check started from Pengaturan found the update, the new worker activated, and the page just stayed on the old
  * version. The controllerchange reload doesn't depend on how the update was discovered.
+ *
+ * Every branch is guaranteed to end in a reload within APPLY_FALLBACK_MS — a tap on "Perbarui" that looked like it did
+ * nothing (no `controllerchange` fired, or the plugin's own updateSW() resolved without one) used to just sit there
+ * with no feedback and no next step. `location.reload()` unloads the page, which cancels any of this file's still-
+ * pending timers on its own, so a fallback firing after a reload already started is harmless — it just never runs.
  */
 export function applyUpdate(): void {
+  const fallback = setTimeout(() => window.location.reload(), APPLY_FALLBACK_MS);
+
   const waiting = registration?.waiting;
   if (!waiting && workerLooksStale) {
+    clearTimeout(fallback); // hardUpdate() reloads unconditionally in its own `finally` — no need for a second one
     void hardUpdate();
     return;
   }
   if (!waiting) {
+    // The plugin's own updateSW(true) — kept as the fallback's fallback since its exact timing isn't ours to observe.
     void applyWaitingUpdate?.(true);
     return;
   }
-  navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
+  navigator.serviceWorker.addEventListener(
+    'controllerchange',
+    () => {
+      clearTimeout(fallback);
+      window.location.reload();
+    },
+    { once: true },
+  );
   waiting.postMessage({ type: 'SKIP_WAITING' });
 }
 

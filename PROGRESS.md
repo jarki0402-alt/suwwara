@@ -25,6 +25,15 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-22 (tombol "Perbarui" terasa tak melakukan apa-apa)
+
+Sisi Cloudflare sudah benar (Browser Cache TTL "Respect Existing Headers"), jadi keluhan "diklik gak ada proses apa-apa" murni soal pengalaman: `applyUpdate()` yang lama langsung melompat ke `window.location.reload()` tanpa memberi tanda apa pun di layar duluan — kalau reload-nya sempat tertunda sepersekian detik (menunggu `controllerchange`, dsb.), tombolnya terlihat diam.
+
+- **Umpan balik instan** (`UpdateRow.tsx`): begitu diklik, label langsung berubah "Memperbarui…" dan tombol dinonaktifkan — sebelum menunggu apa pun terjadi di baliknya.
+- **Jaminan selalu berakhir dengan reload** (`registerSW.ts`, `applyUpdate()`): timer cadangan 5 detik dipasang di awal fungsi; kalau tak ada jalur yang berhasil memuat ulang halaman dalam waktu itu (mis. `controllerchange` tak pernah terpicu, atau `updateSW()` bawaan plugin selesai tanpa melakukan apa-apa), timer itu yang memaksa reload. `location.reload()` yang berhasil lebih dulu otomatis membatalkan yang tertunda (halaman keburu unload), jadi tak ada reload dobel.
+- Tak ada logika deteksi pembaruan yang diubah (`onNeedRefresh`, `checkForUpdate`, `hardUpdate`, `serverHasNewerBuild` persis seperti sebelumnya) — murni menambah kepastian dan umpan balik di sekitarnya.
+- **Diuji dengan mereproduksi persis laporan user**: dua tab dibiarkan memuat build A, server di-deploy ulang ke build B, `sw.js` yang disajikan sengaja dibuat basi lagi (meniru edge yang masih menahan versi lama) — persis skenario nyata mereka. Klik "Periksa" menemukan pembaruan lewat `version.json`; klik "Perbarui" berhasil memindahkan tab ke build B.
+
 ## Perubahan terbaru — 2026-09-22 (baris lirik aktif yang panjang terpotong di layar penuh)
 
 **Bukan lirik yang salah** — dicek langsung ke sumbernya (LRCLIB): teks aslinya lengkap "...sekarang rambu merah-merah". Yang terpotong cuma tampilannya.

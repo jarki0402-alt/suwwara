@@ -119,6 +119,28 @@ export async function checkForUpdate(): Promise<UpdateStatus> {
   return outcome;
 }
 
+const AUTO_APPLY_KEY = 'suwwara:autoUpdateAt';
+/** An automatic update may reload the app at most once per this window — see canAutoApply. */
+const AUTO_APPLY_COOLDOWN_MS = 10 * 60 * 1000;
+
+/**
+ * The automatic (no tap) update reloads the page on its own, so it must never be able to repeat: if something in front
+ * of the server keeps handing out a different sw.js on every check (an edge holding an old copy next to the new one),
+ * each reload would find a "new" waiting worker again and reload again, forever — even across closing and reopening
+ * the app. The attempt is written down BEFORE the reload so the next start can see it; a tap on "Perbarui" is never
+ * limited, since a person pressing a button cannot loop.
+ */
+function canAutoApply(): boolean {
+  try {
+    const last = Number(localStorage.getItem(AUTO_APPLY_KEY));
+    if (Number.isFinite(last) && Date.now() - last < AUTO_APPLY_COOLDOWN_MS) return false;
+    localStorage.setItem(AUTO_APPLY_KEY, String(Date.now()));
+  } catch {
+    return false; // storage blocked: can't prove it won't loop, so leave it to the toast/tap
+  }
+  return true;
+}
+
 /** How long "Perbarui" waits for a reload to actually start before assuming a step silently didn't (see applyUpdate). */
 const APPLY_FALLBACK_MS = 5000;
 
@@ -133,10 +155,11 @@ const APPLY_FALLBACK_MS = 5000;
  * with no feedback and no next step. `location.reload()` unloads the page, which cancels any of this file's still-
  * pending timers on its own, so a fallback firing after a reload already started is harmless — it just never runs.
  */
-export function applyUpdate(): void {
+export function applyUpdate(automatic = false): void {
   // A plain reload here would just boot the same old precache again if the new worker never took over — that is the
-  // "tap did nothing, only closing and reopening helps" case. Dropping worker + caches guarantees the new build loads.
-  const fallback = setTimeout(() => void hardUpdate(), APPLY_FALLBACK_MS);
+  // "tap did nothing, only closing and reopening helps" case, so a tap drops worker + caches to guarantee the new build.
+  // An automatic attempt never takes that route (see canAutoApply): it just reloads.
+  const fallback = setTimeout(() => (automatic ? window.location.reload() : void hardUpdate()), APPLY_FALLBACK_MS);
 
   const waiting = registration?.waiting;
   if (!waiting && workerLooksStale) {
@@ -186,12 +209,12 @@ export function initServiceWorker(showToast: ShowToastFn): void {
       useUpdateStore.getState().set('available');
       // Nothing loaded in the player = nothing to interrupt: apply the update right away
       // instead of waiting for a tap on a toast that is easy to miss (or dismiss).
-      if (usePlayerStore.getState().currentSongId === null) {
-        applyUpdate();
+      if (usePlayerStore.getState().currentSongId === null && canAutoApply()) {
+        applyUpdate(true);
         return;
       }
       showToast('Versi baru Suwwara tersedia.', {
-        action: { label: 'Muat ulang', onClick: applyUpdate },
+        action: { label: 'Muat ulang', onClick: () => applyUpdate() },
       });
     },
     onOfflineReady() {

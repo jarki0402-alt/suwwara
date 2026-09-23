@@ -122,12 +122,30 @@ export const AudioCache = {
   // out of the upcoming list (the user skipped ahead, the queue was reshuffled) is
   // skipped when its turn comes instead of costing a whole file for nothing.
   wanted: new Set<string>(),
+  // The track being listened to right now. Kept out of `wanted` replacement below: the lookahead re-arms on every queue
+  // change and would otherwise drop it from the set before its turn in the serial download queue comes.
+  keptId: null as string | null,
+
+  /**
+   * Stores the track that is playing right now, so playing it again later (tomorrow, after the backend's resolve cache
+   * expired) starts from disk instead of paying a cold resolve. Only ever called once the user has listened for a while
+   * — a track skipped after 3 seconds isn't worth a whole file. The backend still holds the chunks it just served, so
+   * this second read is mostly a memory hit there rather than another trip to googlevideo.
+   */
+  keepPlaying(songId: string, dataSaver: boolean): void {
+    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled) return;
+    const id = `${songId}:${dataSaver ? 'low' : 'high'}`;
+    this.keptId = id;
+    this.wanted.add(id);
+    void this.prefetchAndCache(songId, dataSaver);
+  },
 
   /** Replaces the set of tracks worth prefetching and queues any that are missing. */
   prefetchTracks(songIds: string[], dataSaver: boolean): void {
     if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled) return;
     const quality = dataSaver ? 'low' : 'high';
     this.wanted = new Set(songIds.map((songId) => `${songId}:${quality}`));
+    if (this.keptId) this.wanted.add(this.keptId);
     for (const songId of songIds) void this.prefetchAndCache(songId, dataSaver);
   },
 

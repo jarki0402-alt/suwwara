@@ -44,6 +44,17 @@ Dua fitur terkait, keduanya seputar "dengerin tanpa internet": unduhan lagu manu
 - **Belum bisa diverifikasi**: apakah blob: audio beneran stabil di iPhone Safari sekarang — itu **wajib dites langsung di iPhone asli**, gak bisa diverifikasi dari Docker/Chromium Linux. Kalau ternyata masih gagal seperti dulu, jaring pengaman di atas seharusnya bikin itu terlihat sebagai "coba sekali, gagal, otomatis balik ke jaringan" yang mulus, bukan lagu yang gak mau muter — tapi mekanisme pastinya baru bisa dipastikan lewat pemakaian nyata.
 - **Diuji di Docker (Chromium)**: unduh → tersimpan di IndexedDB (ukuran & kualitas benar) → menu berubah jadi "Hapus Unduhan" → kartu kuota di Pengaturan menghitung benar → di-set offline (`context.setOffline`) → lagu yang sama tetap terputar (elemen `<audio>` memakai `blob:` URL, nol request ke `/api/audio/`, `currentTime` beneran maju) → hapus unduhan → kembali ke "Unduh untuk Offline". Pemutaran normal (lagu yang tak diunduh, online) tetap jalan seperti biasa — tak ada regresi. 132 test, lint, dan type-check frontend+backend semua bersih.
 
+## Perubahan terbaru — 2026-09-24 (lagu yang sedang diputar ikut di-cache, jeda auto-next lebih rapat)
+
+- Lagu yang diklik langsung (bukan "berikutnya" di antrean) dulu tidak pernah masuk cache IndexedDB, jadi besoknya tetap mulai dingin (resolve cache backend cuma ~5 jam). Sekarang `AudioCache.keepPlaying()` menyimpannya setelah didengarkan 20 detik ([usePlaybackController.ts](./src/playback/usePlaybackController.ts)). Lewat antrean unduhan yang sama (satu per satu), jadi beban backend tidak bertambah; chunk-nya masih hangat di cache backend.
+- Lagu berikutnya langsung di-warm-up resolve-nya (prioritas rendah) tanpa menunggu giliran unduhan blob.
+- Polling penyelesaian lagu 2 detik → 500 ms (jeda auto-next rata-rata turun dari ~1 detik ke ~0,25 detik).
+- Tidak diubah: skema preload elemen cadangan (menunggu blob penuh), demi menghindari unduhan ganda di VM 1GB. Diverifikasi: build, 132 tes, Docker (semua service sehat, bundle baru terlayani). Belum diuji putar di perangkat asli.
+
+## Perubahan terbaru — 2026-09-24 (fallback "Perbarui" sekarang memuat build baru, bukan sekadar reload)
+
+Fallback 5 detik di `applyUpdate()` ([registerSW.ts](./src/pwa/registerSW.ts)) sebelumnya hanya `location.reload()`. Kalau worker baru tidak pernah mengambil alih (`controllerchange` tak muncul), reload itu memuat ulang precache lama, jadi tombol tetap terasa tak berfungsi sampai app ditutup-buka. Sekarang fallback memanggil `hardUpdate()` (unregister worker + hapus cache + reload dari network). Hanya jalan setelah tap dan hanya kalau reload normal belum terjadi dalam 5 detik. Sisa alur (deteksi, nginx no-store) sudah benar, tidak diubah. Build + 132 tes lulus; belum diuji di device asli.
+
 ## Perubahan terbaru — 2026-09-22 (tombol "Perbarui" terasa tak melakukan apa-apa)
 
 Sisi Cloudflare sudah benar (Browser Cache TTL "Respect Existing Headers"), jadi keluhan "diklik gak ada proses apa-apa" murni soal pengalaman: `applyUpdate()` yang lama langsung melompat ke `window.location.reload()` tanpa memberi tanda apa pun di layar duluan — kalau reload-nya sempat tertunda sepersekian detik (menunggu `controllerchange`, dsb.), tombolnya terlihat diam.

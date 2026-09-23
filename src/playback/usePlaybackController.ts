@@ -17,7 +17,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { extendQueueWithRadio } from './playSongRadio';
 
 const COMPLETION_THRESHOLD = 0.9;
-const COMPLETION_POLL_MS = 2000;
+const COMPLETION_POLL_MS = 500;
 // How long currentTime can sit completely frozen at/near the track's end before we
 // treat it as stuck and force the same advance a native 'ended' event would have
 // triggered. Some devices/streams just stop dead without ever firing 'ended' — this
@@ -73,6 +73,9 @@ const PREFETCH_LOOKAHEAD = 2;
 // the user had just tapped a song and was waiting on the backend, so the lookahead
 // resolves queued up right beside (and delayed) the one that mattered.
 const PREFETCH_SETTLE_MS = 1500;
+// The track being played is only saved for next time after this much listening — enough to say the user actually
+// wants it, late enough that the download doesn't compete with the lookahead for the backend.
+const KEEP_PLAYING_AFTER_MS = 20_000;
 
 /**
  * Orchestration layer wiring queueStore/settingsStore to the AudioEngine and
@@ -414,6 +417,9 @@ export function usePlaybackController() {
         preferLow,
       );
       if (AudioCache.isSupported) {
+        // The blob download below waits its turn in a one-at-a-time queue; warming the resolve right away means the
+        // track is at worst a network-URL start (cache hit on the backend), never a cold yt-dlp run.
+        prefetchAudioResolveOnly(nextUp.id, preferLow ? 'low' : 'high');
         void AudioCache.prefetchAndCache(nextUp.id, preferLow).then(() => audioEngine.preloadNextTrack(nextUp, preferLow));
       } else {
         void audioEngine.preloadNextTrack(nextUp, preferLow);
@@ -423,6 +429,16 @@ export function usePlaybackController() {
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.id, isPlaying, order, position, repeatMode, dataSaver]);
+
+  useEffect(() => {
+    if (!currentSong || !isPlaying) return;
+    const timeoutId = setTimeout(() => {
+      const preferLow = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
+      AudioCache.keepPlaying(currentSong.id, preferLow);
+    }, KEEP_PLAYING_AFTER_MS);
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?.id, isPlaying, dataSaver]);
 
   useEffect(() => {
     setPlaybackStatus({

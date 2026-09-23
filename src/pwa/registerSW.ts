@@ -128,13 +128,15 @@ const APPLY_FALLBACK_MS = 5000;
  * a check started from Pengaturan found the update, the new worker activated, and the page just stayed on the old
  * version. The controllerchange reload doesn't depend on how the update was discovered.
  *
- * Every branch is guaranteed to end in a reload within APPLY_FALLBACK_MS — a tap on "Perbarui" that looked like it did
+ * Every branch is guaranteed to end in a reload of the NEW build within APPLY_FALLBACK_MS — a tap on "Perbarui" that looked like it did
  * nothing (no `controllerchange` fired, or the plugin's own updateSW() resolved without one) used to just sit there
  * with no feedback and no next step. `location.reload()` unloads the page, which cancels any of this file's still-
  * pending timers on its own, so a fallback firing after a reload already started is harmless — it just never runs.
  */
 export function applyUpdate(): void {
-  const fallback = setTimeout(() => window.location.reload(), APPLY_FALLBACK_MS);
+  // A plain reload here would just boot the same old precache again if the new worker never took over — that is the
+  // "tap did nothing, only closing and reopening helps" case. Dropping worker + caches guarantees the new build loads.
+  const fallback = setTimeout(() => void hardUpdate(), APPLY_FALLBACK_MS);
 
   const waiting = registration?.waiting;
   if (!waiting && workerLooksStale) {

@@ -50,7 +50,8 @@ export async function getTrendingSongsIndonesia(): Promise<SearchSong[]> {
   for (const section of rawSections) {
     const sectionSongs: SearchSong[] = [];
     for (const item of section.contents) {
-      if (item.type !== 'SONG' || !item.videoId) continue;
+      // ytmusic-api leaves a null where one item failed its schema check (and logs the ZodError); skip it, keep the rest.
+      if (!item || item.type !== 'SONG' || !item.videoId) continue;
       sectionSongs.push({
         id: item.videoId,
         title: cleanTitle(item.name),

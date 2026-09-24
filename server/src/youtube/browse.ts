@@ -57,7 +57,8 @@ export async function getBrowseSections(): Promise<BrowseSection[]> {
   for (const section of rawSections) {
     const songs: SearchSong[] = [];
     for (const item of section.contents) {
-      if (item.type !== 'SONG') continue;
+      // ytmusic-api leaves a null where one item failed its schema check (and logs the ZodError); skip it, keep the rest.
+      if (!item || item.type !== 'SONG') continue;
       songs.push({
         id: item.videoId,
         title: cleanTitle(item.name),

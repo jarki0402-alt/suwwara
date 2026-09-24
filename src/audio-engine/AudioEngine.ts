@@ -144,6 +144,7 @@ class AudioEngine {
    */
   private transitionsInFlight = 0;
   private blobFetch: AbortController | null = null;
+  private backgroundBlobFetch: AbortController | null = null;
   private pauseTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   private listeners = new Set<AudioEngineListener>();
@@ -392,6 +393,7 @@ class AudioEngine {
     const requestId = ++this.playRequestId;
     const tapAt = Date.now();
     this.blobFetch?.abort();
+    this.backgroundBlobFetch?.abort();
     this.cancelPendingPause();
     const { context, elements, gains } = this.ensureGraph();
     if (context && context.state === 'suspended') await context.resume();
@@ -698,16 +700,20 @@ class AudioEngine {
    * and the caller uses the normal URL — on anything unexpected, or when this device has shown blob audio to be flaky
    * (settingsStore.localAudioEnabled). The bytes are kept in AudioCache so the same song is instant next time.
    */
-  private async networkBlobFor(songId: string, dataSaver: boolean): Promise<string | null> {
+  private async networkBlobFor(songId: string, dataSaver: boolean, background = false): Promise<string | null> {
     if (!isIOS || !useSettingsStore.getState().localAudioEnabled) return null;
     // The fetch can take a couple of seconds and the old track is still sounding meanwhile: say "loading" now, so the
-    // spinner shows and nothing treats the old track's position as the new song's.
-    this.updateSnapshot({ status: 'loading', error: null });
+    // spinner shows and nothing treats the old track's position as the new song's. (Not for the background variant:
+    // that one is the NEXT track being readied while the current one plays normally.)
+    if (!background) this.updateSnapshot({ status: 'loading', error: null });
     const controller = new AbortController();
-    this.blobFetch = controller;
+    if (background) this.backgroundBlobFetch = controller;
+    else this.blobFetch = controller;
     const timer = setTimeout(() => controller.abort(), BLOB_START_TIMEOUT_MS);
     try {
-      const response = await fetch(resolveAudioUrl(songId, dataSaver), { signal: controller.signal });
+      const url = resolveAudioUrl(songId, dataSaver);
+      // priority=low keeps the readying of the next track behind anything the user taps, in the backend's queue too.
+      const response = await fetch(background ? url + (url.includes('?') ? '&' : '?') + 'priority=low' : url, { signal: controller.signal });
       if (!response.ok) return null;
       const blob = await response.blob();
       if (controller.signal.aborted) return null;
@@ -718,6 +724,7 @@ class AudioEngine {
     } finally {
       clearTimeout(timer);
       if (this.blobFetch === controller) this.blobFetch = null;
+      if (this.backgroundBlobFetch === controller) this.backgroundBlobFetch = null;
     }
   }
 
@@ -830,6 +837,7 @@ class AudioEngine {
 
     const requestId = ++this.playRequestId;
     this.blobFetch?.abort();
+    this.backgroundBlobFetch?.abort();
     const { context, elements, gains } = this.ensureGraph();
     if (context && context.state === 'suspended') await context.resume();
     if (requestId !== this.playRequestId) return;
@@ -937,6 +945,9 @@ class AudioEngine {
     if (this.hasUsablePreload(song, dataSaver, inactiveElement)) return; // already sitting in the spare element
 
     let url = await localUrlFor(song.id, dataSaver);
+    // On iOS a network URL here would put WebKit's chain of Range requests in the background, competing with whatever
+    // the user taps next; one plain fetch into a blob readies the next track without that (and lets the swap be instant).
+    if (!url) url = await this.networkBlobFor(song.id, dataSaver, true);
     if (!url) url = resolveAudioUrl(song.id, dataSaver);
     const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
 
@@ -955,6 +966,12 @@ class AudioEngine {
     inactiveElement.src = preloadUrl;
     inactiveElement.load();
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
+  }
+
+  /** Whether `song` is already sitting in the spare element, ready for an instant swap. */
+  isPreloaded(song: Song, dataSaver = false): boolean {
+    if (!this.elements) return false;
+    return this.hasUsablePreload(song, dataSaver, this.elements[this.activeIndex === 0 ? 1 : 0]);
   }
 
   subscribe(listener: AudioEngineListener): () => void {

@@ -78,6 +78,8 @@ const PREFETCH_LOOKAHEAD = 2;
 // the user had just tapped a song and was waiting on the backend, so the lookahead
 // resolves queued up right beside (and delayed) the one that mattered.
 const PREFETCH_SETTLE_MS = 4000;
+// If the next track is not in the spare element by the time its first attempt settles, one more attempt after this.
+const PRELOAD_RETRY_MS = 15_000;
 // The track being played is only saved for next time after this much listening — enough to say the user actually
 // wants it, late enough that the download doesn't compete with the lookahead for the backend.
 const KEEP_PLAYING_AFTER_MS = 20_000;
@@ -413,6 +415,7 @@ export function usePlaybackController() {
   }, [currentSong?.id]);
   useEffect(() => {
     if (!currentSong || !isPlaying) return;
+    let retryTimeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeoutId = setTimeout(() => {
       const preferLow = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
       const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id);
@@ -427,12 +430,22 @@ export function usePlaybackController() {
         // The blob download below waits its turn in a one-at-a-time queue; warming the resolve right away means the
         // track is at worst a network-URL start (cache hit on the backend), never a cold yt-dlp run.
         prefetchAudioResolveOnly(nextUp.id, preferLow ? 'low' : 'high');
-        void AudioCache.prefetchAndCache(nextUp.id, preferLow).then(() => audioEngine.preloadNextTrack(nextUp, preferLow));
+        void AudioCache.prefetchAndCache(nextUp.id, preferLow)
+          .then(() => audioEngine.preloadNextTrack(nextUp, preferLow))
+          .then(() => {
+            // A preload that did not take (spare element busy, a fetch that failed) gets one more try well before
+            // the song ends, so the change to the next track is the instant swap and not a fresh load.
+            if (audioEngine.isPreloaded(nextUp, preferLow)) return;
+            retryTimeoutId = setTimeout(() => void audioEngine.preloadNextTrack(nextUp, preferLow), PRELOAD_RETRY_MS);
+          });
       } else {
         void audioEngine.preloadNextTrack(nextUp, preferLow);
       }
     }, PREFETCH_SETTLE_MS);
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(retryTimeoutId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.id, isPlaying, order, position, repeatMode, dataSaver]);
 

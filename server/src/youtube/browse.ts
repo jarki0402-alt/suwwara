@@ -19,6 +19,7 @@ const CACHE_TTL_MS = 3 * 60 * 60 * 1000;
 // A shelf that turns out to be mostly albums/playlists/artists (nothing directly
 // playable) isn't worth showing — those content types don't map onto this app's
 // single-song queue model.
+const FAILURE_CACHE_TTL_MS = 5 * 60 * 1000;
 const MIN_SONGS_PER_SECTION = 4;
 
 let cache: CacheEntry | null = null;
@@ -38,7 +39,19 @@ export async function getBrowseSections(): Promise<BrowseSection[]> {
   if (cache && cache.expiresAt > Date.now()) return cache.sections;
 
   const ytmusic = await getYTMusic();
-  const rawSections = await ytmusic.getHomeSections();
+  let rawSections: Awaited<ReturnType<typeof ytmusic.getHomeSections>>;
+  try {
+    rawSections = await ytmusic.getHomeSections();
+  } catch (error) {
+    // ytmusic-api validates YouTube's home response with a strict schema, and one shelf shaped differently (YouTube
+    // changes these without notice) fails the whole call with a ZodError. An empty home for a few minutes is better
+    // than an error state on the first screen; the short cache keeps a persistent failure from re-running (and
+    // re-logging) it on every visit.
+    // eslint-disable-next-line no-console
+    console.error(`[browse] home sections unavailable: ${(error as Error).name}: ${(error as Error).message.slice(0, 160)}`);
+    cache = { sections: [], expiresAt: Date.now() + FAILURE_CACHE_TTL_MS };
+    return [];
+  }
 
   const sections: BrowseSection[] = [];
   for (const section of rawSections) {

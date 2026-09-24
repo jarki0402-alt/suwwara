@@ -12,6 +12,7 @@ interface CacheEntry {
 // re-fetching more often than this.
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000;
 const MIN_SONGS_PER_SECTION = 3;
+const FAILURE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 let cache: CacheEntry | null = null;
 
@@ -32,7 +33,16 @@ export async function getTrendingSongsIndonesia(): Promise<SearchSong[]> {
   if (cache && cache.expiresAt > Date.now()) return cache.songs;
 
   const ytmusic = await getYTMusicID();
-  const rawSections = await ytmusic.getHomeSections();
+  let rawSections: Awaited<ReturnType<typeof ytmusic.getHomeSections>>;
+  try {
+    rawSections = await ytmusic.getHomeSections();
+  } catch (error) {
+    // Same strict-schema failure as browse.ts: fall back to none, and the route tops up from its keyword searches.
+    // eslint-disable-next-line no-console
+    console.error(`[trending-id] home sections unavailable: ${(error as Error).name}: ${(error as Error).message.slice(0, 160)}`);
+    cache = { songs: [], expiresAt: Date.now() + FAILURE_CACHE_TTL_MS };
+    return [];
+  }
 
   const seen = new Set<string>();
   const songs: SearchSong[] = [];

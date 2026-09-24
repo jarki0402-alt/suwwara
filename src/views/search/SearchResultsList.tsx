@@ -10,8 +10,27 @@ import styles from './SearchView.module.css';
 // Three, not more: every warm-up is a yt-dlp run on the 1-vCPU backend.
 const WARM_TOP_RESULTS = 3;
 
+// A scroll gesture also starts with a pointer landing on some row: without a cap, flicking through a long list would
+// queue a yt-dlp run for every row it touches.
+const TOUCH_WARM_MIN_GAP_MS = 1500;
+let lastTouchWarmAt = 0;
+
 function SearchResultRow({ song }: { song: Song }) {
-  return <SongRow song={song} onClick={() => playSongRadio(song)} trailing={<SongRowActions song={song} />} />;
+  const dataSaver = useSettingsStore((state) => state.dataSaver);
+  // The finger lands ~100ms before the tap completes, which is enough of a head start for the backend's resolve slot
+  // (already-cached ones answer instantly, so repeating this for the top results is free).
+  return (
+    <SongRow
+      song={song}
+      onClick={() => playSongRadio(song)}
+      onWarm={() => {
+        if (Date.now() - lastTouchWarmAt < TOUCH_WARM_MIN_GAP_MS) return;
+        lastTouchWarmAt = Date.now();
+        prefetchAudioResolveOnly(song.id, dataSaver ? 'low' : 'high');
+      }}
+      trailing={<SongRowActions song={song} />}
+    />
+  );
 }
 
 export function SearchResultsList({ songs, isCommitted }: { songs: Song[]; isCommitted: boolean }) {

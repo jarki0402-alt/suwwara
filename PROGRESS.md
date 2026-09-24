@@ -44,6 +44,13 @@ Dua fitur terkait, keduanya seputar "dengerin tanpa internet": unduhan lagu manu
 - **Belum bisa diverifikasi**: apakah blob: audio beneran stabil di iPhone Safari sekarang — itu **wajib dites langsung di iPhone asli**, gak bisa diverifikasi dari Docker/Chromium Linux. Kalau ternyata masih gagal seperti dulu, jaring pengaman di atas seharusnya bikin itu terlihat sebagai "coba sekali, gagal, otomatis balik ke jaringan" yang mulus, bukan lagu yang gak mau muter — tapi mekanisme pastinya baru bisa dipastikan lewat pemakaian nyata.
 - **Diuji di Docker (Chromium)**: unduh → tersimpan di IndexedDB (ukuran & kualitas benar) → menu berubah jadi "Hapus Unduhan" → kartu kuota di Pengaturan menghitung benar → di-set offline (`context.setOffline`) → lagu yang sama tetap terputar (elemen `<audio>` memakai `blob:` URL, nol request ke `/api/audio/`, `currentTime` beneran maju) → hapus unduhan → kembali ke "Unduh untuk Offline". Pemutaran normal (lagu yang tak diunduh, online) tetap jalan seperti biasa — tak ada regresi. 132 test, lint, dan type-check frontend+backend semua bersih.
 
+## Perubahan terbaru — 2026-09-24 (batch 1: stabilitas & klik lebih cepat)
+
+- **`ytdlp-service` memulihkan diri** ([main.py](./server/ytdlp-service/main.py)): kalau satu resolve menggantung >45 detik, atau 5 kegagalan jaringan berturut-turut (timeout/koneksi, bukan video privat/dihapus), prosesnya keluar dan `restart: unless-stopped` menyalakannya lagi. Sebelumnya Docker tidak me-restart container yang macet tapi masih hidup. Tidak mencakup `bgutil-provider` yang macet (itu container terpisah); untuk itu perlu autoheal dengan akses docker.sock, sengaja tidak dipasang karena risiko keamanannya.
+- **Cache hasil pencarian** ([search.ts](./server/src/youtube/search.ts)): 300 entri, TTL 10 menit, dengan de-duplikasi permintaan bersamaan.
+- **Pemanasan saat jari menyentuh baris hasil pencarian** ([SearchResultsList.tsx](./src/views/search/SearchResultsList.tsx)), dibatasi 1 kali per 1,5 detik supaya scroll tidak memicu banyak resolve.
+- Belum: metrik di dashboard admin, dan 502 pada `/api/trending/id` & `/api/browse` (respons "error code: 502" itu dari Cloudflare, bukan JSON backend, jadi perlu log backend untuk penyebabnya).
+
 ## Perubahan terbaru — 2026-09-24 (iPhone: lagu lambat & "siap tapi tidak bunyi")
 
 Direproduksi dengan WebKit profil iPhone terhadap produksi: WebKit memuat file dengan rantai ~7 request Range berurutan (2-4 dtk walau server hangat, lebih di HP), dan ~2 dari 10 klik berakhir dengan lagu termuat penuh tapi paused (tidak pernah `play()`); Chromium/Android 0,5-1,1 dtk. Penyebab dan perbaikan:

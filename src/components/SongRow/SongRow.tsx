@@ -15,6 +15,8 @@ const ALBUM_ID_PATTERN = /^MPREb_/;
 interface SongRowProps {
   song: Song;
   onClick: () => void;
+  /** Fired the moment a finger/pointer lands on the row — a head start on whatever the tap will need. */
+  onWarm?: () => void;
   isActive?: boolean;
   subtitle?: string;
   trailing?: ReactNode;
@@ -24,14 +26,14 @@ interface SongRowProps {
   plays?: number;
 }
 
-export function SongRow({ song, onClick, isActive, subtitle, trailing, table, plays }: SongRowProps) {
+export function SongRow({ song, onClick, onWarm, isActive, subtitle, trailing, table, plays }: SongRowProps) {
   const openAlbum = useUiStore((state) => state.openAlbum);
   const album = song.album;
   const duration = useSongDuration(song);
 
   return (
     <div className={[styles.row, isActive ? styles.active : '', table ? styles.rowTable : ''].filter(Boolean).join(' ')}>
-      <button type="button" className={styles.main} onClick={onClick}>
+      <button type="button" className={styles.main} onClick={onClick} onPointerDown={onWarm}>
         <LazyImage images={song.image} quality="50x50" alt={song.name} className={styles.thumb} />
         <span className={styles.text}>
           <span className={styles.title}>{song.name}</span>

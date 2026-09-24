@@ -96,7 +96,16 @@ const limit = new PriorityLimiter(1);
 // Set comfortably above ytdlp-service's own internal `socket_timeout: 20`
 // (server/ytdlp-service/main.py) so that timeout gets a chance to fire and
 // return a clean error first; this is the backstop for when it doesn't.
-const RESOLVE_TIMEOUT_MS = 25000;
+const RESOLVE_TIMEOUT_MS = 15000;
+
+// The single yt-dlp slot means one wedged resolve makes everything behind it wait its full timeout in turn — with
+// YouTube unreachable, a tapped song sat 45-60s behind a line of doomed attempts. After a few failures in a row the
+// resolver is treated as down for a short while: callers fail at once (the client shows its error and can retry)
+// instead of queueing, and the first attempt after the pause is the probe that closes it again.
+const BREAKER_FAILURES = 3;
+const BREAKER_OPEN_MS = 10_000;
+let consecutiveFailures = 0;
+let breakerOpenUntil = 0;
 
 async function getCached(videoId: string, quality: AudioQuality): Promise<{ audio: ResolvedAudio; expiresAt: number } | null> {
   const [row] = await sql<{ url: string; mime_type: string; http_headers: any; expires_at: Date }[]>`
@@ -289,6 +298,9 @@ export async function resolveAudio(
  * cold-start penalty of spawning the yt-dlp CLI and Python VM from scratch for every request.
  */
 async function resolveAudioUncached(videoId: string, quality: AudioQuality): Promise<ResolvedAudio> {
+  if (Date.now() < breakerOpenUntil) {
+    throw new Error(`yt-dlp resolver paused after repeated failures for ${videoId}`);
+  }
   try {
     const response = await fetch('http://ytdlp-service:8000/resolve', {
       method: 'POST',
@@ -305,12 +317,15 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
     }
 
     const data = (await response.json()) as any;
+    consecutiveFailures = 0;
     return {
       url: data.url,
       mimeType: data.mimeType,
       httpHeaders: data.httpHeaders,
     };
   } catch (error) {
+    consecutiveFailures += 1;
+    if (consecutiveFailures >= BREAKER_FAILURES) breakerOpenUntil = Date.now() + BREAKER_OPEN_MS;
     // eslint-disable-next-line no-console
     console.error(`[audio] ${videoId} (${quality}) — yt-dlp microservice FAILED: ${(error as Error).message}`);
     throw new Error(`yt-dlp microservice failed to resolve audio for ${videoId}: ${(error as Error).message}`);

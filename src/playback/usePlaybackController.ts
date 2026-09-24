@@ -72,7 +72,7 @@ const PREFETCH_LOOKAHEAD = 2;
 // this long. It used to fire the instant the queue changed — i.e. at the exact moment
 // the user had just tapped a song and was waiting on the backend, so the lookahead
 // resolves queued up right beside (and delayed) the one that mattered.
-const PREFETCH_SETTLE_MS = 1500;
+const PREFETCH_SETTLE_MS = 4000;
 // The track being played is only saved for next time after this much listening — enough to say the user actually
 // wants it, late enough that the download doesn't compete with the lookahead for the backend.
 const KEEP_PLAYING_AFTER_MS = 20_000;
@@ -403,6 +403,9 @@ export function usePlaybackController() {
   // The *current* track is never prefetched: its own <audio> element is already
   // downloading it, and a second full download of the same file just doubled the load.
   const isPlaying = engineState.status === 'playing';
+  useEffect(() => {
+    AudioCache.cancelBackground();
+  }, [currentSong?.id]);
   useEffect(() => {
     if (!currentSong || !isPlaying) return;
     const timeoutId = setTimeout(() => {

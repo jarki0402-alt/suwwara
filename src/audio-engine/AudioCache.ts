@@ -125,6 +125,18 @@ export const AudioCache = {
   // The track being listened to right now. Kept out of `wanted` replacement below: the lookahead re-arms on every queue
   // change and would otherwise drop it from the set before its turn in the serial download queue comes.
   keptId: null as string | null,
+  activeDownload: null as AbortController | null,
+
+  /**
+   * Drops every background download the moment the user picks another track: a tap is the one thing that must never
+   * wait behind lookahead work for the backend's CPU and its single resolve slot. The lookahead re-arms itself once
+   * the new track is playing (see PREFETCH_SETTLE_MS), so nothing is lost — only reordered behind the tap.
+   */
+  cancelBackground(): void {
+    this.wanted = new Set();
+    this.keptId = null;
+    this.activeDownload?.abort();
+  },
 
   /**
    * Stores the track that is playing right now, so playing it again later (tomorrow, after the backend's resolve cache
@@ -172,6 +184,7 @@ export const AudioCache = {
     // the same audio taking up the one shared quota too — see the merge note on settingsStore.offlineQuotaMB.
     if (await downloadManager.has(songId)) return;
     const controller = new AbortController();
+    this.activeDownload = controller;
     const timeoutId = setTimeout(() => controller.abort(), PREFETCH_TIMEOUT_MS);
     try {
       const db = await getDB();
@@ -198,6 +211,7 @@ export const AudioCache = {
       // Silently swallow errors during background prefetch to not spam the console
     } finally {
       clearTimeout(timeoutId);
+      if (this.activeDownload === controller) this.activeDownload = null;
     }
   },
 

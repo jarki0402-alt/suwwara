@@ -18,6 +18,19 @@ export interface SearchSong {
 
 const MAX_DURATION_SEC = 15 * 60;
 
+// ytmusic-api has no timeout of its own: with YouTube unreachable a search hung until Cloudflare cut it at 61s. Failing
+// in 12s lets the UI show its error state (and the user retry) instead of a spinner that looks frozen.
+const SEARCH_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(work: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('YouTube Music did not answer in time')), SEARCH_TIMEOUT_MS);
+    timer.unref();
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
 export function bestThumbnail(thumbnails: { url: string; width: number }[] | undefined): string {
   if (!thumbnails || thumbnails.length === 0) return '';
   return thumbnails.reduce((best, current) => (current.width > best.width ? current : best)).url;
@@ -35,7 +48,7 @@ export async function searchSongs(query: string, limit = 20): Promise<SearchSong
   if (trimmed.length === 0) return [];
 
   const ytmusic = await getYTMusic();
-  const results = await ytmusic.searchSongs(trimmed);
+  const results = await withTimeout(ytmusic.searchSongs(trimmed));
 
   const songs: SearchSong[] = [];
   for (const song of results) {
@@ -71,7 +84,7 @@ export async function getSearchSuggestions(query: string): Promise<string[]> {
   if (trimmed.length === 0) return [];
 
   const ytmusic = await getYTMusic();
-  return ytmusic.getSearchSuggestions(trimmed);
+  return withTimeout(ytmusic.getSearchSuggestions(trimmed));
 }
 
 export interface ArtistHit {
@@ -91,7 +104,7 @@ export async function searchArtists(query: string, limit = 3): Promise<ArtistHit
 
   const hits = await artistSearches.getOrLoad(trimmed.toLowerCase(), async () => {
     const ytmusic = await getYTMusic();
-    const results = await ytmusic.searchArtists(trimmed);
+    const results = await withTimeout(ytmusic.searchArtists(trimmed));
     return results
       .filter((artist) => artist.artistId && artist.name)
       .slice(0, 5)

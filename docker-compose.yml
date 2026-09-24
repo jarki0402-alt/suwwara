@@ -55,6 +55,11 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # Admin dashboard's "Kuota bulan ini" display — a reference point, not an enforced limit. See .env.example.
       - BANDWIDTH_QUOTA_GB=${BANDWIDTH_QUOTA_GB:-200}
+      # YouTube's DNS answers include IPv6 addresses this VM's Docker network cannot route; a client that tries one first
+      # waits out the whole connect timeout before falling back (searches hung ~60s, chunk fetches failed).
+      - NODE_OPTIONS=--dns-result-order=ipv4first
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: 1
 
     ports:
       # Loopback only. It used to be open to the whole network so audio could bypass Cloudflare, but sign-in is now a
@@ -70,6 +75,8 @@ services:
     restart: unless-stopped
     depends_on:
       - bgutil-provider
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: 1
 
   bgutil-provider:
     logging: *default-logging

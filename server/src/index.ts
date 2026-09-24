@@ -6,6 +6,7 @@ import { requireSession } from './auth/sessions';
 import { bootstrapAdmin } from './auth/users';
 import { sessionRouter } from './routes/session';
 import { pruneLyricsCache } from './youtube/lyrics';
+import { startResolveWarmer } from './youtube/resolveWarmer';
 import { artistRouter } from './routes/artist';
 import { connectRouter } from './routes/connect';
 import { audioRouter } from './routes/audio';
@@ -69,6 +70,7 @@ async function start(): Promise<void> {
   await bootstrapAdmin();
   void pruneAuthTables();
   void pruneLyricsCache();
+  startResolveWarmer();
   app.listen(PORT, '0.0.0.0', () => {
     // eslint-disable-next-line no-console
     console.log(`Suwwara music backend listening on http://0.0.0.0:${PORT}`);

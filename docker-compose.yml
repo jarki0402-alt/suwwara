@@ -58,6 +58,10 @@ services:
       # YouTube's DNS answers include IPv6 addresses this VM's Docker network cannot route; a client that tries one first
       # waits out the whole connect timeout before falling back (searches hung ~60s, chunk fetches failed).
       - NODE_OPTIONS=--dns-result-order=ipv4first
+      # Whole tracks kept on disk (see server/src/youtube/diskCache.ts); the volume outlives container recreation.
+      - AUDIO_CACHE_MAX_MB=${AUDIO_CACHE_MAX_MB:-6144}
+    volumes:
+      - suwwara-audio-cache:/data/audio-cache
     sysctls:
       net.ipv6.conf.all.disable_ipv6: 1
 
@@ -97,3 +101,4 @@ services:
 
 volumes:
   suwwara-postgres-data:
+  suwwara-audio-cache:

@@ -1,5 +1,6 @@
 import { Router, type Response } from 'express';
 import { recordAudio } from '../metrics/usage';
+import { getCachedTrack, openTrackStream, storeTrack, type CachedTrack } from '../youtube/diskCache';
 import { invalidateAudio, resolveAudio, ResolveAbortedError, type AudioQuality, type ResolvedAudio } from '../youtube/stream';
 
 // The resolve-only route below exists purely to warm the cache for a track
@@ -388,7 +389,7 @@ async function streamRange(
   ctx: TrackContext,
   range: { start: number; end: number | null },
   isRangeLess: boolean,
-  timing: { firstByteAt: number },
+  timing: { firstByteAt: number; total?: number },
 ): Promise<void> {
   let aborted = false;
   res.once('close', () => {
@@ -402,6 +403,7 @@ async function streamRange(
   const first = await getChunk(ctx, firstIndex);
   const total = first.total;
   if (total === null) throw new Error('upstream did not report the file size');
+  timing.total = total;
 
   const last = range.end !== null ? Math.min(range.end, total - 1) : total - 1;
   // Past the end of the file, or a backwards range like `bytes=100-50` (which would otherwise
@@ -444,6 +446,38 @@ async function streamRange(
   }
 
   if (!aborted) res.end();
+}
+
+function serveFromDisk(res: Response, track: CachedTrack, range: { start: number; end: number | null }, isRangeLess: boolean): void {
+  const last = range.end !== null ? Math.min(range.end, track.size - 1) : track.size - 1;
+  if (range.start >= track.size || last < range.start) {
+    res.status(416).setHeader('Content-Range', `bytes */${track.size}`).end();
+    return;
+  }
+  res.status(isRangeLess ? 200 : 206);
+  if (!isRangeLess) res.setHeader('Content-Range', `bytes ${range.start}-${last}/${track.size}`);
+  res.setHeader('Content-Length', String(last - range.start + 1));
+  res.setHeader('Content-Type', track.mimeType);
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  // pipe() waits for 'drain' on its own, so a slow phone never makes this buffer the file in memory.
+  const stream = openTrackStream(track, range.start, last);
+  stream.on('error', () => res.destroy());
+  res.once('close', () => stream.destroy());
+  stream.pipe(res);
+}
+
+/** A track someone actually asked to play (not a background preload) that went out mostly complete is worth keeping. */
+const KEEP_MIN_FRACTION = 0.3;
+let persistQueue: Promise<void> = Promise.resolve();
+
+function persistTrack(ctx: TrackContext, total: number): void {
+  const count = Math.ceil(total / CHUNK_SIZE);
+  if (total > WARM_MAX_FILE_BYTES) return;
+  // One at a time: each one re-reads the file through the chunk cache and the VM is small.
+  persistQueue = persistQueue.then(() =>
+    storeTrack(ctx.videoId, ctx.quality, ctx.audio.mimeType, total, count, async (index) => (await getChunk(ctx, index)).buffer),
+  );
 }
 
 function serveFromFullBuffer(res: Response, entry: FullBufferEntry, range: { start: number; end: number | null }, isRangeLess: boolean): void {
@@ -495,14 +529,17 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
   // burning a slot for a track nobody is waiting for — see PriorityLimiter.
   const gone = new AbortController();
   const startedAt = Date.now();
-  const timing = { firstByteAt: 0 };
+  const timing: { firstByteAt: number; total?: number } = { firstByteAt: 0 };
   // Bytes this response put on the wire, for the admin dashboard's bandwidth per user (sizes only, never which song).
   const socket = res.socket;
   const bytesBefore = socket?.bytesWritten ?? 0;
   const accountId = req.session?.accountId;
+  let persistCtx: TrackContext | null = null;
   res.once('close', () => {
     gone.abort();
-    recordAudio(accountId, (socket?.bytesWritten ?? 0) - bytesBefore);
+    const sentBytes = (socket?.bytesWritten ?? 0) - bytesBefore;
+    recordAudio(accountId, sentBytes);
+    if (persistCtx && timing.total && sentBytes >= timing.total * KEEP_MIN_FRACTION) persistTrack(persistCtx, timing.total);
     // Only the requests worth looking at are logged — an iPhone makes ~14 per song and
     // cancels most of them on purpose. This is what lets a slow start on a real phone be
     // read off the server's log (docker compose logs backend | grep audio-slow).
@@ -516,11 +553,19 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
   });
 
   try {
-    const audio = await resolveAudio(videoId, quality, priority, gone.signal);
     const rangeHeader = req.headers.range;
     // If no Range header, we default to starting from 0 (open-ended).
     const range = rangeHeader ? (parseRangeHeader(rangeHeader) ?? { start: 0, end: null }) : { start: 0, end: null };
     const isRangeLess = !rangeHeader;
+
+    // Already on disk: no resolve, no YouTube — the fastest path there is.
+    const onDisk = await getCachedTrack(videoId, quality);
+    if (onDisk) {
+      serveFromDisk(res, onDisk, range, isRangeLess);
+      return;
+    }
+
+    const audio = await resolveAudio(videoId, quality, priority, gone.signal);
 
     // Already know upstream ignores Range for this track? Slice from the full buffer.
     const cachedBuffer = getCachedBuffer(cacheKey);
@@ -530,6 +575,7 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
     }
 
     const ctx: TrackContext = { videoId, quality, cacheKey, audio, priority: priority === PLAYBACK_PRIORITY ? 'high' : 'low' };
+    if (priority === PLAYBACK_PRIORITY) persistCtx = ctx;
     try {
       await streamRange(res, ctx, range, isRangeLess, timing);
     } catch (error) {

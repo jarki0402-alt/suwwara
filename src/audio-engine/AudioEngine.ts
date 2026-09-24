@@ -26,6 +26,36 @@ async function localUrlFor(songId: string, dataSaver: boolean): Promise<string |
 
 const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
+// iOS 17.1+ has ManagedMediaSource: the song can start playing from its first few hundred KB while the rest is still
+// arriving, instead of waiting for the whole file (the file is fragmented MP4, which is what MSE wants). Where it is
+// missing, the whole-file blob path below is the fallback.
+type MediaSourceCtor = { new (): MediaSource; isTypeSupported(type: string): boolean };
+const ManagedMediaSourceCtor = typeof window !== 'undefined' ? (window as unknown as { ManagedMediaSource?: MediaSourceCtor }).ManagedMediaSource : undefined;
+const streamingSupported = isIOS && !!ManagedMediaSourceCtor && ManagedMediaSourceCtor.isTypeSupported('audio/mp4; codecs="mp4a.40.2"');
+const STREAM_HEAD_BYTES = 1024; // the init segment (ftyp+moov) is well under this
+
+/** AAC profile from the init segment's esds box (LC = 2, HE-AAC = 5); the low quality tier is HE-AAC, the high one LC. */
+function aacCodecFrom(head: Uint8Array): string {
+  for (let i = 0; i + 8 < head.length; i += 1) {
+    if (head[i] !== 0x65 || head[i + 1] !== 0x73 || head[i + 2] !== 0x64 || head[i + 3] !== 0x73) continue; // 'esds'
+    for (let j = i + 8; j < Math.min(head.length - 2, i + 80); j += 1) {
+      if (head[j] !== 0x05) continue; // DecoderSpecificInfo
+      let k = j + 1;
+      while (k < head.length && (head[k] & 0x80) !== 0) k += 1;
+      const profile = head[k + 1] >> 3;
+      return `mp4a.40.${profile > 0 && profile < 31 ? profile : 2}`;
+    }
+  }
+  return 'mp4a.40.2';
+}
+
+function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
+  const joined = new Uint8Array(a.length + b.length);
+  joined.set(a, 0);
+  joined.set(b, a.length);
+  return joined;
+}
+
 // Deliberately longer than the backend's own worst case (a 25s yt-dlp resolve timeout,
 // see server/src/youtube/stream.ts): giving up on the client before the server does
 // only abandons a resolve that was about to succeed. A slow-but-working load should
@@ -34,6 +64,48 @@ const CANPLAY_TIMEOUT_MS = 30000;
 
 // How long the iOS whole-file fetch (see networkBlobFor) may take before the plain URL is tried instead.
 const BLOB_START_TIMEOUT_MS = 20000;
+
+// iOS starts a song only after the whole file is in, so on a slow link the file's size IS the wait (a 4-minute song
+// is ~3.8MB at high quality: ~8s at 4 Mbps; a 10-minute one ~10MB: ~20s+). The device's last measured download speed
+// picks the small file (~1/3 the size) whenever the big one would take longer than this to arrive.
+const MAX_ACCEPTABLE_START_S = 5;
+const HIGH_BYTES_PER_SEC = 16_000; // ~128 kbps AAC
+const FALLBACK_DURATION_SEC = 240;
+const MIN_MEASURABLE_BYTES = 300_000;
+const DOWNLINK_STORAGE_KEY = 'suwwara-downlink';
+// A speed measured on another network hours ago says nothing about this one; within half an hour it is the best guess
+// there is for the first tap after opening the app (iOS Safari/Chrome expose no Network Information API).
+const DOWNLINK_MAX_AGE_MS = 30 * 60 * 1000;
+
+function readStoredDownlink(): number | null {
+  try {
+    const stored = JSON.parse(localStorage.getItem(DOWNLINK_STORAGE_KEY) ?? 'null') as { mbps?: number; at?: number } | null;
+    if (stored && typeof stored.mbps === 'number' && typeof stored.at === 'number' && Date.now() - stored.at < DOWNLINK_MAX_AGE_MS) return stored.mbps;
+  } catch {
+    // storage blocked or corrupt: start without a measurement
+  }
+  return null;
+}
+
+let lastDownlinkMbps: number | null = readStoredDownlink();
+
+function noteDownload(bytes: number, seconds: number): void {
+  if (bytes < MIN_MEASURABLE_BYTES || seconds < 0.15) return; // too small/quick to say anything about the link
+  const mbps = (bytes * 8) / (seconds * 1e6);
+  lastDownlinkMbps = lastDownlinkMbps === null ? mbps : 0.6 * mbps + 0.4 * lastDownlinkMbps;
+  try {
+    localStorage.setItem(DOWNLINK_STORAGE_KEY, JSON.stringify({ mbps: lastDownlinkMbps, at: Date.now() }));
+  } catch {
+    // best effort
+  }
+}
+
+/** Whether to start this song on the small file: Data Saver always does; on iOS a slow measured link does too. */
+function startsLow(dataSaver: boolean, durationSec: number): boolean {
+  if (dataSaver || !isIOS || streamingSupported || lastDownlinkMbps === null) return dataSaver; // streaming starts fast at any size
+  const seconds = ((durationSec || FALLBACK_DURATION_SEC) * HIGH_BYTES_PER_SEC * 8) / (lastDownlinkMbps * 1e6);
+  return seconds > MAX_ACCEPTABLE_START_S;
+}
 
 // How long pause/resume take to ramp the output, in seconds. Stopping an <audio>
 // element mid-waveform can leave an audible click; ~90ms is below what reads as a
@@ -174,6 +246,7 @@ class AudioEngine {
     const makeChain = (): { element: HTMLAudioElement; gain: GainNode | null } => {
       const element = new Audio();
       element.preload = 'auto';
+      if (streamingSupported) element.disableRemotePlayback = true; // ManagedMediaSource will not open otherwise
       element.crossOrigin = 'anonymous';
       element.setAttribute('playsinline', 'true');
       element.setAttribute('webkit-playsinline', 'true');
@@ -402,11 +475,12 @@ class AudioEngine {
     const dataSaver = options.dataSaver ?? false;
     const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
     const usePreload = this.hasUsablePreload(song, dataSaver, elements[inactiveIndex]);
-    const networkUrl = resolveAudioUrl(song.id, dataSaver);
+    const networkLow = usePreload ? dataSaver : startsLow(dataSaver, song.duration);
+    const networkUrl = resolveAudioUrl(song.id, networkLow);
     let url = '';
     if (!usePreload) {
       this.dropStalePreload(song);
-      url = (await localUrlFor(song.id, dataSaver)) ?? (await this.networkBlobFor(song.id, dataSaver)) ?? networkUrl;
+      url = (await localUrlFor(song.id, dataSaver)) ?? (await this.networkBlobFor(song.id, networkLow, false, song.duration)) ?? networkUrl;
       if (requestId !== this.playRequestId) {
         if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         return; // a newer request took over while the file was being fetched
@@ -477,7 +551,7 @@ class AudioEngine {
 
     this.preloadedUrl = null;
     this.preloaded = null;
-    beginTrace(song, dataSaver ? 'low' : 'high', element, false, tapAt);
+    beginTrace(song, networkLow ? 'low' : 'high', element, false, tapAt);
     const oldSrc = element.src;
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
     await this.loadElementWithFallback(element, url, networkUrl, requestId);
@@ -700,7 +774,7 @@ class AudioEngine {
    * and the caller uses the normal URL — on anything unexpected, or when this device has shown blob audio to be flaky
    * (settingsStore.localAudioEnabled). The bytes are kept in AudioCache so the same song is instant next time.
    */
-  private async networkBlobFor(songId: string, dataSaver: boolean, background = false): Promise<string | null> {
+  private async networkBlobFor(songId: string, dataSaver: boolean, background = false, durationSec = 0): Promise<string | null> {
     if (!isIOS || !useSettingsStore.getState().localAudioEnabled) return null;
     // The fetch can take a couple of seconds and the old track is still sounding meanwhile: say "loading" now, so the
     // spinner shows and nothing treats the old track's position as the new song's. (Not for the background variant:
@@ -709,14 +783,17 @@ class AudioEngine {
     const controller = new AbortController();
     if (background) this.backgroundBlobFetch = controller;
     else this.blobFetch = controller;
+    if (!background && streamingSupported) return this.streamUrlFor(songId, dataSaver, durationSec, controller);
     const timer = setTimeout(() => controller.abort(), BLOB_START_TIMEOUT_MS);
     try {
       const url = resolveAudioUrl(songId, dataSaver);
       // priority=low keeps the readying of the next track behind anything the user taps, in the backend's queue too.
       const response = await fetch(background ? url + (url.includes('?') ? '&' : '?') + 'priority=low' : url, { signal: controller.signal });
       if (!response.ok) return null;
+      const bodyStartedAt = performance.now();
       const blob = await response.blob();
       if (controller.signal.aborted) return null;
+      noteDownload(blob.size, (performance.now() - bodyStartedAt) / 1000);
       void AudioCache.store(songId, dataSaver, blob);
       return URL.createObjectURL(blob);
     } catch {
@@ -726,6 +803,76 @@ class AudioEngine {
       if (this.blobFetch === controller) this.blobFetch = null;
       if (this.backgroundBlobFetch === controller) this.backgroundBlobFetch = null;
     }
+  }
+
+  /**
+   * A MediaSource URL for `songId`: once the element loads it, the file is fetched once and appended as it arrives, so the
+   * song starts after the first few hundred KB even on a slow link. The bytes are kept and stored in AudioCache when the
+   * download completes (same as the blob path). A failed stream closes the source with a network error, which the element
+   * reports like any failed load and waitWithBlobFallback answers by retrying the plain URL.
+   */
+  private streamUrlFor(songId: string, dataSaver: boolean, durationSec: number, controller: AbortController): string {
+    const source = new ManagedMediaSourceCtor!();
+    const url = URL.createObjectURL(source);
+    source.addEventListener(
+      'sourceopen',
+      () => {
+        void (async () => {
+          const chunks: Uint8Array[] = [];
+          try {
+            const response = await fetch(resolveAudioUrl(songId, dataSaver), { signal: controller.signal });
+            if (!response.ok || !response.body) throw new Error('stream refused');
+            const reader = response.body.getReader();
+            let buffer: SourceBuffer | null = null;
+            let head: Uint8Array = new Uint8Array(0);
+            const append = (data: Uint8Array): Promise<void> =>
+              new Promise((resolve, reject) => {
+                const target = buffer!;
+                const done = (): void => {
+                  target.removeEventListener('error', failed);
+                  resolve();
+                };
+                const failed = (): void => {
+                  target.removeEventListener('updateend', done);
+                  reject(new Error('append failed'));
+                };
+                target.addEventListener('updateend', done, { once: true });
+                target.addEventListener('error', failed, { once: true });
+                target.appendBuffer(data as BufferSource);
+              });
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+              if (!buffer) {
+                head = concatBytes(head, value);
+                if (head.length < STREAM_HEAD_BYTES) continue;
+                const codec = aacCodecFrom(head);
+                const type = `audio/mp4; codecs="${codec}"`;
+                buffer = source.addSourceBuffer(ManagedMediaSourceCtor!.isTypeSupported(type) ? type : 'audio/mp4; codecs="mp4a.40.2"');
+                if (durationSec > 0) source.duration = durationSec; // the song's published length, as everywhere else
+                await append(head);
+                continue;
+              }
+              await append(value);
+            }
+            if (!buffer) throw new Error('empty stream');
+            if (source.readyState === 'open') source.endOfStream();
+            void AudioCache.store(songId, dataSaver, new Blob(chunks as BlobPart[], { type: 'audio/mp4' }));
+          } catch {
+            if (!controller.signal.aborted && source.readyState === 'open') {
+              try {
+                source.endOfStream('network');
+              } catch {
+                // already closed: nothing left to signal
+              }
+            }
+          }
+        })();
+      },
+      { once: true },
+    );
+    return url;
   }
 
   /** A tap must not compete with a background preload of some other song for the same connection. */
@@ -764,7 +911,8 @@ class AudioEngine {
 
   private hasUsablePreload(song: Song, dataSaver: boolean, element: HTMLAudioElement): boolean {
     const preloaded = this.preloaded;
-    return preloaded !== null && preloaded.songId === song.id && preloaded.dataSaver === dataSaver && element.src !== '' && !element.error;
+    const qualityOk = preloaded !== null && (preloaded.dataSaver === dataSaver || (isIOS && preloaded.dataSaver && !dataSaver)); // iOS may deliberately ready the small file on a slow link
+    return preloaded !== null && preloaded.songId === song.id && qualityOk && element.src !== '' && !element.error;
   }
 
   /**
@@ -944,11 +1092,23 @@ class AudioEngine {
     const inactiveElement = this.elements[inactiveIndex];
     if (this.hasUsablePreload(song, dataSaver, inactiveElement)) return; // already sitting in the spare element
 
+    const readyLow = startsLow(dataSaver, song.duration);
+    let usedLow = dataSaver;
     let url = await localUrlFor(song.id, dataSaver);
+    if (!url && readyLow && !dataSaver) {
+      url = await localUrlFor(song.id, true); // the small file may be the one already stored on a slow link
+      if (url) usedLow = true;
+    }
     // On iOS a network URL here would put WebKit's chain of Range requests in the background, competing with whatever
     // the user taps next; one plain fetch into a blob readies the next track without that (and lets the swap be instant).
-    if (!url) url = await this.networkBlobFor(song.id, dataSaver, true);
-    if (!url) url = resolveAudioUrl(song.id, dataSaver);
+    if (!url) {
+      url = await this.networkBlobFor(song.id, readyLow, true);
+      usedLow = readyLow;
+    }
+    if (!url) {
+      url = resolveAudioUrl(song.id, readyLow);
+      usedLow = readyLow;
+    }
     const preloadUrl = url.startsWith('blob:') ? url : url + (url.includes('?') ? '&' : '?') + 'priority=low';
 
     // The cache lookup above is async — a track change may have started while it ran,
@@ -961,11 +1121,16 @@ class AudioEngine {
     // Set the src and force a load. The element is already user-activated (see unlock()),
     // so the browser will honor this background load.
     this.preloadedUrl = preloadUrl;
-    this.preloaded = { songId: song.id, dataSaver };
+    this.preloaded = { songId: song.id, dataSaver: usedLow };
     const oldSrc = inactiveElement.src;
     inactiveElement.src = preloadUrl;
     inactiveElement.load();
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
+  }
+
+  /** The quality flag the next track should be prefetched at on this device right now (see startsLow). */
+  effectiveDataSaver(song: Song, dataSaver: boolean): boolean {
+    return startsLow(dataSaver, song.duration);
   }
 
   /** Whether `song` is already sitting in the spare element, ready for an instant swap. */

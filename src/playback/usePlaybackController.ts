@@ -424,13 +424,15 @@ export function usePlaybackController() {
 
       // Only the next track is downloaded whole — a second full file costs the phone data and battery for a track
       // that may never play; the ones after it just get their resolve warmed (cheap, server-side).
-      AudioCache.prefetchTracks([nextUp.id], preferLow);
+      // On iOS a slow measured link readies the small file for the next track too (see AudioEngine.startsLow).
+      const nextLow = audioEngine.effectiveDataSaver(nextUp, preferLow);
+      AudioCache.prefetchTracks([nextUp.id], nextLow);
       for (const song of later) prefetchAudioResolveOnly(song.id, preferLow ? 'low' : 'high');
       if (AudioCache.isSupported) {
         // The blob download below waits its turn in a one-at-a-time queue; warming the resolve right away means the
         // track is at worst a network-URL start (cache hit on the backend), never a cold yt-dlp run.
         prefetchAudioResolveOnly(nextUp.id, preferLow ? 'low' : 'high');
-        void AudioCache.prefetchAndCache(nextUp.id, preferLow)
+        void AudioCache.prefetchAndCache(nextUp.id, nextLow)
           .then(() => audioEngine.preloadNextTrack(nextUp, preferLow))
           .then(() => {
             // A preload that did not take (spare element busy, a fetch that failed) gets one more try well before

@@ -17,7 +17,11 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { extendQueueWithRadio } from './playSongRadio';
 
 const COMPLETION_THRESHOLD = 0.9;
-const COMPLETION_POLL_MS = 500;
+// Far from the end nothing needs checking often (each wakeup costs a phone battery); near the end it must be tight so
+// the next track starts on time.
+const COMPLETION_POLL_MS = 2000;
+const COMPLETION_POLL_NEAR_END_MS = 250;
+const NEAR_END_WINDOW_SEC = 4;
 // How long currentTime can sit completely frozen at/near the track's end before we
 // treat it as stuck and force the same advance a native 'ended' event would have
 // triggered. Some devices/streams just stop dead without ever firing 'ended' — this
@@ -414,11 +418,10 @@ export function usePlaybackController() {
       const [nextUp, ...later] = upcoming;
       if (!nextUp) return;
 
-      AudioCache.prefetchTracks(
-        // Data Saver users opted out of spending data on tracks they may never hear.
-        (preferLow ? [nextUp] : upcoming).map((song) => song.id),
-        preferLow,
-      );
+      // Only the next track is downloaded whole — a second full file costs the phone data and battery for a track
+      // that may never play; the ones after it just get their resolve warmed (cheap, server-side).
+      AudioCache.prefetchTracks([nextUp.id], preferLow);
+      for (const song of later) prefetchAudioResolveOnly(song.id, preferLow ? 'low' : 'high');
       if (AudioCache.isSupported) {
         // The blob download below waits its turn in a one-at-a-time queue; warming the resolve right away means the
         // track is at worst a network-URL start (cache hit on the backend), never a cold yt-dlp run.
@@ -426,7 +429,6 @@ export function usePlaybackController() {
         void AudioCache.prefetchAndCache(nextUp.id, preferLow).then(() => audioEngine.preloadNextTrack(nextUp, preferLow));
       } else {
         void audioEngine.preloadNextTrack(nextUp, preferLow);
-        for (const song of later) prefetchAudioResolveOnly(song.id, preferLow ? 'low' : 'high');
       }
     }, PREFETCH_SETTLE_MS);
     return () => clearTimeout(timeoutId);
@@ -436,7 +438,12 @@ export function usePlaybackController() {
   useEffect(() => {
     if (!currentSong || !isPlaying) return;
     const timeoutId = setTimeout(() => {
+      // A second download of the same file is real data and radio time on a phone: skip it when the browser says the
+      // connection is metered (iOS doesn't expose this, so there it follows Data Saver only).
+      const connection = (navigator as Navigator & { connection?: { saveData?: boolean; type?: string } }).connection;
+      if (connection?.saveData || connection?.type === 'cellular') return;
       const preferLow = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
+      if (dataSaver) return;
       AudioCache.keepPlaying(currentSong.id, preferLow);
     }, KEEP_PLAYING_AFTER_MS);
     return () => clearTimeout(timeoutId);
@@ -490,7 +497,7 @@ export function usePlaybackController() {
     let stalledSinceMs: number | null = null;
     let silentSinceMs: number | null = null;
 
-    const intervalId = setInterval(() => {
+    const check = () => {
       const time = audioEngine.getCurrentTime();
 
       // PRIMARY completion signal: currentTime has reached the song's own published
@@ -543,8 +550,16 @@ export function usePlaybackController() {
       if (Date.now() - stalledSinceMs >= STALL_GRACE_MS) {
         runCompletionAdvance(song);
       }
-    }, COMPLETION_POLL_MS);
-    return () => clearInterval(intervalId);
+    };
+    let timerId: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      check();
+      const remaining = song.duration - audioEngine.getCurrentTime();
+      const nearEnd = song.duration > 0 && remaining <= NEAR_END_WINDOW_SEC;
+      timerId = setTimeout(tick, nearEnd ? COMPLETION_POLL_NEAR_END_MS : COMPLETION_POLL_MS);
+    };
+    timerId = setTimeout(tick, COMPLETION_POLL_MS);
+    return () => clearTimeout(timerId);
   }, [engineState.status, currentSong, runCompletionAdvance]);
 
   useEffect(() => {

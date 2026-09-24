@@ -44,6 +44,14 @@ Dua fitur terkait, keduanya seputar "dengerin tanpa internet": unduhan lagu manu
 - **Belum bisa diverifikasi**: apakah blob: audio beneran stabil di iPhone Safari sekarang — itu **wajib dites langsung di iPhone asli**, gak bisa diverifikasi dari Docker/Chromium Linux. Kalau ternyata masih gagal seperti dulu, jaring pengaman di atas seharusnya bikin itu terlihat sebagai "coba sekali, gagal, otomatis balik ke jaringan" yang mulus, bukan lagu yang gak mau muter — tapi mekanisme pastinya baru bisa dipastikan lewat pemakaian nyata.
 - **Diuji di Docker (Chromium)**: unduh → tersimpan di IndexedDB (ukuran & kualitas benar) → menu berubah jadi "Hapus Unduhan" → kartu kuota di Pengaturan menghitung benar → di-set offline (`context.setOffline`) → lagu yang sama tetap terputar (elemen `<audio>` memakai `blob:` URL, nol request ke `/api/audio/`, `currentTime` beneran maju) → hapus unduhan → kembali ke "Unduh untuk Offline". Pemutaran normal (lagu yang tak diunduh, online) tetap jalan seperti biasa — tak ada regresi. 132 test, lint, dan type-check frontend+backend semua bersih.
 
+## Perubahan terbaru — 2026-09-24 (klik dari search lebih cepat, HP lebih hemat)
+
+- Hasil pencarian yang sudah di-commit sekarang memanaskan 3 teratas (sebelumnya hanya #1) lewat [SearchResultsList.tsx](./src/views/search/SearchResultsList.tsx). Permintaan bisa ditarik kembali: klien memakai `AbortController`, dan `/resolve` di [audio.ts](./server/src/routes/audio.ts) menjatuhkan tugas yang masih antre begitu kliennya pergi, jadi hasil pencarian lama tidak pernah menghalangi klik.
+- Lookahead mengunduh 1 lagu penuh (sebelumnya 2); lagu sesudahnya hanya dipanaskan resolve-nya. Menghemat data dan baterai HP.
+- Pengecekan lagu selesai tidak lagi polling 500 ms terus-menerus: 2 detik biasanya, 250 ms hanya 4 detik terakhir sebelum lagu habis.
+- `keepPlaying` (simpan lagu yang sedang diputar) dilewati kalau Data Saver aktif atau browser melapor koneksi seluler/`saveData` (iOS tidak mengekspos ini, jadi di sana hanya mengikuti Data Saver).
+- Belum dikerjakan: menyimpan kepala lagu di disk backend (akan menggantikan `keepPlaying` di HP). Diverifikasi: build, 132 tes, Docker lokal sehat; kecepatan nyata belum diukur di perangkat.
+
 ## Perubahan terbaru — 2026-09-24 (pencarian 61 detik & resolve macet berantai)
 
 Di produksi, pencarian berakhir 504 setelah ~61 detik dan resolve audio sering timeout 25-60 detik (`fetch failed`, `yt-dlp microservice FAILED`). Dugaan kuat: DNS YouTube mengembalikan alamat IPv6 yang tidak bisa dijangkau jaringan Docker VM, sehingga tiap koneksi menunggu timeout dulu sebelum jatuh ke IPv4 (belum dikonfirmasi dengan tes IPv4/IPv6 di VPS). Perubahan:

@@ -472,8 +472,12 @@ audioRouter.get('/audio/:videoId/resolve', async (req, res) => {
   const { videoId } = req.params;
   const quality: AudioQuality = req.query.quality === 'low' ? 'low' : 'high';
 
+  // A warm-up whose page moved on (new search, other view) must not keep a queued slot: same rule as the audio route.
+  const gone = new AbortController();
+  res.once('close', () => gone.abort());
+
   try {
-    await resolveAudio(videoId, quality, RESOLVE_ONLY_PRIORITY);
+    await resolveAudio(videoId, quality, RESOLVE_ONLY_PRIORITY, gone.signal);
     res.status(204).end();
   } catch (error) {
     res.status(502).json({ error: 'Failed to resolve audio.', message: (error as Error).message });

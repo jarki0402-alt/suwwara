@@ -62,9 +62,11 @@ export function buildAudioUrl(songId: string, quality: 'high' | 'low'): string {
  * Called ahead of time so the multi-second yt-dlp resolution has already
  * happened by the time playback actually reaches that track.
  */
-export function prefetchAudioResolveOnly(songId: string, quality: 'high' | 'low'): void {
+export function prefetchAudioResolveOnly(songId: string, quality: 'high' | 'low', signal?: AbortSignal): void {
   const url = `/api/audio/${encodeURIComponent(songId)}/resolve?quality=${quality}`;
-  fetch(new URL(url, window.location.origin), { keepalive: true }).catch(() => {
+  // `signal` lets a caller whose context went away (search results replaced) take the request back out of the
+  // backend's queue; keepalive is for the fire-and-forget callers only (it can't be combined with aborting).
+  fetch(new URL(url, window.location.origin), signal ? { signal } : { keepalive: true }).catch(() => {
     // Best-effort warm-up only — a failed prefetch just means the normal
     // on-demand resolution path runs later, same as before this existed.
   });

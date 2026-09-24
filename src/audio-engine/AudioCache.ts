@@ -161,6 +161,26 @@ export const AudioCache = {
     for (const songId of songIds) void this.prefetchAndCache(songId, dataSaver);
   },
 
+  /** Keeps a file the player already had to download in full anyway (see AudioEngine.networkBlobFor) — free repeat plays. */
+  async store(songId: string, dataSaver: boolean, blob: Blob): Promise<void> {
+    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled || blob.size < MIN_VALID_BLOB_BYTES) return;
+    try {
+      if (await downloadManager.has(songId)) return;
+      const db = await getDB();
+      const id = `${songId}:${dataSaver ? 'low' : 'high'}`;
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put({ id, blob, timestamp: Date.now(), size: blob.size } satisfies AudioEntry);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+      await this.enforceLimits();
+    } catch {
+      // An optimization only — playback already has the bytes.
+    }
+  },
+
   /** Downloads a track into IndexedDB in the background. Resolves once it's stored
    * (or skipped/failed — errors are swallowed on purpose, it's only an optimization). */
   prefetchAndCache(songId: string, dataSaver: boolean): Promise<void> {

@@ -44,6 +44,16 @@ Dua fitur terkait, keduanya seputar "dengerin tanpa internet": unduhan lagu manu
 - **Belum bisa diverifikasi**: apakah blob: audio beneran stabil di iPhone Safari sekarang — itu **wajib dites langsung di iPhone asli**, gak bisa diverifikasi dari Docker/Chromium Linux. Kalau ternyata masih gagal seperti dulu, jaring pengaman di atas seharusnya bikin itu terlihat sebagai "coba sekali, gagal, otomatis balik ke jaringan" yang mulus, bukan lagu yang gak mau muter — tapi mekanisme pastinya baru bisa dipastikan lewat pemakaian nyata.
 - **Diuji di Docker (Chromium)**: unduh → tersimpan di IndexedDB (ukuran & kualitas benar) → menu berubah jadi "Hapus Unduhan" → kartu kuota di Pengaturan menghitung benar → di-set offline (`context.setOffline`) → lagu yang sama tetap terputar (elemen `<audio>` memakai `blob:` URL, nol request ke `/api/audio/`, `currentTime` beneran maju) → hapus unduhan → kembali ke "Unduh untuk Offline". Pemutaran normal (lagu yang tak diunduh, online) tetap jalan seperti biasa — tak ada regresi. 132 test, lint, dan type-check frontend+backend semua bersih.
 
+## Perubahan terbaru — 2026-09-24 (iPhone: lagu lambat & "siap tapi tidak bunyi")
+
+Direproduksi dengan WebKit profil iPhone terhadap produksi: WebKit memuat file dengan rantai ~7 request Range berurutan (2-4 dtk walau server hangat, lebih di HP), dan ~2 dari 10 klik berakhir dengan lagu termuat penuh tapi paused (tidak pernah `play()`); Chromium/Android 0,5-1,1 dtk. Penyebab dan perbaikan:
+- **Bug controller** ([usePlaybackController.ts](./src/playback/usePlaybackController.ts)): `hasPlayedSongIdRef` ditandai untuk lagu BARU selagi lagu LAMA masih 'playing' (state React berganti satu render sebelum engine), sehingga load pertama yang lambat (>5 dtk) dikira rebuffer di tengah lagu → `reloadAtLowerQuality()` memuat ulang elemen yang salah → berakhir paused. Sekarang hanya ditandai kalau lagu aktif engine sama dengan lagu terpilih.
+- **iOS memutar lewat satu `fetch` → blob** ([AudioEngine.ts](./src/audio-engine/AudioEngine.ts), `networkBlobFor`), fallback ke URL biasa kalau gagal/timeout 20 dtk atau `localAudioEnabled` mati. Uji WebKit: 0,7-1,0 dtk vs 2,2-4,3 dtk. Hasil unduhan disimpan ke `AudioCache.store()` supaya putar ulang instan tanpa unduhan kedua. Status 'loading' langsung ditampilkan selama fetch.
+- Preload lagu lain di elemen cadangan dibuang saat ada tap (`dropStalePreload`) supaya tidak berebut koneksi.
+- `play()` yang ditolak/terputus setelah load selesai diulang sekali (`playWhenReady`) sebelum error dilempar.
+- Diagnostik: waktu fetch ikut terhitung dalam trace (`beginTrace` menerima `startedAt`).
+Diverifikasi: build, 132 tes, Docker lokal, alur WebKit iPhone (7 lagu tanpa kegagalan; IndexedDB tidak bisa diuji di konteks Playwright yang non-persisten). Belum diuji di iPhone asli. Belum ditangani: `GET /api/trending/id` sempat 502.
+
 ## Perubahan terbaru — 2026-09-24 (pintasan keyboard desktop)
 
 [useKeyboardShortcuts.ts](./src/playback/useKeyboardShortcuts.ts): Space = putar/jeda, ←/→ = mundur/maju 5 detik, Ctrl/⌘ + ←/→ = sebelumnya/berikutnya, Ctrl/⌘ + ↑/↓ = volume. Tidak aktif saat fokus di input, tombol, atau slider (supaya Space pada tombol tidak dobel), dan mengikuti aturan Jam yang sama dengan tombol di layar. Diverifikasi build/lint/132 tes; belum dicoba dengan tombol nyata di browser.

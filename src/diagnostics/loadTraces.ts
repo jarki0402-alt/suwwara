@@ -65,7 +65,7 @@ function describeConnection(): string | undefined {
 }
 
 /** Starts a trace for a song about to load into `element`. */
-export function beginTrace(song: { id: string; name: string }, quality: 'high' | 'low', element: HTMLMediaElement, preloaded: boolean): void {
+export function beginTrace(song: { id: string; name: string }, quality: 'high' | 'low', element: HTMLMediaElement, preloaded: boolean, startedAt = Date.now()): void {
   // loadTrack() can be entered twice for one tap (crossfadeTo falls back to it) — keep one trace.
   if (current && current.trace.songId === song.id && current.trace.outcome === 'loading' && Date.now() - current.trace.startedAt < 500) {
     current.element = element;
@@ -78,7 +78,7 @@ export function beginTrace(song: { id: string; name: string }, quality: 'high' |
     title: song.name,
     quality,
     preloaded,
-    startedAt: Date.now(),
+    startedAt,
     stages: {},
     waits: 0,
     outcome: 'loading',

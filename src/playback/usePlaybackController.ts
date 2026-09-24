@@ -462,7 +462,12 @@ export function usePlaybackController() {
       consecutiveErrorsRef.current = 0;
       retriedSongIdRef.current = null;
     }
-    if (engineState.status === 'playing' && currentSong) hasPlayedSongIdRef.current = currentSong.id;
+    // The engine's own current song, not just the selected one: on a tap the selection changes a render before the
+    // engine does, while the OLD track is still 'playing' — that used to mark the new song as "already played", so a
+    // slow first load was mistaken for a mid-song rebuffer and reloaded (at lower quality) into the wrong state.
+    if (engineState.status === 'playing' && currentSong && audioEngine.getCurrentSong()?.id === currentSong.id) {
+      hasPlayedSongIdRef.current = currentSong.id;
+    }
   }, [engineState.status, engineState.error, currentSong, setPlaybackStatus]);
 
   // Mid-song rebuffer on a bad connection: status flips back to 'loading' (the

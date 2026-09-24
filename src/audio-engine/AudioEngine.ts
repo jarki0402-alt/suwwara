@@ -32,6 +32,9 @@ const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navig
 // keep spinning; only a genuinely dead one should ever hit this.
 const CANPLAY_TIMEOUT_MS = 30000;
 
+// How long the iOS whole-file fetch (see networkBlobFor) may take before the plain URL is tried instead.
+const BLOB_START_TIMEOUT_MS = 20000;
+
 // How long pause/resume take to ramp the output, in seconds. Stopping an <audio>
 // element mid-waveform can leave an audible click; ~90ms is below what reads as a
 // delay but enough to land the ramp on silence. Only where a GainNode exists (not iOS,
@@ -140,6 +143,7 @@ class AudioEngine {
    * the one queued after it.
    */
   private transitionsInFlight = 0;
+  private blobFetch: AbortController | null = null;
   private pauseTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   private listeners = new Set<AudioEngineListener>();
@@ -386,6 +390,8 @@ class AudioEngine {
 
   private async loadTrackImpl(song: Song, options: LoadTrackOptions): Promise<void> {
     const requestId = ++this.playRequestId;
+    const tapAt = Date.now();
+    this.blobFetch?.abort();
     this.cancelPendingPause();
     const { context, elements, gains } = this.ensureGraph();
     if (context && context.state === 'suspended') await context.resume();
@@ -397,7 +403,12 @@ class AudioEngine {
     const networkUrl = resolveAudioUrl(song.id, dataSaver);
     let url = '';
     if (!usePreload) {
-      url = (await localUrlFor(song.id, dataSaver)) ?? networkUrl;
+      this.dropStalePreload(song);
+      url = (await localUrlFor(song.id, dataSaver)) ?? (await this.networkBlobFor(song.id, dataSaver)) ?? networkUrl;
+      if (requestId !== this.playRequestId) {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+        return; // a newer request took over while the file was being fetched
+      }
     }
 
     this.cancelPendingCrossfade();
@@ -447,7 +458,7 @@ class AudioEngine {
       this.updateSnapshot({ duration: song.duration || newElement.duration });
       
       if (options.autoplay !== false) {
-        await newElement.play();
+        await this.playWhenReady(newElement, requestId);
         if (requestId !== this.playRequestId) return;
         if (options.fadeInSec && newGain && context) {
           scheduleFadeIn(newGain, context, this.volume, options.fadeInSec);
@@ -464,7 +475,7 @@ class AudioEngine {
 
     this.preloadedUrl = null;
     this.preloaded = null;
-    beginTrace(song, dataSaver ? 'low' : 'high', element, false);
+    beginTrace(song, dataSaver ? 'low' : 'high', element, false, tapAt);
     const oldSrc = element.src;
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
     await this.loadElementWithFallback(element, url, networkUrl, requestId);
@@ -480,7 +491,7 @@ class AudioEngine {
     this.updateSnapshot({ duration: song.duration || element.duration });
 
     if (options.autoplay !== false) {
-      await element.play();
+      await this.playWhenReady(element, requestId);
       if (requestId !== this.playRequestId) return;
       if (options.fadeInSec && gain && context) {
         scheduleFadeIn(gain, context, this.volume, options.fadeInSec);
@@ -680,6 +691,64 @@ class AudioEngine {
     return this.snapshot.status === 'playing' && this.context !== null && this.context.state !== 'running';
   }
 
+  /**
+   * iOS only. WebKit loads a range-served file as a chain of ~7 serial, mutually cancelling Range requests (measured:
+   * 2-4s even with the backend warm, 10s+ on a phone's round trips, and it stalls when a background preload shares the
+   * connection). One plain fetch of the whole file and playing it as a blob took ~0.8s in the same test. Returns null —
+   * and the caller uses the normal URL — on anything unexpected, or when this device has shown blob audio to be flaky
+   * (settingsStore.localAudioEnabled). The bytes are kept in AudioCache so the same song is instant next time.
+   */
+  private async networkBlobFor(songId: string, dataSaver: boolean): Promise<string | null> {
+    if (!isIOS || !useSettingsStore.getState().localAudioEnabled) return null;
+    // The fetch can take a couple of seconds and the old track is still sounding meanwhile: say "loading" now, so the
+    // spinner shows and nothing treats the old track's position as the new song's.
+    this.updateSnapshot({ status: 'loading', error: null });
+    const controller = new AbortController();
+    this.blobFetch = controller;
+    const timer = setTimeout(() => controller.abort(), BLOB_START_TIMEOUT_MS);
+    try {
+      const response = await fetch(resolveAudioUrl(songId, dataSaver), { signal: controller.signal });
+      if (!response.ok) return null;
+      const blob = await response.blob();
+      if (controller.signal.aborted) return null;
+      void AudioCache.store(songId, dataSaver, blob);
+      return URL.createObjectURL(blob);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+      if (this.blobFetch === controller) this.blobFetch = null;
+    }
+  }
+
+  /** A tap must not compete with a background preload of some other song for the same connection. */
+  private dropStalePreload(song: Song): void {
+    if (!this.elements || !this.preloaded || this.preloaded.songId === song.id) return;
+    const spare = this.elements[this.activeIndex === 0 ? 1 : 0];
+    const oldSrc = spare.src;
+    spare.removeAttribute('src');
+    spare.load();
+    if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
+    this.preloaded = null;
+    this.preloadedUrl = null;
+  }
+
+  /**
+   * play() on an element that already finished loading, retried once. It can be refused or interrupted right at that
+   * point (another load() landing on the element, iOS letting the tap's activation lapse during a slow load) — before
+   * this the rejection escaped and the song sat ready but paused until the user tapped play again.
+   */
+  private async playWhenReady(element: HTMLAudioElement, requestId: number): Promise<void> {
+    try {
+      await element.play();
+    } catch {
+      if (requestId !== this.playRequestId) return;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      if (requestId !== this.playRequestId) return;
+      await element.play();
+    }
+  }
+
   /** True while a track change owns the spare <audio> element (a method rather than an
    * inline check so it is re-read fresh after an await, not narrowed by an earlier one). */
   private spareElementBusy(): boolean {
@@ -760,6 +829,7 @@ class AudioEngine {
     }
 
     const requestId = ++this.playRequestId;
+    this.blobFetch?.abort();
     const { context, elements, gains } = this.ensureGraph();
     if (context && context.state === 'suspended') await context.resume();
     if (requestId !== this.playRequestId) return;

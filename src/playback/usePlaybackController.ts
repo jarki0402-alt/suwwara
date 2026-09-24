@@ -15,6 +15,7 @@ import { usePlayerStore } from '../stores/playerStore';
 import { useQueueStore } from '../stores/queueStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { extendQueueWithRadio } from './playSongRadio';
+import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 
 const COMPLETION_THRESHOLD = 0.9;
 // Far from the end nothing needs checking often (each wakeup costs a phone battery); near the end it must be tight so
@@ -698,6 +699,20 @@ export function usePlaybackController() {
     },
     [jamRole, jamRoomId, jamClientId],
   );
+
+  const setVolume = useSettingsStore((s) => s.setVolume);
+  useKeyboardShortcuts({
+    hasSong: currentSong !== null,
+    onTogglePlay: handleTogglePlay,
+    onNext: handleNext,
+    onPrevious: handlePrevious,
+    onSeekBy: (deltaSec) => {
+      const duration = audioEngine.getDuration();
+      const target = Math.max(0, audioEngine.getCurrentTime() + deltaSec);
+      handleSeek(duration > 0 ? Math.min(target, Math.max(0, duration - 1)) : target);
+    },
+    onVolumeBy: (delta) => setVolume(useSettingsStore.getState().volume + delta),
+  });
 
   useMediaSession({
     song: currentSong,

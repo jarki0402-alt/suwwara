@@ -44,6 +44,10 @@ Dua fitur terkait, keduanya seputar "dengerin tanpa internet": unduhan lagu manu
 - **Belum bisa diverifikasi**: apakah blob: audio beneran stabil di iPhone Safari sekarang — itu **wajib dites langsung di iPhone asli**, gak bisa diverifikasi dari Docker/Chromium Linux. Kalau ternyata masih gagal seperti dulu, jaring pengaman di atas seharusnya bikin itu terlihat sebagai "coba sekali, gagal, otomatis balik ke jaringan" yang mulus, bukan lagu yang gak mau muter — tapi mekanisme pastinya baru bisa dipastikan lewat pemakaian nyata.
 - **Diuji di Docker (Chromium)**: unduh → tersimpan di IndexedDB (ukuran & kualitas benar) → menu berubah jadi "Hapus Unduhan" → kartu kuota di Pengaturan menghitung benar → di-set offline (`context.setOffline`) → lagu yang sama tetap terputar (elemen `<audio>` memakai `blob:` URL, nol request ke `/api/audio/`, `currentTime` beneran maju) → hapus unduhan → kembali ke "Unduh untuk Offline". Pemutaran normal (lagu yang tak diunduh, online) tetap jalan seperti biasa — tak ada regresi. 132 test, lint, dan type-check frontend+backend semua bersih.
 
+## Perubahan terbaru — 2026-09-24 (pintasan keyboard desktop)
+
+[useKeyboardShortcuts.ts](./src/playback/useKeyboardShortcuts.ts): Space = putar/jeda, ←/→ = mundur/maju 5 detik, Ctrl/⌘ + ←/→ = sebelumnya/berikutnya, Ctrl/⌘ + ↑/↓ = volume. Tidak aktif saat fokus di input, tombol, atau slider (supaya Space pada tombol tidak dobel), dan mengikuti aturan Jam yang sama dengan tombol di layar. Diverifikasi build/lint/132 tes; belum dicoba dengan tombol nyata di browser.
+
 ## Perubahan terbaru — 2026-09-24 (klik dari search lebih cepat, HP lebih hemat)
 
 - Hasil pencarian yang sudah di-commit sekarang memanaskan 3 teratas (sebelumnya hanya #1) lewat [SearchResultsList.tsx](./src/views/search/SearchResultsList.tsx). Permintaan bisa ditarik kembali: klien memakai `AbortController`, dan `/resolve` di [audio.ts](./server/src/routes/audio.ts) menjatuhkan tugas yang masih antre begitu kliennya pergi, jadi hasil pencarian lama tidak pernah menghalangi klik.

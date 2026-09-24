@@ -43,10 +43,18 @@ export function bestThumbnail(thumbnails: { url: string; width: number }[] | und
  * without needing manual title/channel heuristics like the old
  * youtube-sr-based implementation required.
  */
+// The same few searches repeat constantly (retyping, going back to results, several people looking for the same hit),
+// and each miss is a round trip to YouTube. Short TTL: results are not meant to be stale for long. Hard cap per rule #1.
+const songSearches = new BoundedTtlCache<SearchSong[]>(300, 10 * 60 * 1000);
+
 export async function searchSongs(query: string, limit = 20): Promise<SearchSong[]> {
   const trimmed = query.trim();
   if (trimmed.length === 0) return [];
+  if (trimmed.length > 120) return searchSongsUncached(trimmed, limit);
+  return songSearches.getOrLoad(`${trimmed.toLowerCase()}|${limit}`, () => searchSongsUncached(trimmed, limit));
+}
 
+async function searchSongsUncached(trimmed: string, limit: number): Promise<SearchSong[]> {
   const ytmusic = await getYTMusic();
   const results = await withTimeout(ytmusic.searchSongs(trimmed));
 

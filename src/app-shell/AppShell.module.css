@@ -8,8 +8,10 @@
 .content {
   flex: 1;
   overflow-y: auto;
-  /* Matches BottomNav/MiniPlayer's own safe-area-reserving sizing above. */
-  padding-bottom: calc(var(--mini-player-height) + var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-4));
+  /* Matches BottomNav/MiniPlayer's own detached-pill sizing above: their own combined
+     footprint (two pills + the three gaps between/around them) plus a little breathing
+     room so the last row of content never sits flush against the floating MiniPlayer. */
+  padding-bottom: calc(var(--mini-player-height) + var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--pill-gap) * 3 + var(--space-2));
 }
 
 @media (min-width: 960px) {
@@ -26,7 +28,9 @@
     max-width: calc(1400px + var(--sidebar-width));
     margin: 0 auto;
     padding-left: var(--sidebar-width);
-    padding-bottom: calc(var(--mini-player-height) + var(--space-5));
+    /* MiniPlayer's real desktop height is 82px (its own CSS override), floating with its own
+       --pill-gap detachment from the bottom edge now too. */
+    padding-bottom: calc(82px + var(--pill-gap) + var(--space-4));
     /* No transition on padding: animating it re-laid out the whole page on every frame (the stutter when
        the right panel opened). The change is one cross-faded step now — see utils/viewTransition.ts. */
   }

@@ -141,7 +141,7 @@ export function TopBar() {
     }
   };
 
-  if ((currentView === 'search' && detailDepth === 0) || detailDepth > 0) return null;
+  if (currentView !== 'home' || detailDepth > 0) return null;
 
   const trimmed = query.trim();
   const showRecent = isOpen && trimmed.length === 0 && recent.items.length > 0;

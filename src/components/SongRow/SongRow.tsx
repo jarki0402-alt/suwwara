@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Song } from '../../api/types';
+import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import { useUiStore } from '../../stores/uiStore';
 import { formatAddedDate, formatCount } from '../../utils/formatCount';
 import { useSongDuration } from '../../utils/songDurations';
@@ -30,10 +31,20 @@ export function SongRow({ song, onClick, onWarm, isActive, subtitle, trailing, t
   const openAlbum = useUiStore((state) => state.openAlbum);
   const album = song.album;
   const duration = useSongDuration(song);
+  const ripple = useBubbleRipple<HTMLButtonElement>();
 
   return (
     <div className={[styles.row, isActive ? styles.active : '', table ? styles.rowTable : ''].filter(Boolean).join(' ')}>
-      <button type="button" className={styles.main} onClick={onClick} onPointerDown={onWarm}>
+      <button
+        ref={ripple.ref}
+        type="button"
+        className={[styles.main, 'glass-ripple-host'].join(' ')}
+        onClick={onClick}
+        onPointerDown={(event) => {
+          ripple.onPointerDown(event);
+          onWarm?.();
+        }}
+      >
         <LazyImage images={song.image} quality="50x50" alt={song.name} className={styles.thumb} />
         <span className={styles.text}>
           <span className={styles.title}>{song.name}</span>

@@ -7,6 +7,7 @@ import { frameTicker } from '../audio-engine/frameTicker';
 import { Icon } from '../components/Icon/Icon';
 import { LazyImage } from '../components/Image/LazyImage';
 import { ProgressBar, type ProgressBarHandle } from '../components/ProgressBar/ProgressBar';
+import { useBubbleRipple } from '../hooks/useBubbleRipple';
 import { cycleRepeat, toggleShuffle } from '../jam/jamQueueActions';
 import { usePlayback } from '../playback/PlaybackContext';
 import { useQueueStore } from '../stores/queueStore';
@@ -32,6 +33,16 @@ export function MiniPlayer() {
   const volume = useSettingsStore((state) => state.volume);
   const setVolume = useSettingsStore((state) => state.setVolume);
   const progressBarRef = useRef<ProgressBarHandle>(null);
+  // One ripple-hook instance per button (fixed set, not a loop) — see useBubbleRipple's own
+  // note on why this can't be a single shared instance.
+  const shuffleRipple = useBubbleRipple<HTMLButtonElement>();
+  const prevRipple = useBubbleRipple<HTMLButtonElement>();
+  const playRipple = useBubbleRipple<HTMLButtonElement>();
+  const nextRipple = useBubbleRipple<HTMLButtonElement>();
+  const repeatRipple = useBubbleRipple<HTMLButtonElement>();
+  const connectRipple = useBubbleRipple<HTMLButtonElement>();
+  const lyricsRipple = useBubbleRipple<HTMLButtonElement>();
+  const expandRipple = useBubbleRipple<HTMLButtonElement>();
 
   useEffect(() => {
     return frameTicker.subscribe(() => {
@@ -81,37 +92,52 @@ export function MiniPlayer() {
       <div className={styles.centerColumn}>
         <div className={styles.actions}>
           <button
+            ref={shuffleRipple.ref}
             type="button"
-            className={[styles.actionButton, styles.desktopOnly, shuffle ? styles.actionButtonActive : ''].join(' ')}
+            className={[styles.actionButton, styles.desktopOnly, 'glass-ripple-host', shuffle ? styles.actionButtonActive : ''].join(' ')}
             onClick={toggleShuffle}
+            onPointerDown={shuffleRipple.onPointerDown}
             aria-label="Acak antrean"
             aria-pressed={shuffle}
           >
             <Icon name="shuffle" size={20} />
           </button>
           <button
+            ref={prevRipple.ref}
             type="button"
-            className={[styles.actionButton, styles.desktopOnly].join(' ')}
+            className={[styles.actionButton, styles.desktopOnly, 'glass-ripple-host'].join(' ')}
             onClick={handlePrevious}
+            onPointerDown={prevRipple.onPointerDown}
             aria-label="Lagu sebelumnya"
           >
             <Icon name="previous" size={20} />
           </button>
           <button
+            ref={playRipple.ref}
             type="button"
-            className={[styles.actionButton, styles.playButton].join(' ')}
+            className={[styles.actionButton, styles.playButton, 'glass-ripple-host'].join(' ')}
             onClick={handleTogglePlay}
+            onPointerDown={playRipple.onPointerDown}
             aria-label={isPlaying ? 'Jeda' : 'Putar'}
           >
             <Icon name={isPlaying || isBuffering ? 'pause' : 'play'} size={22} />
           </button>
-          <button type="button" className={styles.actionButton} onClick={handleNext} aria-label="Lagu berikutnya">
+          <button
+            ref={nextRipple.ref}
+            type="button"
+            className={[styles.actionButton, 'glass-ripple-host'].join(' ')}
+            onClick={handleNext}
+            onPointerDown={nextRipple.onPointerDown}
+            aria-label="Lagu berikutnya"
+          >
             <Icon name="next" size={22} />
           </button>
           <button
+            ref={repeatRipple.ref}
             type="button"
-            className={[styles.actionButton, styles.desktopOnly, repeatMode !== 'off' ? styles.actionButtonActive : ''].join(' ')}
+            className={[styles.actionButton, styles.desktopOnly, 'glass-ripple-host', repeatMode !== 'off' ? styles.actionButtonActive : ''].join(' ')}
             onClick={cycleRepeat}
+            onPointerDown={repeatRipple.onPointerDown}
             aria-label="Ubah mode ulang"
           >
             <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={20} />
@@ -134,18 +160,22 @@ export function MiniPlayer() {
       <div className={styles.rightControls}>
         {/* Always shown, like Spotify's Connect icon: the panel it opens also explains how to link another device. */}
         <button
+          ref={connectRipple.ref}
           type="button"
-          className={[styles.iconButton, isConnectSheetOpen || isControllingRemote ? styles.iconButtonActive : ''].join(' ')}
+          className={[styles.iconButton, 'glass-ripple-host', isConnectSheetOpen || isControllingRemote ? styles.iconButtonActive : ''].join(' ')}
           onClick={isConnectSheetOpen ? closeConnectSheet : openConnectSheet}
+          onPointerDown={connectRipple.onPointerDown}
           aria-label="Perangkat"
           aria-pressed={isConnectSheetOpen}
         >
           <Icon name="devices" size={20} />
         </button>
         <button
+          ref={lyricsRipple.ref}
           type="button"
-          className={[styles.iconButton, isLyricsOpen ? styles.iconButtonActive : ''].join(' ')}
+          className={[styles.iconButton, 'glass-ripple-host', isLyricsOpen ? styles.iconButtonActive : ''].join(' ')}
           onClick={handleLyricsClick}
+          onPointerDown={lyricsRipple.onPointerDown}
           aria-label="Tampilkan lirik"
           aria-pressed={isLyricsOpen}
         >
@@ -165,7 +195,14 @@ export function MiniPlayer() {
             />
           </div>
         )}
-        <button type="button" className={styles.iconButton} onClick={openFullscreenLyrics} aria-label="Perbesar layar penuh">
+        <button
+          ref={expandRipple.ref}
+          type="button"
+          className={[styles.iconButton, 'glass-ripple-host'].join(' ')}
+          onClick={openFullscreenLyrics}
+          onPointerDown={expandRipple.onPointerDown}
+          aria-label="Perbesar layar penuh"
+        >
           <Icon name="expand" size={20} />
         </button>
       </div>

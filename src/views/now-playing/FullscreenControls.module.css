@@ -65,11 +65,16 @@
 
 .smallButton {
   border: none;
+  border-radius: var(--radius-full);
   background: none;
   color: rgba(255, 255, 255, 0.85);
   padding: var(--space-1);
   cursor: pointer;
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast), transform 160ms var(--ease-spring);
+}
+
+.smallButton:active {
+  transform: scale(0.88);
 }
 
 .smallButton:hover {
@@ -91,7 +96,12 @@
   justify-content: center;
   border: none;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 160ms var(--ease-spring);
+}
+
+.playButton:active {
+  transform: scale(0.9);
 }
 
 .right {
@@ -103,6 +113,10 @@
 }
 
 .iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
   border: none;
   background: none;
   color: rgba(255, 255, 255, 0.75);

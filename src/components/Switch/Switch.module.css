@@ -1,13 +1,14 @@
 .track {
-  width: 44px;
-  height: 26px;
+  position: relative;
+  width: 51px;
+  height: 31px;
   border-radius: var(--radius-full);
   background: var(--color-border);
   border: none;
-  padding: 3px;
+  padding: 2px;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background-color var(--transition-fast);
+  transition: background-color var(--transition-glass);
 }
 
 .trackOn {
@@ -16,13 +17,22 @@
 
 .thumb {
   display: block;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  width: 27px;
+  height: 27px;
+  border-radius: 27px;
   background: #ffffff;
-  transition: transform var(--transition-fast);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06);
+  transition: transform var(--transition-spring), width var(--transition-spring);
+}
+
+.track:active .thumb {
+  width: 34px;
 }
 
 .thumbOn {
-  transform: translateX(18px);
+  transform: translateX(20px);
+}
+
+.track:active .thumbOn {
+  transform: translateX(13px);
 }

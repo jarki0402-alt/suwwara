@@ -3,7 +3,7 @@
   inset: 0;
   z-index: var(--z-sheet);
   background: var(--color-bg);
-  animation: slideIn var(--transition-slow);
+  animation: slideIn 420ms var(--ease-spring);
   /* The sheet slides in over 400ms with a full-screen 40px-blurred image inside it.
      Telling the browser up front that this layer will be transformed lets it
      rasterize the blurred art once and just move the finished layer, instead of
@@ -54,6 +54,7 @@
   --color-text-tertiary: rgba(255, 255, 255, 0.55);
   --color-border: rgba(255, 255, 255, 0.22);
   --color-accent: #a78bfa;
+  --color-accent-rgb: 167, 139, 250;
   --color-accent-strong: #c4b5fd;
 }
 
@@ -136,16 +137,22 @@
   .overlay {
     left: auto;
     width: var(--now-playing-panel-width);
-    /* Stops above the desktop MiniPlayer bar (82px, MiniPlayer.module.css)
-       instead of inheriting the base rule's bottom:0 — otherwise this panel's
-       higher z-index (--z-sheet) would sit on top of and hide the transport
-       bar underneath it, which stays visible/usable the whole time here
-       (unlike mobile, where opening Now Playing IS the fullscreen takeover). */
-    bottom: 82px;
+    /* Stops above the desktop MiniPlayer bar (82px tall + its own --pill-gap
+       detachment from the bottom edge, MiniPlayer.module.css) instead of inheriting the
+       base rule's bottom:0 — otherwise this panel's higher z-index (--z-sheet) would sit on
+       top of and hide the transport bar underneath it, which stays visible/usable the whole
+       time here (unlike mobile, where opening Now Playing IS the fullscreen takeover). */
+    bottom: calc(82px + var(--pill-gap));
     background: none;
-    animation: slideInFromRight var(--transition-base);
+    animation: slideInFromRight 380ms var(--ease-spring);
     border-left: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: -24px 0 48px rgba(0, 0, 0, 0.35);
+    box-shadow: -24px 0 48px rgba(0, 0, 0, 0.35), inset 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Extended background patch for the empty space behind MiniPlayer, applied ONLY when docked */
+  .overlay:not(.overlayFullscreen) {
+    bottom: 0;
+    z-index: 5;
   }
 
   @keyframes slideInFromRight {
@@ -159,6 +166,22 @@
 
   .sheet {
     padding: var(--space-5) var(--space-5) var(--space-6);
+  }
+
+  .overlay:not(.overlayFullscreen) .sheet {
+    padding: var(--space-5) var(--space-5) calc(82px + var(--pill-gap) + var(--space-5));
+  }
+
+  .overlay:not(.overlayFullscreen) .sheet::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 160px;
+    background: linear-gradient(to bottom, transparent, var(--color-bg) 70%, var(--color-bg) 100%);
+    pointer-events: none;
+    z-index: 10;
   }
 
   .queueSheet {
@@ -236,11 +259,27 @@
 }
 
 .iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
   border: none;
+  border-radius: var(--radius-full);
   background: none;
   color: var(--color-text-primary);
   padding: var(--space-2);
   cursor: pointer;
+  transition: background-color var(--transition-glass), transform 160ms var(--ease-spring);
+}
+
+.iconButton:active {
+  transform: scale(0.9);
+}
+
+@media (hover: hover) {
+  .iconButton:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .artSection {
@@ -337,6 +376,17 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--transition-glass), transform 160ms var(--ease-spring);
+}
+
+.bottomIconButton:active {
+  transform: scale(0.9);
+}
+
+@media (hover: hover) {
+  .bottomIconButton:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
 }
 
 .bottomIconButtonActive {

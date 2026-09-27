@@ -5,14 +5,21 @@
 
 @media (min-width: 960px) {
   .bar {
+    /* Layout-only shell now — no background/blur of its own. An earlier version painted the
+       whole width of this bar as one glass strip behind the (already-glass) search pill,
+       which read as one elongated slab rather than a floating capsule. The pill inside
+       (.field) carries its own blur/glass now, floating directly over the page — the
+       Dynamic-Island read the redesign asked for. */
     display: block;
     position: sticky;
     top: 0;
     z-index: 6;
-    /* Air above and below the field: at 8px it sat hard against the top edge of the window. */
     padding: 14px var(--space-5);
-    background: var(--color-bg-overlay);
-    backdrop-filter: blur(14px);
+    pointer-events: none;
+  }
+
+  .inner {
+    pointer-events: auto;
   }
 
   /* Centred, and proportioned to the page: wide enough to type in, never a stretched slab. */
@@ -26,16 +33,20 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-full);
     padding: 9px var(--space-4);
-    background: var(--color-bg-elevated);
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+    -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+    box-shadow: var(--glass-sheen), 0 10px 24px rgba(0, 0, 0, 0.14);
     color: var(--color-text-secondary);
-    transition: border-color var(--transition-fast);
+    transition: border-color var(--transition-glass), box-shadow var(--transition-glass), transform var(--transition-fast);
   }
 
   .field:focus-within {
     border-color: var(--color-accent);
+    transform: scale(1.01);
   }
 
   .input {

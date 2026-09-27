@@ -11,13 +11,18 @@
   align-items: center;
   justify-content: center;
   border: none;
+  border-radius: var(--radius-full);
   background: none;
   color: var(--color-text-secondary);
   width: 44px;
   height: 44px;
   padding: var(--space-2);
   cursor: pointer;
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast), transform 160ms var(--ease-spring);
+}
+
+.sideButton:active {
+  transform: scale(0.9);
 }
 
 .sideButtonActive {
@@ -48,10 +53,16 @@
 
 .transportButton {
   border: none;
+  border-radius: var(--radius-full);
   background: none;
   color: var(--color-text-primary);
   padding: var(--space-2);
   cursor: pointer;
+  transition: transform 160ms var(--ease-spring);
+}
+
+.transportButton:active {
+  transform: scale(0.88);
 }
 
 .playButton {
@@ -66,8 +77,8 @@
   justify-content: center;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
-  transition: transform var(--transition-fast);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: transform 160ms var(--ease-spring);
 }
 
 .playButton:active {

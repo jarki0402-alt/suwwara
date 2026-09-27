@@ -42,8 +42,8 @@
   cursor: pointer;
   display: flex;
   align-items: flex-start;
-  box-shadow: var(--shadow-floating);
-  transition: transform var(--transition-fast);
+  box-shadow: var(--shadow-floating), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 160ms var(--ease-spring);
 }
 
 .tile:active {

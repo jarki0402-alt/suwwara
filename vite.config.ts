@@ -19,6 +19,20 @@ const emitVersion: Plugin = {
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    // LightningCSS's minifier (Vite's default CSS minifier) has a confirmed bug: when a rule
+    // declares both `backdrop-filter` and `-webkit-backdrop-filter` with the identical value —
+    // exactly this codebase's glass surfaces, everywhere — it collapses them down to ONLY the
+    // `-webkit-` prefixed one, silently dropping the standard property. Reproduced directly
+    // against lightningcss's own transform() API (not a Vite-specific issue), independent of
+    // `targets`. Current Chromium/Android WebView needs the STANDARD property to actually
+    // composite the blur — a webkit-only backdrop-filter registers in the CSSOM but paints as
+    // nothing, which is why every glass surface in this app rendered as a flat tinted panel
+    // with zero blur despite the CSS looking correct. Disabling CSS minification is the only
+    // reliable fix found (an explicit `targets` list did not change the behavior) — the file
+    // size cost is small relative to the JS bundle and gzips well over the wire regardless.
+    cssMinify: false,
+  },
   define: {
     // Shown in Settings -> Diagnostik so it's obvious which build a phone is really running
     // (an installed PWA keeps serving its cached bundle until it is updated).

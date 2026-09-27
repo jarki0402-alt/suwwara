@@ -17,12 +17,19 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  border: none;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
-  background: var(--color-bg-elevated);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
   color: var(--color-text-primary);
   text-align: left;
+  transition: transform 160ms var(--ease-spring);
+}
+
+.row:active {
+  transform: scale(0.98);
 }
 
 .row {
@@ -110,7 +117,7 @@
   position: fixed;
   top: 0;
   right: 0;
-  bottom: 82px;
+  bottom: calc(82px + var(--pill-gap));
   width: var(--now-playing-panel-width);
   /* One above Now Playing's panel (--z-sheet) so it covers it while open. */
   z-index: calc(var(--z-sheet) + 1);
@@ -122,7 +129,7 @@
   background: var(--color-bg);
   border-left: 1px solid var(--color-border);
   box-shadow: -24px 0 48px rgba(0, 0, 0, 0.25);
-  animation: panelIn var(--transition-base);
+  animation: panelIn 380ms var(--ease-spring);
 }
 
 @keyframes panelIn {

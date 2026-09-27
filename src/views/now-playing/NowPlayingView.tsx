@@ -9,6 +9,7 @@ import { DownloadButton } from '../../components/DownloadButton/DownloadButton';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
+import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import { useIdleMouse } from '../../hooks/useIdleMouse';
 import { usePlayback } from '../../playback/PlaybackContext';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -49,6 +50,10 @@ export function NowPlayingView() {
   // a video player's fullscreen auto-hide chrome.
   const isIdle = useIdleMouse(isFullscreen, IDLE_TIMEOUT_MS);
   const chromeHidden = isFullscreen && isIdle;
+  const backRipple = useBubbleRipple<HTMLButtonElement>();
+  const queueRipple = useBubbleRipple<HTMLButtonElement>();
+  const lyricsRipple = useBubbleRipple<HTMLButtonElement>();
+  const devicesRipple = useBubbleRipple<HTMLButtonElement>();
 
   if (!isOpen || !currentSong) return null;
 
@@ -77,7 +82,14 @@ export function NowPlayingView() {
         {ambientUrl && <img src={ambientUrl} alt="" aria-hidden="true" className={styles.ambientBackdrop} />}
         <div className={styles.ambientScrim} aria-hidden="true" />
         <div className={[styles.topBar, chromeHidden ? styles.chromeHidden : ''].join(' ')}>
-          <button type="button" className={styles.iconButton} onClick={handleBack} aria-label="Tutup">
+          <button
+            ref={backRipple.ref}
+            type="button"
+            className={[styles.iconButton, 'glass-ripple-host'].join(' ')}
+            onClick={handleBack}
+            onPointerDown={backRipple.onPointerDown}
+            aria-label="Tutup"
+          >
             <Icon name="chevron-down" size={22} />
           </button>
           {jam.active ? (
@@ -89,7 +101,14 @@ export function NowPlayingView() {
             <span className={styles.topBarLabel}>Sedang Diputar</span>
           )}
           <span className={styles.topBarActions}>
-            <button type="button" className={styles.iconButton} onClick={openQueue} aria-label="Buka antrean">
+            <button
+              ref={queueRipple.ref}
+              type="button"
+              className={[styles.iconButton, 'glass-ripple-host'].join(' ')}
+              onClick={openQueue}
+              onPointerDown={queueRipple.onPointerDown}
+              aria-label="Buka antrean"
+            >
               <Icon name="queue" size={20} />
             </button>
           </span>
@@ -158,9 +177,11 @@ export function NowPlayingView() {
             <div className={styles.bottomRow}>
               <div className={styles.bottomIcons}>
                 <button
+                  ref={lyricsRipple.ref}
                   type="button"
-                  className={[styles.bottomIconButton, showLyrics ? styles.bottomIconButtonActive : ''].join(' ')}
+                  className={[styles.bottomIconButton, 'glass-ripple-host', showLyrics ? styles.bottomIconButtonActive : ''].join(' ')}
                   onClick={toggleLyrics}
+                  onPointerDown={lyricsRipple.onPointerDown}
                   aria-label="Tampilkan lirik"
                   aria-pressed={showLyrics}
                 >
@@ -168,9 +189,11 @@ export function NowPlayingView() {
                 </button>
                 {/* Always here (not only once another device is online): the Perangkat sheet also says how to link one. */}
                 <button
+                  ref={devicesRipple.ref}
                   type="button"
-                  className={[styles.bottomIconButton, isControllingRemote ? styles.bottomIconButtonActive : ''].join(' ')}
+                  className={[styles.bottomIconButton, 'glass-ripple-host', isControllingRemote ? styles.bottomIconButtonActive : ''].join(' ')}
                   onClick={openConnectSheet}
+                  onPointerDown={devicesRipple.onPointerDown}
                   aria-label="Perangkat"
                 >
                   <Icon name="devices" size={24} />

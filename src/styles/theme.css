@@ -19,6 +19,7 @@
   --color-border: rgba(22, 22, 26, 0.09);
 
   --color-accent: #7c3aed;
+  --color-accent-rgb: 124, 58, 237;
   --color-accent-strong: #6d28d9;
   --color-accent-soft: rgba(124, 58, 237, 0.12);
   --color-accent-2: #ec4899;
@@ -32,6 +33,33 @@
   --shadow-elevated: 0 8px 24px rgba(22, 22, 26, 0.08);
   --shadow-floating: 0 2px 10px rgba(22, 22, 26, 0.1);
   --shadow-glow: 0 6px 24px rgba(124, 58, 237, 0.18);
+
+  /* Liquid-glass surface tokens. --glass-tint is a light wash of the surface's own base
+     colour (not pure white/black) so frosted panels pick up a hint of whatever they float
+     over, like real ground glass rather than a flat grey scrim. --glass-saturate pairs with
+     backdrop-filter's saturate() to keep colours behind the blur vivid instead of washed
+     out — the actual ingredient that makes Apple's material read as "glass" vs. plain blur.
+     Legibility of whatever sits BEHIND a glass surface is --blur-*'s job, not opacity's — an
+     earlier pass pushed opacity to 0.9+ to fight bleed-through, which instead swamped the
+     backdrop-filter blur almost entirely (at 96% tint, only 4% of the blurred backdrop's own
+     colour reaches the final pixel, so the blur reads as flat/solid regardless of its radius —
+     the actual bug behind "why doesn't it look distorted like Apple's Control Center"). Fixed
+     the right way round: moderate opacity here so the blurred backdrop's colour genuinely
+     shows through, and a strong-enough blur radius (see --blur-md/--blur-lg in variables.css)
+     that whatever shows through is a formless wash of colour, never legible text or edges.
+     --glass-sheen used to layer THREE insets (top rim + bottom rim + an all-round edge line) —
+     stacked on top of every component's own `border: 1px solid var(--glass-border)`, that read
+     as a muddy double outline (two edge strokes fighting each other) instead of Apple's own
+     barely-there edge, which is really just the blur/tint boundary itself plus one faint top
+     catch-light. Cut down to that one highlight, and --glass-border's alpha dropped hard so the
+     `border` declarations across components stop reading as a visible grey ring. */
+  --glass-tint: 255, 255, 255;
+  --glass-bg: rgba(var(--glass-tint), 0.62);
+  --glass-bg-strong: rgba(var(--glass-tint), 0.74);
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
+  --glass-saturate: saturate(180%);
+  --glass-shadow: 0 8px 32px rgba(22, 22, 26, 0.12), 0 1px 2px rgba(22, 22, 26, 0.06);
 
   /* Two-tone brand gradient — used sparingly for hero/highlight surfaces
      (hero banner, active nav pill, play buttons) so it reads as an accent,
@@ -51,6 +79,7 @@
     --color-border: rgba(255, 255, 255, 0.07);
 
     --color-accent: #a78bfa;
+    --color-accent-rgb: 167, 139, 250;
     --color-accent-strong: #c4b5fd;
     --color-accent-soft: rgba(167, 139, 250, 0.14);
     --color-accent-2: #f472b6;
@@ -62,6 +91,13 @@
     --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
     --shadow-floating: 0 2px 10px rgba(0, 0, 0, 0.35);
     --shadow-glow: 0 6px 24px rgba(167, 139, 250, 0.2);
+
+    --glass-tint: 28, 28, 32;
+    --glass-bg: rgba(var(--glass-tint), 0.58);
+    --glass-bg-strong: rgba(var(--glass-tint), 0.7);
+    --glass-border: rgba(255, 255, 255, 0.07);
+    --glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.15), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -75,6 +111,7 @@
   --color-border: rgba(255, 255, 255, 0.07);
 
   --color-accent: #a78bfa;
+  --color-accent-rgb: 167, 139, 250;
   --color-accent-strong: #c4b5fd;
   --color-accent-soft: rgba(167, 139, 250, 0.14);
   --color-accent-2: #f472b6;
@@ -86,4 +123,11 @@
   --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
   --shadow-floating: 0 2px 10px rgba(0, 0, 0, 0.35);
   --shadow-glow: 0 6px 24px rgba(167, 139, 250, 0.2);
+
+  --glass-tint: 28, 28, 32;
+  --glass-bg: rgba(var(--glass-tint), 0.58);
+  --glass-bg-strong: rgba(var(--glass-tint), 0.7);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.15), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
 }

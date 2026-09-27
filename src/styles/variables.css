@@ -19,6 +19,35 @@
   --transition-base: 200ms ease;
   --transition-slow: 400ms ease;
 
+  /* Apple's "liquid glass" motion: a gentle overshoot for anything that moves on its own
+     (tab indicator, sheet slide-in, active-state pop) instead of a flat ease-out — it's
+     what makes the UI read as springy/liquid rather than mechanical. Tuned down from an
+     earlier, bouncier curve (1.56 peak) that read as "kasar"/cartoonish on a real device —
+     a real iOS spring barely overshoots at all for chrome-level UI. --ease-smooth is the
+     non-overshoot sibling for things that should decelerate cleanly (fades, blur panels). */
+  --ease-spring: cubic-bezier(0.3, 1.1, 0.4, 1);
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-spring: 380ms var(--ease-spring);
+  --transition-glass: 280ms var(--ease-smooth);
+  /* Shared duration for any small press/toggle transform — one number so nothing fires two
+     conflicting transition speeds on the same interaction (that mismatch was part of what
+     read as janky). */
+  --press-spring: 180ms var(--ease-spring);
+  /* A visibly bouncier landing, scoped to the one thing that's meant to read as a soft blob
+     of glass settling into place (BottomNav's tab indicator) — the toned-down --ease-spring
+     above is deliberately restrained for buttons/chrome, but a "liquid bubble" needs the
+     overshoot back to actually look like one. */
+  --ease-bubble: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-bubble: 460ms var(--ease-bubble);
+
+  /* --blur-lg in particular needs to be strong enough that anything behind a glass surface
+     (list rows, song titles) is a genuinely formless wash of colour — not just dimmed —
+     matching the reference (iOS Control Center) the redesign is chasing. Legibility is blur's
+     job, not --glass-bg's opacity (see theme.css's own note by --glass-bg for why). */
+  --blur-sm: 24px;
+  --blur-md: 44px;
+  --blur-lg: 80px;
+
   --z-app-shell: 1;
   --z-mini-player: 10;
   --z-sheet: 20;
@@ -27,6 +56,11 @@
 
   --mini-player-height: 58px;
   --bottom-nav-height: 54px;
+  /* Gap between a floating mobile pill (BottomNav, MiniPlayer) and the screen edge, and
+     between the two stacked pills themselves — the "Dynamic Island" detached-capsule look
+     instead of a bar flush against the edge. Desktop resets these back to 0 (a full-bleed
+     bar, not a floating pill — see each component's own >=960px override). */
+  --pill-gap: 10px;
   --sidebar-width: 232px;
   --now-playing-panel-width: 380px;
   --desktop-breakpoint: 960px;

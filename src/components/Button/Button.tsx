@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import styles from './Button.module.css';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'icon';
@@ -17,13 +18,22 @@ const SIZE_CLASS: Record<Size, string> = {
   lg: styles.sizeLg,
 };
 
-export function Button({ variant = 'secondary', size = 'md', fullWidth, className, children, ...rest }: ButtonProps) {
-  const classes = [styles.button, styles[variant], SIZE_CLASS[size], fullWidth ? styles.fullWidth : '', className]
+export function Button({ variant = 'secondary', size = 'md', fullWidth, className, children, onPointerDown, ...rest }: ButtonProps) {
+  const ripple = useBubbleRipple<HTMLButtonElement>();
+  const classes = [styles.button, styles[variant], SIZE_CLASS[size], fullWidth ? styles.fullWidth : '', 'glass-ripple-host', className]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <button className={classes} {...rest}>
+    <button
+      ref={ripple.ref}
+      className={classes}
+      onPointerDown={(event) => {
+        ripple.onPointerDown(event);
+        onPointerDown?.(event);
+      }}
+      {...rest}
+    >
       {children}
     </button>
   );

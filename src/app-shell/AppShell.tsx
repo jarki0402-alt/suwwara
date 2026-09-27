@@ -11,17 +11,21 @@ import { JamPill } from '../components/JamIndicator/JamIndicator';
 import { NowPlayingView } from '../views/now-playing/NowPlayingView';
 import styles from './AppShell.module.css';
 import { BottomNav } from './BottomNav';
+
 import { MiniPlayer } from './MiniPlayer';
 import { RemoteBar } from './RemoteBar';
 import { PaneResizers } from './PaneResizers';
 import { TopBar } from './TopBar';
 import { ViewRouter } from './ViewRouter';
 
+import { GlassDistortionFilter } from './GlassDistortionFilter';
+
 export function AppShell() {
   useJamSync();
 
   return (
     <PlaybackProvider>
+      <GlassDistortionFilter />
       <ShellBody />
     </PlaybackProvider>
   );

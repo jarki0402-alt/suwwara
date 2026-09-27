@@ -2,7 +2,9 @@
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: flex-end;
   animation: fadeIn var(--transition-base);
@@ -21,11 +23,15 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-lg)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-lg)) var(--glass-saturate);
+  border: 1px solid var(--glass-border);
+  border-bottom: none;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: var(--space-4) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
-  box-shadow: var(--shadow-elevated);
-  animation: slideUp var(--transition-slow);
+  box-shadow: var(--glass-sheen), var(--shadow-elevated);
+  animation: slideUp 380ms var(--ease-spring);
 }
 
 @keyframes slideUp {
@@ -45,8 +51,20 @@
 
   .sheet {
     width: min(400px, 92vw);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
-    animation: fadeIn var(--transition-base);
+    animation: cardIn 380ms var(--ease-spring);
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -63,12 +81,24 @@
 }
 
 .closeButton {
-  border: none;
-  background: var(--color-bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  box-shadow: var(--glass-sheen);
   border-radius: var(--radius-full);
   padding: var(--space-2);
   cursor: pointer;
   color: var(--color-text-primary);
+  transition: transform 160ms var(--ease-spring);
+}
+
+.closeButton:active {
+  transform: scale(0.9);
 }
 
 .body {
@@ -92,6 +122,11 @@
   border-radius: var(--radius-md);
   padding: var(--space-3);
   cursor: pointer;
+  transition: transform 160ms var(--ease-spring);
+}
+
+.primaryButton:active {
+  transform: scale(0.97);
 }
 
 .primaryButton:disabled {

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { changePassword, signOut, useAuthStore } from '../../auth/authStore';
+import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import styles from './AuthScreens.module.css';
 
 /** Shown right after signing in with an admin-issued temporary password: nothing else in the app opens until it is replaced. */
@@ -10,6 +11,7 @@ export function ChangePasswordScreen() {
   const [again, setAgain] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitRipple = useBubbleRipple<HTMLButtonElement>();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -47,7 +49,13 @@ export function ChangePasswordScreen() {
               {error}
             </p>
           )}
-          <button type="submit" className={styles.submit} disabled={busy || !current || !next || !again}>
+          <button
+            ref={submitRipple.ref}
+            type="submit"
+            className={styles.submit}
+            onPointerDown={submitRipple.onPointerDown}
+            disabled={busy || !current || !next || !again}
+          >
             {busy ? 'Menyimpan…' : 'Simpan dan lanjut'}
           </button>
           <button type="button" className={styles.textButton} onClick={() => void signOut()}>

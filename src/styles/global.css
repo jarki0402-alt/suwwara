@@ -130,3 +130,48 @@ html.is-resizing * {
   animation-duration: 240ms;
   animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+
+/* Liquid-glass tap feedback (see useBubbleRipple.ts): a translucent blob bloomed from the
+   pointer position instead of a flat highlight. Applied imperatively via DOM API (not a
+   React-rendered element) so a burst of taps never triggers a re-render, and plain classes
+   (not CSS Modules) since the hook creates the node outside any component's module scope.
+   Any element that uses the hook must add .glass-ripple-host so the blob has something to
+   clip against. transform+opacity only — no layout/paint cost beyond the element's own
+   bounds, cheap enough for low-end Android GPUs. */
+.glass-ripple-host {
+  position: relative;
+  overflow: hidden;
+}
+
+.bubble-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  /* Brand-accent tint with normal alpha blending (not a mix-blend-mode) — a white blend
+     with mix-blend-mode:overlay is invisible on the app's solid white play buttons, and a
+     dark blend goes invisible on dark glass panels. A consistent accent tint reads on both,
+     everywhere the ripple is used, without per-surface tuning. */
+  background: radial-gradient(
+    circle,
+    rgba(var(--color-accent-rgb), 0.4) 0%,
+    rgba(var(--color-accent-rgb), 0.16) 45%,
+    rgba(var(--color-accent-rgb), 0) 72%
+  );
+  transform: scale(0);
+  will-change: transform, opacity;
+  /* Two-property animation, ONE easing curve, no mid-keyframe — a separate opacity
+     keyframe stage (an earlier version had one at 55%) reads as a stutter/second motion
+     instead of one continuous bloom. Scale and fade now finish together. */
+  animation: bubble-bloom 480ms var(--ease-smooth) forwards;
+}
+
+@keyframes bubble-bloom {
+  from {
+    transform: scale(0);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

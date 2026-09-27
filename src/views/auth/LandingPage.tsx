@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { signIn, useAuthStore } from '../../auth/authStore';
 import { Icon, type IconName } from '../../components/Icon/Icon';
+import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import styles from './AuthScreens.module.css';
 
 const FEATURES: { icon: IconName; title: string; sub: string }[] = [
@@ -17,6 +18,7 @@ export function LandingPage() {
   const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitRipple = useBubbleRipple<HTMLButtonElement>();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -88,7 +90,13 @@ export function LandingPage() {
           )}
           {offline && !error && <p className={styles.notice}>Tidak ada koneksi ke server. Periksa internetmu.</p>}
 
-          <button type="submit" className={styles.submit} disabled={busy || !username || !password}>
+          <button
+            ref={submitRipple.ref}
+            type="submit"
+            className={styles.submit}
+            onPointerDown={submitRipple.onPointerDown}
+            disabled={busy || !username || !password}
+          >
             {busy ? 'Memeriksa…' : 'Masuk'}
           </button>
           <p className={styles.footnote}>Belum kebagian akun? Tinggal minta ke admin.</p>

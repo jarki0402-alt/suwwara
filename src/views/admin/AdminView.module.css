@@ -49,9 +49,12 @@
 
 .stat,
 .card {
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background: var(--color-bg-elevated);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  box-shadow: var(--glass-sheen);
   padding: var(--space-4);
 }
 
@@ -268,9 +271,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background: var(--color-bg-elevated);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  box-shadow: var(--glass-sheen);
   padding: var(--space-4);
 }
 
@@ -304,9 +310,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background: var(--color-bg-elevated);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  box-shadow: var(--glass-sheen);
   padding: var(--space-4);
 }
 
@@ -351,18 +360,23 @@
 }
 
 .btn {
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
   padding: 7px 13px;
-  background: none;
+  background: var(--glass-bg);
   color: var(--color-text-primary);
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
+  transition: transform 160ms var(--ease-spring), background-color var(--transition-glass);
 }
 
 .btn:hover {
-  background: var(--color-bg);
+  background: var(--glass-bg-strong);
+}
+
+.btn:active {
+  transform: scale(0.95);
 }
 
 .btnPrimary {
@@ -538,14 +552,21 @@
 /* Range chips (7 / 30 / 90 days) in the Pemakaian panel. */
 .tab {
   flex-shrink: 0;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
   padding: 7px 14px;
-  background: none;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
   color: var(--color-text-secondary);
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
+  transition: transform 160ms var(--ease-spring);
+}
+
+.tab:active {
+  transform: scale(0.95);
 }
 
 .tabActive {

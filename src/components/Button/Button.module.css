@@ -7,7 +7,7 @@
   border-radius: var(--radius-full);
   cursor: pointer;
   font-weight: 600;
-  transition: transform var(--transition-fast), background-color var(--transition-fast), opacity var(--transition-fast);
+  transition: transform 160ms var(--ease-spring), background-color var(--transition-fast), opacity var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -29,7 +29,10 @@
 }
 
 .secondary {
-  background: var(--color-bg-elevated);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  box-shadow: var(--glass-sheen);
   color: var(--color-text-primary);
   padding: var(--space-3) var(--space-5);
   font-size: 0.95rem;
@@ -47,6 +50,7 @@
   color: var(--color-text-primary);
   padding: var(--space-2);
   border-radius: var(--radius-full);
+  transition: background-color var(--transition-glass), transform 160ms var(--ease-spring);
 }
 
 .icon:hover {

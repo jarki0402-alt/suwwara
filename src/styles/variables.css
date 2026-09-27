@@ -55,7 +55,7 @@
   --z-modal: 40;
 
   --mini-player-height: 58px;
-  --bottom-nav-height: 54px;
+  --bottom-nav-height: 58px;
   /* Gap between a floating mobile pill (BottomNav, MiniPlayer) and the screen edge, and
      between the two stacked pills themselves — the "Dynamic Island" detached-capsule look
      instead of a bar flush against the edge. Desktop resets these back to 0 (a full-bleed

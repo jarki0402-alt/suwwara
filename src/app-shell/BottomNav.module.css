@@ -20,6 +20,7 @@
      a touch here is ambiguous with a browser scroll/swipe gesture and the drag reads as
      stuck/unresponsive instead of following the finger immediately. */
   touch-action: none;
+  overflow: hidden;
 }
 
 .indicator {
@@ -38,7 +39,7 @@
 .indicator::before {
   content: '';
   width: 82px;
-  height: 46px;
+  height: 50px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(30px) saturate(1.5);
@@ -76,7 +77,6 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding-bottom: 3px;
   gap: 2px;
   border: none;
   background: none;

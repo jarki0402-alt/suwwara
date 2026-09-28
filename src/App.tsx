@@ -12,6 +12,9 @@ import { LandingPage } from './views/auth/LandingPage';
 
 // The admin console is its own screen and is only ever downloaded by an admin.
 const AdminConsole = lazy(() => import('./views/admin/AdminConsole'));
+// Public install guide (/install) — no sign-in, and its QR code library is only loaded there.
+const InstallPage = lazy(() => import('./views/install/InstallPage'));
+const isInstallPage = window.location.pathname.replace(/\/+$/, '') === '/install';
 
 function App() {
   const { showToast } = useToast();
@@ -53,6 +56,13 @@ function App() {
     }
   }, []);
 
+  if (isInstallPage) {
+    return (
+      <Suspense fallback={<div style={{ position: 'fixed', inset: 0, background: 'var(--color-bg)' }} />}>
+        <InstallPage />
+      </Suspense>
+    );
+  }
   // While the server is being asked, show only the page background — no flash of the sign-in form for someone who is signed in.
   if (status === 'checking') return <div style={{ position: 'fixed', inset: 0, background: 'var(--color-bg)' }} />;
   if (status === 'signed-out') return <LandingPage />;

@@ -1,0 +1,246 @@
+/* #root is pinned to the viewport height (global.css), so the page owns its own scroll. */
+.page {
+  height: 100%;
+  overflow-y: auto;
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(var(--color-accent-rgb), 0.28), transparent 60%),
+    var(--color-bg);
+  padding: calc(var(--space-6) + env(safe-area-inset-top)) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom));
+}
+
+.column {
+  width: min(100%, 520px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.appIcon {
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  margin-bottom: var(--space-2);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.detected {
+  margin-top: var(--space-1);
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.tabs {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+}
+
+.tab {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 9px 0;
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.tabActive {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--glass-sheen), var(--shadow-elevated);
+}
+
+.warningCard {
+  border-color: rgba(var(--color-accent-rgb), 0.5);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.muted {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+.note {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.dividerLabel {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-tertiary);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.stepNumber {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* Plain inline text (a flex row split each bold phrase onto its own line), with the icon riding
+   at the end of the sentence. */
+.stepText {
+  line-height: 1.55;
+  padding-top: 2px;
+}
+
+.stepIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 28px;
+  height: 28px;
+  margin-left: 6px;
+  border-radius: 8px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+}
+
+.buttonRow {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-full);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.primaryButton {
+  border: none;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.secondaryButton {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+}
+
+.primaryButton:active,
+.secondaryButton:active {
+  transform: scale(0.97);
+}
+
+.qrCard {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.qr {
+  flex-shrink: 0;
+  width: 132px;
+  height: 132px;
+  border-radius: 12px;
+}
+
+.continueLink {
+  align-self: center;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.continueLink:hover {
+  color: var(--color-text-primary);
+}

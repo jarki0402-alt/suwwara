@@ -6,8 +6,10 @@ import './styles/variables.css';
 import './styles/theme.css';
 import './styles/global.css';
 import { applySavedPaneWidths } from './app-shell/paneWidths';
+import { captureInstallPrompt } from './pwa/installPrompt';
 
 applySavedPaneWidths();
+captureInstallPrompt();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element (#root) not found.');

@@ -25,6 +25,20 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-28 (halaman publik /install + banner "Pasang Suwwara")
+
+Permintaan: halaman `https://suwwara.fajarrizky.my.id/install` yang mendeteksi perangkat — Android/desktop tombol install asli, iPhone langkah demi langkah. Disepakati: publik tanpa login, QR code di desktop, banner di Beranda.
+
+- **`/install`** (`src/views/install/InstallPage.tsx`, lazy-load di `App.tsx` sebelum cek login; nginx sudah fallback ke `index.html`): deteksi platform + browser (`src/pwa/detectPlatform.ts`, iPad yang mengaku Mac dikenali lewat `maxTouchPoints`), tab manual iPhone/Android/Komputer kalau deteksi meleset.
+  - Android & desktop Chromium: tombol **Pasang Suwwara** memanggil dialog install asli (`beforeinstallprompt`), plus langkah manual lewat menu (Chrome, Samsung Internet, Firefox, Edge, Safari macOS "Tambahkan ke Dock"). Firefox desktop → sarankan Chrome/Edge.
+  - iPhone/iPad: langkah Bagikan → Tambah ke Layar Utama (termasuk menu "Lainnya" di iOS baru, versi Chrome iOS).
+  - Browser bawaan WhatsApp/Instagram/Facebook/TikTok/Telegram/LINE/X/WebView Android dideteksi → "Buka di Chrome/Safari dulu" (Android: tombol `intent://` ke Chrome) + salin tautan.
+  - Sudah terpasang (mode standalone / baru diterima) → "Suwwara sudah terpasang".
+  - Desktop: QR code ke `/install` untuk HP, digambar sebagai SVG dari matriks `uqr` (dependency frontend baru, ~20KB, lazy di chunk InstallPage).
+- **`installPrompt.ts`**: event `beforeinstallprompt` ditangkap sejak boot (`main.tsx`), karena Chrome hanya mengirimnya sekali; `useInstallPrompt` (dipakai Pengaturan) sekarang membaca store ini. Di `/install` event-nya tidak di-`preventDefault`, jadi Chrome Android boleh langsung menampilkan banner install bawaannya (dialog install sendiri tetap hanya bisa dari tap — aturan browser); di halaman lain tetap ditahan.
+- **Banner Beranda** (`InstallBanner`): hanya di tab browser (bukan standalone), ikut ter-scroll, tombol tutup disimpan di `localStorage` (`suwwara-install-banner-dismissed`).
+- Diverifikasi: build + lint + 132 test lolos, Docker di-rebuild, `curl /install` 200; Playwright dengan profil iPhone 13, Pixel 7, Pixel 7 + UA Instagram, dan Mac Chrome — label deteksi & kartu yang muncul sesuai, QR ter-decode (jsQR) ke URL `/install`. Tombol install asli belum bisa diuji di headless (Chrome tidak mengirim `beforeinstallprompt` di sana) — perlu dicek di HP/desktop asli setelah deploy (butuh HTTPS).
+
 ## Perubahan terbaru — 2026-09-28 (gesture HP: tarik tutup, swipe balik, mini player, tombol Back)
 
 Feedback: tambahkan gesture HP — swipe ke bawah untuk keluar dari Now Playing, swipe untuk kembali, kontrol yang optimal di HP. Disepakati nomor 1–5 dari diskusi.

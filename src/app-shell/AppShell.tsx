@@ -9,6 +9,7 @@ import { PlaybackProvider, usePlayback } from '../playback/PlaybackContext';
 import { useBackNavigation } from '../hooks/useBackNavigation';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useUiStore } from '../stores/uiStore';
+import { InstallBanner } from '../components/InstallBanner/InstallBanner';
 import { JamPill } from '../components/JamIndicator/JamIndicator';
 import { NowPlayingView } from '../views/now-playing/NowPlayingView';
 import styles from './AppShell.module.css';
@@ -95,6 +96,7 @@ function ShellBody() {
     <div className={styles.shell}>
       <main ref={contentRef} className={[styles.content, showRightPanel ? styles.contentWithPanel : ''].join(' ')}>
         <TopBar />
+        {currentView === 'home' && detailDepth === 0 && <InstallBanner />}
         <ViewRouter />
       </main>
       <PaneResizers panelOpen={showRightPanel} />

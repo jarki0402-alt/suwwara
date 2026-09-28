@@ -52,6 +52,7 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
       <button
         type="button"
         className={styles.handle}
+        data-no-swipe=""
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

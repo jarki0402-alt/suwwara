@@ -164,6 +164,11 @@
    play button scale with it instead of floating small in a taller bar. The artist line is full
    text colour, not secondary grey, for the same contrast reason as BottomNav's tabs. */
 @media (max-width: 959.98px) {
+  /* Swipes on the pill are the app's (useMiniPlayerGestures), not the browser's. */
+  .wrapper {
+    touch-action: none;
+  }
+
   .subtitle {
     color: var(--color-text-primary);
   }

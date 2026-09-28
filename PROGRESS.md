@@ -25,6 +25,17 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-28 (gesture HP: tarik tutup, swipe balik, mini player, tombol Back)
+
+Feedback: tambahkan gesture HP — swipe ke bawah untuk keluar dari Now Playing, swipe untuk kembali, kontrol yang optimal di HP. Disepakati nomor 1–5 dari diskusi.
+
+- **`useSwipeGesture`** (baru, `src/hooks`): gesture tutup yang mengikuti jari — `down` untuk sheet, `right` dari tepi kiri untuk halaman. Lepas setelah 25%/33% atau dijentik → meluncur keluar lalu `onCommit`; kurang dari itu → membal kembali (`--ease-liquid`). Touch event native (touchmove non-passive): konten tetap bisa di-scroll sampai gesture jelas milik "tutup" (tarik ke bawah saat scroller sudah di atas / geser dari tepi). Slider, seek bar, dan pegangan urut antrean (`data-no-swipe`) dikecualikan. Transform saja; reduced-motion → langsung tutup tanpa animasi ikut jari.
+- **Now Playing & antrean**: tarik ke bawah menutup Now Playing; di antrean, menutup antrean kembali ke Now Playing. Lirik/antrean yang sedang di-scroll tidak ikut tertutup.
+- **Swipe dari tepi kiri (24px) untuk kembali**: halaman artis/album, playlist yang terbuka, dan koleksi "Dibuat Untukmu". Didengarkan di seluruh `<main>` (halaman pendek/masih loading juga bisa), yang digeser tetap halamannya, dengan bayangan di tepi hanya selama digeser. Halaman sebelumnya belum terlihat di belakang saat digeser (halaman detail menggantikan, bukan menumpuk — me-mount-nya saat mulai geser berisiko patah).
+- **Mini player** (`useMiniPlayerGestures`): geser ke atas → Now Playing; geser kiri/kanan → lagu berikutnya/sebelumnya (sampul+judul keluar satu sisi, masuk dari sisi lain). Arah dikunci dari 8px pertama; tap tetap ke tombol; klik setelah swipe diredam. `translate` (bukan `transform`, yang dipakai animasi lipat dock), `touch-action: none` di HP.
+- **Tombol/gesture Back sistem** (`useBackNavigation` di `AppShell`): satu entri history per layer terbuka (sheet Jam/Perangkat, lirik layar penuh, antrean, Now Playing, tiap halaman detail, koleksi, playlist). Back menutup yang paling atas; tutup dari UI menarik kembali entrinya (`history.go`, popstate-nya diabaikan). Sebelumnya Back di Android langsung menutup app.
+- Diverifikasi: build + lint + 132 test lolos, Docker di-rebuild (Mac sempat restart di tengah build → Docker dinyalakan ulang, kelima service jalan). Harness `AppShell` dengan sentuhan asli lewat CDP `Input.dispatchTouchEvent`: mini player kiri/kanan ganti lagu, atas buka Now Playing, tap tetap tap; tarik pendek NP membal, tarik panjang menutup; tarik antrean kembali ke NP; Back #1 tutup antrean, Back #2 tutup NP, URL tetap di app; swipe tengah layar diabaikan, swipe tepi kiri menutup halaman artis; drag NP tanpa frame >16,8ms. Belum dicek di HP asli.
+
 ## Perubahan terbaru — 2026-09-28 (bubble tab: kapsul gelap saat diam, ikon tajam di bawah lensa)
 
 Feedback: bubble tab saat diam keputihan (Apple: kapsul gelap, baru jadi "liquid" saat digeser); ikon yang dilewati bubble jadi pixelated.

@@ -6,6 +6,7 @@ import { ConnectBridge } from '../connect/ConnectBridge';
 import { useConnectStore } from '../connect/connectStore';
 import { useJamSync } from '../jam/useJamSync';
 import { PlaybackProvider, usePlayback } from '../playback/PlaybackContext';
+import { useBackNavigation } from '../hooks/useBackNavigation';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useUiStore } from '../stores/uiStore';
 import { JamPill } from '../components/JamIndicator/JamIndicator';
@@ -23,6 +24,7 @@ import { GlassDistortionFilter } from './GlassDistortionFilter';
 
 export function AppShell() {
   useJamSync();
+  useBackNavigation();
 
   return (
     <PlaybackProvider>

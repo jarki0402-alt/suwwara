@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useRef, type CSSProperties } from 'react';
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../../connect/connectStore';
@@ -11,6 +11,7 @@ import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
 import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import { useIdleMouse } from '../../hooks/useIdleMouse';
+import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { usePlayback } from '../../playback/PlaybackContext';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUiStore } from '../../stores/uiStore';
@@ -43,6 +44,15 @@ export function NowPlayingView() {
   const setVolume = useSettingsStore((state) => state.setVolume);
 
   const { currentSong, playbackState, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
+  const closeQueue = useUiStore((state) => state.closeQueue);
+
+  // Phone only: pull the sheet down to close it (the queue, when it's showing, back to Now Playing).
+  // Lyrics and the queue keep scrolling as usual; the pull only starts once they're at the top.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const queueSheetRef = useRef<HTMLDivElement>(null);
+  const sheetOpen = isOpen && currentSong !== null && !isDesktop;
+  useSwipeGesture(overlayRef, { direction: 'down', enabled: sheetOpen && !isQueueOpen, onCommit: closeNowPlaying });
+  useSwipeGesture(queueSheetRef, { direction: 'down', enabled: sheetOpen && isQueueOpen, onCommit: closeQueue });
 
   // Only listens for mouse/keyboard activity while fullscreen is actually
   // open (see useIdleMouse's own `active` param) — docked-panel/mobile-sheet
@@ -60,7 +70,7 @@ export function NowPlayingView() {
   if (isQueueOpen) {
     return (
       <div className={[styles.overlay, isFullscreen ? styles.overlayFullscreen : ''].join(' ')}>
-        <div className={styles.queueSheet}>
+        <div ref={queueSheetRef} className={styles.queueSheet}>
           <QueueView />
         </div>
       </div>
@@ -77,7 +87,7 @@ export function NowPlayingView() {
   const handleBack = isFullscreen ? closeFullscreenLyrics : closeNowPlaying;
 
   return (
-    <div className={[styles.overlay, isFullscreen ? styles.overlayFullscreen : '', chromeHidden ? styles.cursorHidden : ''].join(' ')}>
+    <div ref={overlayRef} className={[styles.overlay, isFullscreen ? styles.overlayFullscreen : '', chromeHidden ? styles.cursorHidden : ''].join(' ')}>
       <div className={styles.sheet}>
         {ambientUrl && <img src={ambientUrl} alt="" aria-hidden="true" className={styles.ambientBackdrop} />}
         <div className={styles.ambientScrim} aria-hidden="true" />

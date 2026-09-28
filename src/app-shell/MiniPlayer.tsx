@@ -10,6 +10,7 @@ import { ProgressBar, type ProgressBarHandle } from '../components/ProgressBar/P
 import { useBubbleRipple } from '../hooks/useBubbleRipple';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useLiquidRim } from '../hooks/useLiquidRim';
+import { useMiniPlayerGestures } from './useMiniPlayerGestures';
 import { cycleRepeat, toggleShuffle } from '../jam/jamQueueActions';
 import { usePlayback } from '../playback/PlaybackContext';
 import { useQueueStore } from '../stores/queueStore';
@@ -40,6 +41,13 @@ export function MiniPlayer() {
   const isDesktop = useIsDesktop();
   // Phone only: on desktop the bar spans the window, and swelling all of it for one button reads wrong.
   const glass = useLiquidRim(wrapperRef, currentSong !== null, { grow: 0.04 });
+  const mainRef = useRef<HTMLButtonElement>(null);
+  useMiniPlayerGestures(wrapperRef, mainRef, {
+    enabled: !isDesktop && currentSong !== null,
+    onOpen: openNowPlaying,
+    onNext: handleNext,
+    onPrevious: handlePrevious,
+  });
   // One ripple-hook instance per button (fixed set, not a loop) — see useBubbleRipple's own
   // note on why this can't be a single shared instance.
   const shuffleRipple = useBubbleRipple<HTMLButtonElement>();
@@ -93,7 +101,7 @@ export function MiniPlayer() {
         <ProgressBar ariaLabel="Posisi lagu" ref={progressBarRef} compact />
       </div>
 
-      <button type="button" className={styles.main} onClick={openNowPlaying}>
+      <button ref={mainRef} type="button" className={styles.main} onClick={openNowPlaying}>
         <LazyImage images={currentSong.image} quality="50x50" alt={currentSong.name} className={styles.art} />
         <span className={styles.text}>
           <span className={styles.title}>{currentSong.name}</span>

@@ -40,6 +40,8 @@ interface SettingsState {
    * on top of the quota above, since quota+LRU alone doesn't cover "I don't care if there's room, I still want
    * this gone after a month". Only the opportunistic cache reads this; downloads are never subject to it. */
   audioCacheDays: number;
+  /** Liquid Glass material, 0 = clear … 1 = tinted (macOS's own Clear/Tinted slider). 0.5 is the stock look. */
+  glassTint: number;
   setDataSaver: (value: boolean) => void;
   setVolume: (value: number) => void;
   setTheme: (value: ThemePreference) => void;
@@ -48,6 +50,7 @@ interface SettingsState {
   recordLocalAudioSuccess: () => void;
   setOfflineQuotaMB: (value: number) => void;
   setAudioCacheDays: (value: number) => void;
+  setGlassTint: (value: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -60,6 +63,7 @@ export const useSettingsStore = create<SettingsState>()(
       localAudioFailureCount: 0,
       offlineQuotaMB: DEFAULT_OFFLINE_QUOTA_MB,
       audioCacheDays: DEFAULT_CACHE_RETENTION_DAYS,
+      glassTint: 0.5,
       setDataSaver: (value) => set({ dataSaver: value }),
       setVolume: (value) => set({ volume: Math.min(Math.max(value, 0), 1) }),
       setTheme: (value) => set({ theme: value }),
@@ -71,6 +75,7 @@ export const useSettingsStore = create<SettingsState>()(
       recordLocalAudioSuccess: () => set({ localAudioFailureCount: 0 }),
       setOfflineQuotaMB: (value) => set({ offlineQuotaMB: value }),
       setAudioCacheDays: (value) => set({ audioCacheDays: value }),
+      setGlassTint: (value) => set({ glassTint: Math.min(Math.max(value, 0), 1) }),
     }),
     { name: 'suwwara-settings' },
   ),

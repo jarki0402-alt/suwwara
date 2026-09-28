@@ -4,9 +4,9 @@
      content is multi-row, and radius-full on a tall box reads as an odd stadium blob
      rather than the compact capsule that works for a single-row bar. */
   position: fixed;
-  left: var(--pill-gap);
-  right: var(--pill-gap);
-  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--pill-gap) * 2);
+  left: var(--dock-side);
+  right: var(--dock-side);
+  bottom: calc(var(--dock-bottom) + var(--bottom-nav-height) + var(--dock-gap));
   z-index: var(--z-mini-player);
   border-radius: var(--radius-lg);
   background: var(--glass-bg);

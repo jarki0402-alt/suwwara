@@ -1,14 +1,17 @@
 import { JamSidebarCard } from '../components/JamIndicator/JamIndicator';
 import { useUpdateStore } from '../pwa/updateStore';
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useRef, useState } from 'react';
 import { LazyImage } from '../components/Image/LazyImage';
 import { PlaylistNameDialog } from '../components/PlaylistNameDialog/PlaylistNameDialog';
 import { Icon, type IconName } from '../components/Icon/Icon';
 import { useBubbleRipple } from '../hooks/useBubbleRipple';
 import { useIsDesktop } from '../hooks/useIsDesktop';
+import { useLiquidRim } from '../hooks/useLiquidRim';
 import { useLibraryStore } from '../stores/libraryStore';
 import { useUiStore, type ViewName } from '../stores/uiStore';
 import styles from './BottomNav.module.css';
+import { LiquidGlassLensDefs } from './LiquidGlassLens';
+import { useLiquidPill } from './useLiquidPill';
 
 const TABS: { view: ViewName; label: string; icon: IconName }[] = [
   { view: 'home', label: 'Beranda', icon: 'home' },
@@ -61,108 +64,67 @@ export function BottomNav() {
   const hasUpdate = useUpdateStore((state) => state.status === 'available');
   const activeIndex = selectedPlaylistId ? -1 : TABS.findIndex((tab) => tab.view === currentView);
   const isDesktop = useIsDesktop();
+  const isCollapsed = useUiStore((state) => state.isDockCollapsed) && !isDesktop;
+  const setDockCollapsed = useUiStore((state) => state.setDockCollapsed);
+  // The folded orb stands for "the tabs": the current one, or Koleksi while a playlist (which lives
+  // there) is open. Search already has its own orb on the right, so it isn't repeated here.
+  const orbTab = activeIndex < 0 ? TABS[2] : TABS[activeIndex].view === 'search' ? TABS[0] : TABS[activeIndex];
+  const unfoldTo = (view: ViewName) => {
+    setDockCollapsed(false);
+    setView(view);
+  };
 
   const navRef = useRef<HTMLElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);
-  const isDraggingRef = useRef(false);
-  const hasMovedRef = useRef(false);
-  const dragStartXRef = useRef(0);
+  const indicatorFillRef = useRef<HTMLSpanElement>(null);
+  const searchOrbRef = useRef<HTMLButtonElement>(null);
+  // The desktop sidebar is a solid panel, not floating glass.
+  // Pressing the folded tab orb swells the nav itself — that's the glass the orb is.
+  const navGlass = useLiquidRim(navRef, !isDesktop, { grow: 0.1 });
+  const searchOrbGlass = useLiquidRim(searchOrbRef, !isDesktop, { grow: 0.1 });
 
-  // The pill's resting position (transition re-enabled so it glides there, whether this
-  // followed a tap or a drag release below). Skipped while an actual drag is live — the
-  // pointermove handler is driving the transform directly in that window.
-  const settleIndicator = (index: number) => {
-    const el = indicatorRef.current;
-    if (!el) return;
-    
-    const prevIndex = parseInt(el.dataset.prevIndex || '-1');
-    el.dataset.prevIndex = index.toString();
-    
-    // If we're moving from a valid tab to another tab, stretch the pill!
-    if (prevIndex !== -1 && prevIndex !== index && index !== -1) {
-      el.classList.add(styles.stretching);
-      setTimeout(() => {
-        el.classList.remove(styles.stretching);
-      }, 150); // Matches CSS transition timing
-    }
-
-    el.style.transition = '';
-    el.style.transform = `translateX(${Math.max(index, 0) * 100}%)`;
-    el.style.opacity = index < 0 ? '0' : '1';
-  };
-
-  useEffect(() => {
-    if (isDraggingRef.current) return;
-    settleIndicator(activeIndex);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex]);
-
-  // Mobile only: dragging a finger across the tab row drags the liquid pill along with it
-  // (Apple's own tab bar does this — the indicator isn't just a by-product of tapping a tab,
-  // it's a thing you can physically push around) instead of only reacting to a completed tap
-  // on one button. A plain tap still works exactly as before through each button's own
-  // onClick — this only kicks in once the pointer has actually moved past a small threshold,
-  // so it never double-fires a view change for an ordinary tap.
-  const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
-    if (isDesktop || event.pointerType === 'mouse') return;
-    isDraggingRef.current = true;
-    hasMovedRef.current = false;
-    dragStartXRef.current = event.clientX;
-    navRef.current?.setPointerCapture(event.pointerId);
-  };
-
-  const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
-    if (!isDraggingRef.current) return;
-    if (!hasMovedRef.current && Math.abs(event.clientX - dragStartXRef.current) > 4) {
-      hasMovedRef.current = true;
-    }
-    if (!hasMovedRef.current) return;
-    const rect = navRef.current?.getBoundingClientRect();
-    const el = indicatorRef.current;
-    if (!rect || !el || rect.width === 0) return;
-    const indicatorWidth = rect.width / TABS.length;
-    const rawLeft = event.clientX - rect.left - indicatorWidth / 2;
-    const clampedLeft = Math.min(Math.max(rawLeft, 0), rect.width - indicatorWidth);
-    // No transition here — the pill needs to sit exactly under the finger every frame, not
-    // ease toward it a beat late. The spring comes back for the settle on release. The slight
-    // scaleX while live is the "liquid" stretch — a plain 1:1 follow with no give at all reads
-    // as a rigid puck sliding on rails, not a soft blob of glass being pushed around.
-    el.style.transition = 'none';
-    el.style.transform = `translateX(${clampedLeft}px) scaleX(1.08)`;
-    el.style.opacity = '1';
-  };
-
-  const endDrag = (event: PointerEvent<HTMLElement>, commit: boolean) => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-    if (commit && hasMovedRef.current) {
-      const rect = navRef.current?.getBoundingClientRect();
-      const fraction = rect && rect.width > 0 ? Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1) : 0;
-      const index = Math.min(Math.floor(fraction * TABS.length), TABS.length - 1);
-      const tab = TABS[index];
-      if (tab) setView(tab.view);
-      settleIndicator(index);
-    } else {
-      settleIndicator(activeIndex);
-    }
-    hasMovedRef.current = false;
-  };
+  // Mobile only: the pill is a thing you can physically push around (Apple's own tab bar does
+  // this), not just a by-product of tapping a tab — see useLiquidPill for the spring model.
+  const pill = useLiquidPill({
+    navRef,
+    pillRef: indicatorRef,
+    fillRef: indicatorFillRef,
+    activeIndex,
+    count: TABS.length,
+    enabled: !isDesktop && !isCollapsed,
+    lensClassName: styles.lensOn,
+    onSelect: (index) => setView(TABS[index].view),
+  });
 
   return (
+    <>
     <nav
       ref={navRef}
-      className={styles.nav}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={(event) => endDrag(event, true)}
-      onPointerCancel={(event) => endDrag(event, false)}
+      className={[styles.nav, 'liquid-glass', isCollapsed ? styles.collapsed : ''].join(' ')}
+      onPointerDown={pill.onPointerDown}
+      onPointerMove={pill.onPointerMove}
+      onPointerUp={pill.onPointerUp}
+      onPointerCancel={pill.onPointerCancel}
     >
+      <LiquidGlassLensDefs />
       {/* Slides behind the active tab (mobile only — see .indicator's own media query) instead of
           each tab getting its own background, so switching tabs reads as one pill gliding across
           rather than a highlight jumping between four separate states. Position is fully
-          imperative (see settleIndicator/handlePointerMove above), not a React-rendered inline
+          imperative (useLiquidPill), not a React-rendered inline
           style, so a mid-drag frame is never fought by a parent re-render resetting it. */}
+      <span ref={indicatorFillRef} className={styles.indicatorFill} aria-hidden="true" />
       <span ref={indicatorRef} className={styles.indicator} aria-hidden="true" />
+      <button
+        type="button"
+        className={styles.compactTab}
+        onClick={() => unfoldTo(orbTab.view)}
+        {...navGlass}
+        tabIndex={isCollapsed ? 0 : -1}
+        aria-hidden={!isCollapsed}
+        aria-label={orbTab.label}
+      >
+        <Icon name={orbTab.icon} size={24} />
+      </button>
       <span className={styles.brand}>Suwwara</span>
       {TABS.map((tab, index) => (
         <TabButton key={tab.view} tab={tab} isActive={index === activeIndex} hasUpdate={hasUpdate} onSelect={() => setView(tab.view)} />
@@ -231,5 +193,18 @@ export function BottomNav() {
         onClose={() => setIsCreating(false)}
       />
     </nav>
+    <button
+      type="button"
+      ref={searchOrbRef}
+      className={[styles.searchOrb, 'liquid-glass', isCollapsed ? styles.searchOrbShown : ''].join(' ')}
+      onClick={() => unfoldTo('search')}
+      {...searchOrbGlass}
+      tabIndex={isCollapsed ? 0 : -1}
+      aria-hidden={!isCollapsed}
+      aria-label="Cari"
+    >
+      <Icon name="search" size={24} />
+    </button>
+    </>
   );
 }

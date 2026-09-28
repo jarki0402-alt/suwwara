@@ -5,6 +5,7 @@ import { primaryArtistNames } from '../api/mappers';
 import { Icon } from '../components/Icon/Icon';
 import { SongRowActions } from '../components/SongMenu/SongRowActions';
 import { LazyImage } from '../components/Image/LazyImage';
+import { useLiquidRim } from '../hooks/useLiquidRim';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { playSongRadio } from '../playback/playSongRadio';
 import { useUiStore } from '../stores/uiStore';
@@ -36,6 +37,8 @@ export function TopBar() {
   const [highlight, setHighlight] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
+  useLiquidRim(fieldRef, currentView === 'home' && detailDepth === 0);
   const requestIdRef = useRef(0);
 
   // Built in an effect (not useMemo) so the debounced callback's ref reads never happen during render.
@@ -150,7 +153,7 @@ export function TopBar() {
   return (
     <div className={styles.bar}>
       <div className={styles.inner} ref={boxRef}>
-        <div className={styles.field}>
+        <div ref={fieldRef} className={[styles.field, 'liquid-glass'].join(' ')}>
           <Icon name="search" size={19} />
           <input
             ref={inputRef}

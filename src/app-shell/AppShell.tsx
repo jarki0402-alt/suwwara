@@ -6,6 +6,7 @@ import { ConnectBridge } from '../connect/ConnectBridge';
 import { useConnectStore } from '../connect/connectStore';
 import { useJamSync } from '../jam/useJamSync';
 import { PlaybackProvider, usePlayback } from '../playback/PlaybackContext';
+import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useUiStore } from '../stores/uiStore';
 import { JamPill } from '../components/JamIndicator/JamIndicator';
 import { NowPlayingView } from '../views/now-playing/NowPlayingView';
@@ -47,6 +48,8 @@ function ShellBody() {
   const currentView = useUiStore((state) => state.currentView);
   const detailDepth = useUiStore((state) => state.detailStack.length);
   const { currentSong } = usePlayback();
+  const setDockCollapsed = useUiStore((state) => state.setDockCollapsed);
+  const isDesktop = useIsDesktop();
 
   // On desktop, Now Playing renders as a docked side panel (not a fullscreen
   // takeover) — the main content column needs to shrink to make room for it
@@ -64,6 +67,27 @@ function ShellBody() {
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0 });
   }, [currentView, detailDepth]);
+
+  // Apple Music's dock: scrolling down folds the tab bar into one orb and drops the MiniPlayer into
+  // the same row; only reaching the very top again unfolds it (or tapping an orb — see BottomNav).
+  // Only worth doing when there IS a MiniPlayer to bring down.
+  const canCollapseDock = !isDesktop && currentSong !== null && !isRemoteControlling;
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content || !canCollapseDock) {
+      setDockCollapsed(false);
+      return;
+    }
+    let lastY = content.scrollTop;
+    const onScroll = () => {
+      const y = content.scrollTop;
+      if (y <= 2) setDockCollapsed(false);
+      else if (y > 48 && y - lastY > 4) setDockCollapsed(true);
+      lastY = y;
+    };
+    content.addEventListener('scroll', onScroll, { passive: true });
+    return () => content.removeEventListener('scroll', onScroll);
+  }, [canCollapseDock, setDockCollapsed]);
 
   return (
     <div className={styles.shell}>

@@ -1,0 +1,82 @@
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Two stacked-pill swatches standing for the ends of the range, like macOS's own slider. */
+.swatch {
+  position: relative;
+  width: 26px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.swatch::before,
+.swatch::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 13px;
+  border-radius: 5px;
+  border: 1.5px solid var(--color-text-secondary);
+}
+
+.swatch::before {
+  top: 0;
+  left: 0;
+}
+
+.swatch::after {
+  bottom: 0;
+  right: 0;
+}
+
+.swatchClear::after {
+  background: var(--color-bg-elevated);
+}
+
+.swatchTinted::before,
+.swatchTinted::after {
+  background: var(--color-text-secondary);
+}
+
+.slider {
+  flex: 1;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(to right, var(--color-accent) var(--fill), var(--color-bg) var(--fill));
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 20px;
+  border-radius: var(--radius-full);
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 28px;
+  height: 20px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 38px;
+  font-size: 0.74rem;
+  color: var(--color-text-tertiary);
+}

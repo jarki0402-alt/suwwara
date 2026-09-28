@@ -175,3 +175,61 @@ html.is-resizing * {
     opacity: 0;
   }
 }
+
+/* Liquid Glass surfaces (useLiquidRim sets data-rim once the element's own lens filter exists): one
+   material over the whole surface — frost, then one smooth lens — so there's no sharp band at the
+   edge and no frosted core with a seam around it. The slider (Pengaturan) moves it along one line: "Berwarna" is plain frost with
+   the lens at zero (data-lens-off drops the filter pass entirely), "Bening" is almost no blur and
+   the full lens. The glass lives in ::before because a backdrop-filter on the element itself would
+   make it a backdrop root, and BottomNav's own lifted pill inside it would only see the nav's
+   translucent fill. Gated like that pill: Apple WebKit (every iOS browser) renders
+   backdrop-filter: url(#...) unreliably, so it keeps each surface's plain glass. */
+@supports (backdrop-filter: url(#a)) and (not (font: -apple-system-body)) {
+  .liquid-glass[data-rim] {
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    /* The drop shadow moves to ::after: painted by the element itself it sits in the margin the
+       lens samples, and the rim folded it back in as a dark ring inside the glass. */
+    box-shadow: none;
+    isolation: isolate;
+  }
+
+  /* The glass layer reaches --lg-margin past the element on every side and is clipped back to the
+     element's own shape: a backdrop filter only sees what's behind its own box, and a convex bezel
+     bends in what lies just OUTSIDE the edge — so the lens needs that margin to sample from. */
+  .liquid-glass[data-rim]::before {
+    content: '';
+    position: absolute;
+    inset: calc(-1 * var(--lg-margin));
+    z-index: -1;
+    pointer-events: none;
+    clip-path: inset(var(--lg-margin) round var(--lg-radius));
+    background: var(--glass-bg);
+    /* Frost first, lens last — the only order Chrome renders: any CSS function after url() is
+       dropped, and inside the SVG filter a blur after feDisplacementMap is skipped. Never below
+       0.8px even at "Bening": Chrome's feDisplacementMap samples nearest-neighbour, and a
+       razor-sharp backdrop squeezed into the rim comes out stair-stepped. */
+    backdrop-filter: blur(max(var(--blur-md), 0.8px)) var(--glass-saturate) var(--rim-filter);
+  }
+
+  /* Drop shadow and edge light, on a layer painted after the glass so the lens never sees them.
+     The edge light is two soft, blurred glints (top brighter, bottom faint) rather than
+     --glass-sheen's 0.5px all-round hairline, which read as a thin drawn line around the glass. */
+  .liquid-glass[data-rim]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.14),
+      inset 0 -1px 2px rgba(255, 255, 255, 0.05),
+      0 10px 30px rgba(0, 0, 0, 0.18);
+  }
+
+  .liquid-glass[data-rim][data-lens-off]::before {
+    backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  }
+}

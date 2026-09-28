@@ -22,6 +22,18 @@ function applyThemeColorMeta(isDark: boolean): void {
  */
 export function useThemeSync(): void {
   const theme = useSettingsStore((state) => state.theme);
+  const glassTint = useSettingsStore((state) => state.glassTint);
+
+  // The Liquid Glass slider moves every glass surface along one line, Bening (0) ↔ Berwarna (1):
+  // tint and frost rise together toward Berwarna (factors theme.css/variables.css multiply into
+  // --glass-bg* and --blur-*), while the lens (useLiquidRim) fades out. Berwarna = the full 44px
+  // frost; the blur curve stays low through the middle so the lens is actually visible there.
+  useEffect(() => {
+    const root = document.documentElement.style;
+    // At Bening both reach (almost) zero: no frost, the faintest tint, only the lens.
+    root.setProperty('--glass-alpha-factor', String(0.05 + 1.15 * glassTint));
+    root.setProperty('--glass-blur-factor', String(glassTint ** 1.6));
+  }, [glassTint]);
 
   useEffect(() => {
     const root = document.documentElement;

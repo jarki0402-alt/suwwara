@@ -1,29 +1,109 @@
 .nav {
   /* A detached floating pill (Dynamic-Island-style), not a bar flush against the edge —
-     env(safe-area-inset-bottom) plus --pill-gap both go into the `bottom` offset instead
-     of internal padding, so the pill floats clear of the home-indicator gesture area with
-     a visible gap under it. MiniPlayer/RemoteBar/AppShell/Toast all derive their own
-     offsets from --bottom-nav-height + --pill-gap — see each one's own comment. */
+     the home-indicator inset goes into the `bottom` offset (--dock-bottom) instead of
+     internal padding. MiniPlayer/RemoteBar/AppShell/Toast all derive their own offsets
+     from the same --dock-* tokens (variables.css). */
   position: fixed;
-  left: var(--pill-gap);
-  right: var(--pill-gap);
-  bottom: calc(env(safe-area-inset-bottom) + var(--pill-gap));
+  left: var(--dock-side);
+  right: var(--dock-side);
+  bottom: var(--dock-bottom);
   height: var(--bottom-nav-height);
   display: flex;
   border-radius: var(--radius-full);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--blur-lg)) var(--glass-saturate);
-  -webkit-backdrop-filter: blur(var(--blur-lg)) var(--glass-saturate);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
   box-shadow: var(--glass-sheen), 0 10px 30px rgba(0, 0, 0, 0.18);
   z-index: var(--z-mini-player);
   /* The pill itself is what the drag-to-switch gesture (BottomNav.tsx) tracks — without this,
      a touch here is ambiguous with a browser scroll/swipe gesture and the drag reads as
      stuck/unresponsive instead of following the finger immediately. */
   touch-action: none;
-  overflow: hidden;
+  transition: right var(--dock-duration) var(--ease-liquid);
 }
 
-.indicator {
+/* Folded (see AppShell's scroll listener): the bar retracts into one orb on the left while the
+   MiniPlayer drops into the row beside it — Apple Music's dock. The tabs fade out fast so their
+   squeeze inside the shrinking bar is never seen; the orb's own icon fades in on top. */
+.collapsed {
+  right: calc(100% - var(--dock-side) - var(--bottom-nav-height));
+}
+
+.collapsed .tabButton {
+  opacity: 0;
+  transform: scale(0.85);
+  pointer-events: none;
+  transition: color var(--transition-glass), transform var(--transition-fast), opacity 120ms ease;
+}
+
+.collapsed .indicator::before,
+.collapsed .indicatorFill::before {
+  opacity: 0;
+}
+
+.compactTab {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: inherit;
+  background: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition: opacity 120ms ease, transform var(--dock-duration) var(--ease-liquid);
+}
+
+/* Folding: the orb's icon comes in only once the tab labels (120ms) are gone. */
+.collapsed .compactTab {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition: opacity 240ms ease 120ms, transform var(--dock-duration) var(--ease-liquid);
+}
+
+/* Search splits off the bar's right end: it waits there hidden (exactly where the bar's end is
+   while unfolded) and grows in as the bar pulls away to the left. */
+.searchOrb {
+  position: fixed;
+  right: var(--dock-side);
+  bottom: var(--dock-bottom);
+  width: var(--bottom-nav-height);
+  height: var(--bottom-nav-height);
+  z-index: var(--z-mini-player);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  box-shadow: var(--glass-sheen), 0 10px 30px rgba(0, 0, 0, 0.18);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition: opacity 220ms ease, transform var(--dock-duration) var(--ease-liquid);
+}
+
+.searchOrbShown {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* The selection pill is two layers moved in lockstep by useLiquidPill: .indicatorFill, Apple's
+   dark resting capsule, BEHIND the tabs (on top, its black would dim the active icon), and
+   .indicator, the glass/lens, above them (the lens has to bend the icons). */
+.indicator,
+.indicatorFill {
   position: absolute;
   top: 0;
   left: 0;
@@ -32,28 +112,69 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform var(--transition-bubble), opacity var(--transition-glass);
+  /* Position, size and stretch are all written by useLiquidPill's springs every frame, so no
+     transform transition here — a CSS transition would lag a beat behind each spring step. */
+  transition: opacity var(--transition-glass);
   pointer-events: none;
+  --sx: 1;
+  --sy: 1;
+  --lift: 0;
+}
+
+/* Sized, not transform-scaled, by --sx/--sy: Chrome runs a backdrop filter at the element's
+   untransformed size and then scales the result, so a lens under scale(1.4) came out soft. */
+.indicator::before,
+.indicatorFill::before {
+  content: '';
+  flex: none;
+  height: calc((var(--bottom-nav-height) - 8px) * var(--sy));
+  width: calc(min((var(--bottom-nav-height) - 8px) * 82 / 50, 100% - 6px) * var(--sx));
+  border-radius: 999px;
+  transition: opacity 180ms ease;
+}
+
+/* --lift: 0 = resting under a tab, 1 = pressed/travelling. Resting it's a flat translucent black,
+   no frost, no bright bevel, the same whatever sits behind it (as glass it turned whitish over
+   bright album art); lifting drains the black out as the glass comes in on the layer above. */
+.indicatorFill::before {
+  background: rgba(0, 0, 0, calc(var(--pill-rest-alpha) * (1 - var(--lift))));
 }
 
 .indicator::before {
-  content: '';
-  width: 82px;
-  height: 50px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(30px) saturate(1.5);
-  -webkit-backdrop-filter: blur(30px) saturate(1.5);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
-  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  background-image: linear-gradient(rgba(255, 255, 255, calc(0.02 * var(--lift))), rgba(255, 255, 255, calc(0.02 * var(--lift))));
+  backdrop-filter: blur(calc(4px * var(--lift))) saturate(calc(1 + 1.4 * var(--lift)));
+  -webkit-backdrop-filter: blur(calc(4px * var(--lift))) saturate(calc(1 + 1.4 * var(--lift)));
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, calc(0.75 * var(--lift))),
+    inset 0 -1px 1px rgba(0, 0, 0, calc(0.08 * var(--lift))),
+    inset 0 0 0 1px rgba(255, 255, 255, calc(0.04 + 0.21 * var(--lift))),
+    0 calc(10px * var(--lift)) calc(26px * var(--lift)) rgba(0, 0, 0, calc(0.22 * var(--lift)));
 }
 
-.stretching::before {
-  transform: scaleX(1.25);
+/* Real lens refraction (LiquidGlassLens.tsx), only while the pill is lifted — resting under a
+   tab it's plain glass so the active icon/label stays crisp. The pill moves ABOVE the tabs so the
+   lens bends the icons/labels like Apple's tab bar. .nav's own glass lives in pseudo-elements
+   (global .liquid-glass): a backdrop-filter on .nav itself would make it the backdrop root, and the
+   lens would only see .nav's translucent fill with the unbent labels showing through as a ghost.
+   Apple WebKit (every iOS browser) renders backdrop-filter: url(#...) unreliably, so it keeps the
+   plain version above; -apple-system-body is a font keyword only Apple's WebKit accepts. */
+@supports (backdrop-filter: url(#a)) and (not (font: -apple-system-body)) {
+  .indicator {
+    z-index: 2;
+  }
+
+  .indicator::before {
+    backdrop-filter: none;
+  }
+
+  .lensOn::before {
+    backdrop-filter: url(#bn-lens);
+  }
 }
 
 @media (min-width: 960px) {
-  .indicator {
+  .indicator,
+  .indicatorFill {
     display: none;
   }
 }
@@ -84,12 +205,21 @@
   font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
-  transition: color var(--transition-glass), transform var(--transition-fast);
+  /* Unfolding: the labels wait until the bar has grown most of the way, or they'd be seen squeezed. */
+  transition: color var(--transition-glass), transform var(--transition-fast), opacity 220ms ease 200ms;
   z-index: 1;
 }
 
 .tabButton:active {
   transform: scale(0.94);
+}
+
+/* Phone dock: inactive tabs in the full text colour, not grey — over clear glass a tertiary grey
+   lost too much contrast against whatever passes behind. The active tab keeps the accent. */
+@media (max-width: 959.98px) {
+  .tabButton {
+    color: var(--color-text-primary);
+  }
 }
 
 .tabButton svg {
@@ -132,6 +262,12 @@
        BottomNav.tsx) — this sidebar's .library list still needs to scroll normally on a
        touch-capable desktop/tablet. */
     touch-action: auto;
+    transition: none;
+  }
+
+  .compactTab,
+  .searchOrb {
+    display: none;
   }
 
   .brand {

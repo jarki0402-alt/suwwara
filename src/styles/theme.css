@@ -53,13 +53,17 @@
      barely-there edge, which is really just the blur/tint boundary itself plus one faint top
      catch-light. Cut down to that one highlight, and --glass-border's alpha dropped hard so the
      `border` declarations across components stop reading as a visible grey ring. */
+  /* --glass-alpha-factor (and --glass-blur-factor in variables.css) come from the Liquid Glass slider in
+     Pengaturan, set on <html> by useThemeSync; 1 = the stock look. */
   --glass-tint: 255, 255, 255;
-  --glass-bg: rgba(var(--glass-tint), 0.62);
-  --glass-bg-strong: rgba(var(--glass-tint), 0.74);
+  --glass-bg: rgba(var(--glass-tint), min(0.96, calc(0.62 * var(--glass-alpha-factor, 1))));
+  --glass-bg-strong: rgba(var(--glass-tint), min(0.97, calc(0.74 * var(--glass-alpha-factor, 1))));
   --glass-border: rgba(255, 255, 255, 0.22);
   --glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
   --glass-saturate: saturate(180%);
   --glass-shadow: 0 8px 32px rgba(22, 22, 26, 0.12), 0 1px 2px rgba(22, 22, 26, 0.06);
+  /* BottomNav's resting tab capsule (Apple's dark selection pill): black at this alpha. */
+  --pill-rest-alpha: 0.1;
 
   /* Two-tone brand gradient — used sparingly for hero/highlight surfaces
      (hero banner, active nav pill, play buttons) so it reads as an accent,
@@ -93,11 +97,12 @@
     --shadow-glow: 0 6px 24px rgba(167, 139, 250, 0.2);
 
     --glass-tint: 28, 28, 32;
-    --glass-bg: rgba(var(--glass-tint), 0.58);
-    --glass-bg-strong: rgba(var(--glass-tint), 0.7);
+    --glass-bg: rgba(var(--glass-tint), min(0.96, calc(0.58 * var(--glass-alpha-factor, 1))));
+    --glass-bg-strong: rgba(var(--glass-tint), min(0.97, calc(0.7 * var(--glass-alpha-factor, 1))));
     --glass-border: rgba(255, 255, 255, 0.07);
     --glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.15), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --pill-rest-alpha: 0.32;
   }
 }
 
@@ -125,9 +130,10 @@
   --shadow-glow: 0 6px 24px rgba(167, 139, 250, 0.2);
 
   --glass-tint: 28, 28, 32;
-  --glass-bg: rgba(var(--glass-tint), 0.58);
-  --glass-bg-strong: rgba(var(--glass-tint), 0.7);
+  --glass-bg: rgba(var(--glass-tint), min(0.96, calc(0.58 * var(--glass-alpha-factor, 1))));
+  --glass-bg-strong: rgba(var(--glass-tint), min(0.97, calc(0.7 * var(--glass-alpha-factor, 1))));
   --glass-border: rgba(255, 255, 255, 0.07);
   --glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.15), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --pill-rest-alpha: 0.32;
 }

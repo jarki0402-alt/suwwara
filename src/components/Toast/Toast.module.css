@@ -1,7 +1,7 @@
 .container {
   position: fixed;
   left: 50%;
-  bottom: calc(var(--mini-player-height) + var(--bottom-nav-height) + var(--pill-gap) * 3 + var(--space-2));
+  bottom: calc(var(--dock-bottom) + var(--bottom-nav-height) + var(--mini-player-height) + var(--dock-gap) * 2 + var(--space-2));
   transform: translateX(-50%);
   z-index: var(--z-toast);
   display: flex;

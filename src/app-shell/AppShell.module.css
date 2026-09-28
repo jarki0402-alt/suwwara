@@ -11,7 +11,7 @@
   /* Matches BottomNav/MiniPlayer's own detached-pill sizing above: their own combined
      footprint (two pills + the three gaps between/around them) plus a little breathing
      room so the last row of content never sits flush against the floating MiniPlayer. */
-  padding-bottom: calc(var(--mini-player-height) + var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--pill-gap) * 3 + var(--space-2));
+  padding-bottom: calc(var(--dock-bottom) + var(--bottom-nav-height) + var(--dock-gap) + var(--mini-player-height) + var(--space-4));
 }
 
 @media (min-width: 960px) {

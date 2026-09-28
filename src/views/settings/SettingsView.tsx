@@ -9,6 +9,7 @@ import { AccountSection } from './AccountSection';
 import { UpdateRow } from './UpdateRow';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
+import { GlassSlider } from './GlassSlider';
 import { ThemeToggle } from './ThemeToggle';
 
 export function SettingsView() {
@@ -30,6 +31,7 @@ export function SettingsView() {
       <div className={styles.section}>
         <span className={styles.sectionTitle}>Tampilan</span>
         <ThemeToggle />
+        <GlassSlider />
       </div>
 
       <UpdateRow />

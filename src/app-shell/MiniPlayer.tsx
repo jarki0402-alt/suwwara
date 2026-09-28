@@ -8,6 +8,8 @@ import { Icon } from '../components/Icon/Icon';
 import { LazyImage } from '../components/Image/LazyImage';
 import { ProgressBar, type ProgressBarHandle } from '../components/ProgressBar/ProgressBar';
 import { useBubbleRipple } from '../hooks/useBubbleRipple';
+import { useIsDesktop } from '../hooks/useIsDesktop';
+import { useLiquidRim } from '../hooks/useLiquidRim';
 import { cycleRepeat, toggleShuffle } from '../jam/jamQueueActions';
 import { usePlayback } from '../playback/PlaybackContext';
 import { useQueueStore } from '../stores/queueStore';
@@ -27,12 +29,17 @@ export function MiniPlayer() {
   const toggleLyrics = useUiStore((state) => state.toggleLyrics);
   const setLyricsOpen = useUiStore((state) => state.setLyricsOpen);
   const openFullscreenLyrics = useUiStore((state) => state.openFullscreenLyrics);
+  const isDockCollapsed = useUiStore((state) => state.isDockCollapsed);
   const { currentSong, playbackState, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
   const shuffle = useQueueStore((state) => state.shuffle);
   const repeatMode = useQueueStore((state) => state.repeatMode);
   const volume = useSettingsStore((state) => state.volume);
   const setVolume = useSettingsStore((state) => state.setVolume);
   const progressBarRef = useRef<ProgressBarHandle>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const isDesktop = useIsDesktop();
+  // Phone only: on desktop the bar spans the window, and swelling all of it for one button reads wrong.
+  const glass = useLiquidRim(wrapperRef, currentSong !== null, { grow: 0.04 });
   // One ripple-hook instance per button (fixed set, not a loop) — see useBubbleRipple's own
   // note on why this can't be a single shared instance.
   const shuffleRipple = useBubbleRipple<HTMLButtonElement>();
@@ -76,7 +83,12 @@ export function MiniPlayer() {
   };
 
   return (
-    <div className={styles.wrapper} data-player-bar="">
+    <div
+      ref={wrapperRef}
+      className={[styles.wrapper, 'liquid-glass', isDockCollapsed ? styles.docked : ''].join(' ')}
+      data-player-bar=""
+      {...(isDesktop ? {} : glass)}
+    >
       <div className={styles.progressTrack}>
         <ProgressBar ariaLabel="Posisi lagu" ref={progressBarRef} compact />
       </div>
@@ -125,7 +137,7 @@ export function MiniPlayer() {
           <button
             ref={nextRipple.ref}
             type="button"
-            className={[styles.actionButton, 'glass-ripple-host'].join(' ')}
+            className={[styles.actionButton, styles.nextButton, 'glass-ripple-host'].join(' ')}
             onClick={handleNext}
             onPointerDown={nextRipple.onPointerDown}
             aria-label="Lagu berikutnya"

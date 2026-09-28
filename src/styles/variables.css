@@ -44,9 +44,11 @@
      (list rows, song titles) is a genuinely formless wash of colour — not just dimmed —
      matching the reference (iOS Control Center) the redesign is chasing. Legibility is blur's
      job, not --glass-bg's opacity (see theme.css's own note by --glass-bg for why). */
-  --blur-sm: 24px;
-  --blur-md: 44px;
-  --blur-lg: 80px;
+  --blur-sm: calc(24px * var(--glass-blur-factor, 1));
+  --blur-md: calc(44px * var(--glass-blur-factor, 1));
+  /* Sheets/modals: never thinner than 40% of their frost, even at "Bening" — they hold whole
+     screens of text over other text, not a few icons. */
+  --blur-lg: calc(80px * max(var(--glass-blur-factor, 1), 0.4));
 
   --z-app-shell: 1;
   --z-mini-player: 10;
@@ -54,13 +56,24 @@
   --z-toast: 30;
   --z-modal: 40;
 
-  --mini-player-height: 58px;
-  --bottom-nav-height: 58px;
+  --mini-player-height: clamp(58px, 14.5vw, 64px);
+  --bottom-nav-height: clamp(58px, 14.5vw, 64px);
   /* Gap between a floating mobile pill (BottomNav, MiniPlayer) and the screen edge, and
      between the two stacked pills themselves — the "Dynamic Island" detached-capsule look
      instead of a bar flush against the edge. Desktop resets these back to 0 (a full-bleed
      bar, not a floating pill — see each component's own >=960px override). */
   --pill-gap: 10px;
+  /* Mobile dock (MiniPlayer + BottomNav + the collapsed search orb), sized to the phone rather
+     than fixed px: a 58px bar read as tiny on a 440px-wide iPhone Pro Max. The bottom offset sits
+     partly inside the home-indicator inset (Apple's floating tab bar does the same) and never
+     below the side margin, so on a phone without an inset the dock is still framed evenly. */
+  --dock-side: clamp(14px, 4.5vw, 22px);
+  --dock-bottom: max(calc(env(safe-area-inset-bottom) - 6px), var(--dock-side));
+  --dock-gap: 10px;
+  /* A sampled critically-ish damped spring (ζ≈0.72, ~4% overshoot) — the dock collapse/expand
+     has to read as one liquid object settling, which a cubic-bezier can only approximate. */
+  --ease-liquid: linear(0, 0.044, 0.149, 0.285, 0.429, 0.566, 0.688, 0.79, 0.872, 0.933, 0.978, 1.008, 1.026, 1.035, 1.038, 1.037, 1.033, 1.028, 1.023, 1.017, 1.013, 1.009, 1.005, 1.003, 1.001, 1);
+  --dock-duration: 600ms;
   --sidebar-width: 232px;
   --now-playing-panel-width: 380px;
   --desktop-breakpoint: 960px;

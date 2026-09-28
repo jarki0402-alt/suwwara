@@ -1,10 +1,12 @@
 .wrapper {
   position: fixed;
-  left: var(--pill-gap);
-  right: var(--pill-gap);
-  /* A separate floating pill stacked above BottomNav's own pill: its own gap to the
-     screen edge, BottomNav's height, then another gap between the two pills. */
-  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--pill-gap) * 2);
+  left: var(--dock-side);
+  right: var(--dock-side);
+  /* A separate floating pill stacked above BottomNav's own pill. Sits on the dock's bottom line and
+     is lifted by transform, not `bottom`: the fold animation then moves it on the compositor instead
+     of re-laying it out every frame (animating `bottom` was part of what made the fold stutter). */
+  bottom: var(--dock-bottom);
+  transform: translateY(calc(-1 * (var(--bottom-nav-height) + var(--dock-gap))));
   height: var(--mini-player-height);
   z-index: var(--z-mini-player);
   overflow: hidden;
@@ -17,6 +19,37 @@
   align-items: center;
   padding: 0 var(--space-3);
   gap: var(--space-2);
+  transition:
+    transform var(--dock-duration) var(--ease-liquid),
+    left var(--dock-duration) var(--ease-liquid),
+    right var(--dock-duration) var(--ease-liquid);
+}
+
+/* Folded dock: the pill is ~150px narrower, so "next" folds away with it and the title/artist
+   get the room. Collapsed via max-width, not display:none, so the text widens with the fold instead
+   of jumping at its start. */
+.nextButton {
+  max-width: 48px;
+  overflow: hidden;
+  transition:
+    max-width var(--dock-duration) var(--ease-liquid),
+    padding var(--dock-duration) var(--ease-liquid),
+    opacity 180ms ease;
+}
+
+.docked .nextButton {
+  max-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Folded dock (Apple Music): drops into BottomNav's row, between the tab orb and the search orb. */
+.docked {
+  transform: none;
+  left: calc(var(--dock-side) + var(--bottom-nav-height) + 8px);
+  right: calc(var(--dock-side) + var(--bottom-nav-height) + 8px);
 }
 
 .progressTrack {
@@ -127,6 +160,25 @@
   color: var(--color-accent);
 }
 
+/* Phone-only: the pill's height scales with the screen (--mini-player-height), so the art and
+   play button scale with it instead of floating small in a taller bar. The artist line is full
+   text colour, not secondary grey, for the same contrast reason as BottomNav's tabs. */
+@media (max-width: 959.98px) {
+  .subtitle {
+    color: var(--color-text-primary);
+  }
+
+  .art {
+    width: calc(var(--mini-player-height) - 16px);
+    height: calc(var(--mini-player-height) - 16px);
+  }
+
+  .playButton {
+    width: calc(var(--mini-player-height) - 24px);
+    height: calc(var(--mini-player-height) - 24px);
+  }
+}
+
 .spinning {
   animation: spin 1s linear infinite;
 }
@@ -150,6 +202,8 @@
     left: calc(var(--sidebar-width) + var(--pill-gap));
     right: var(--pill-gap);
     bottom: var(--pill-gap);
+    transform: none;
+    transition: none;
     overflow: hidden;
     border-radius: 32px;
     box-shadow: var(--glass-sheen), 0 12px 32px rgba(0, 0, 0, 0.22);

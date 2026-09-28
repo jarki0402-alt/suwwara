@@ -25,6 +25,82 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-09-28 (bubble tab: kapsul gelap saat diam, ikon tajam di bawah lensa)
+
+Feedback: bubble tab saat diam keputihan (Apple: kapsul gelap, baru jadi "liquid" saat digeser); ikon yang dilewati bubble jadi pixelated.
+
+- **Kapsul gelap saat diam**: elemen baru `.indicatorFill` di BELAKANG tab (di atas, hitamnya meredupkan ikon aktif), digerakkan bersama `.indicator` oleh `useLiquidPill`. Hitam `--pill-rest-alpha` (0,32 gelap / 0,10 terang, token di `theme.css`) × `(1 − lift)`. Lapisan lensa `.indicator` saat diam tanpa blur/bevel (cuma tepi 0,04), lalu kilap/bayangan/lensa masuk mengikuti `lift`.
+- **Kenapa ikon pixelated** (diukur di harness): (1) bubble dibesarkan dengan `transform: scale`, dan Chrome menghitung backdrop filter di ukuran asli lalu memperbesar hasilnya → sekarang ukurannya lewat `width/height` × `--sx/--sy`; (2) `feDisplacementMap` Chrome mengambil piksel nearest-neighbour, jadi setiap pergeseran pecahan (termasuk pembesaran tengah lensa) membuat garis tipis ikon bergerigi. Filter dengan pergeseran nol terbukti tetap tajam (bukan masalah resolusi filter).
+- **Lensa bubble ala Apple** (setelah feedback: sempat dicoba ikon di atas lensa + diperbesar langsung, tapi kurang seperti Apple karena ikon tidak ikut melar di pinggir — dibatalkan): ikon tetap di BAWAH lensa. Peta lensa (kurva halus, raster 4×) tanpa pergeseran sama sekali di tengah → ikon yang ada di tengah bubble setajam aslinya; semua pembengkokan di tepi (tarikan 9px, zona tepi 28%) → ikon yang terkena pinggiran bubble melar dengan fringe warna (spread 1,0), seperti tab bar Apple. Tiga pass warna digabung `feBlend screen` (bukan alpha sepertiga × 3 yang membuang ketelitian). Blur sebelum lensa dihapus.
+- Diverifikasi: build + lint + 132 test lolos, Docker frontend di-rebuild; harness GPU skala 3× tema gelap & terang (diam, ditekan, tepat di atas ikon Cari, di antara Cari–Koleksi, mendarat); drag 5/5 uji 61 frame/detik tanpa frame >16,8ms; lipat/tekan orb/buka dock tetap 61 frame/detik.
+
+## Perubahan terbaru — 2026-09-28 (teks dock putih, biasan samping tidak lagi telat, tanpa garis tipis)
+
+Feedback: ikon/teks abu-abu di dock kurang kontras; saat berubah jadi 2 dynamic biasan kiri-kanan baru muncul setelah terbelah; masih ada garis tipis di kaca.
+
+- **Warna**: di HP, tab tidak aktif dan nama artis mini player pakai `--color-text-primary` (putih di tema gelap), bukan tersier/sekunder. Tab aktif tetap aksen.
+- **Tepi kiri-kanan tidak ikut melar** (`useLiquidRim.buildLens`): peta horizontal jadi dua potongan tepi selebar tetap (margin + zona tepi) yang ditempel ke ujung kiri/kanan dengan `preserveAspectRatio="xMinYMid|xMaxYMid meet"` di atas `feFlood` netral. Tinggi potongan = tinggi kotak filter, jadi lebarnya selalu pas berapa pun lebar elemen. Peta vertikal satu gambar penuh (tinggi tidak berubah saat melipat). Mekanisme campur dua peta (`blendFilterMarkup`) dan `lensFilterMarkup` dihapus — lensa hanya dibangun ulang kalau tingginya berubah.
+- **Garis tipis**: (1) bayangan jatuh elemen ada di margin yang disampel lensa, lalu terlipat masuk sebagai cincin gelap → bayangan dipindah ke `::after` (digambar setelah kaca). (2) Garis rambut 0,5px `--glass-sheen` diganti dua kilap lembut ber-blur (atas lebih terang, bawah samar).
+- Diverifikasi: build + lint + 132 test lolos, Docker frontend di-rebuild; harness GPU: screenshot 120ms setelah dock mulai membuka sudah menunjukkan biasan di kedua ujung; zoom orb 3× tanpa cincin/garis; lipat, tekan, buka 61 frame/detik tanpa frame >16,8ms di posisi Bening & tengah.
+
+## Perubahan terbaru — 2026-09-28 (tepi kaca cembung sungguhan, respon tekan, pengaman device lemah)
+
+Diskusi konsep Liquid Glass: arah biasan tepi kita terbalik (menarik konten dari dalam lalu merenggangkannya), padahal bezel cembung menampilkan konten dari LUAR tepi yang dimampatkan ke dalam. Diputuskan: perbaiki arah biasan + respon tekan; specular highlight dan tint adaptif tidak dikerjakan.
+
+- **Bezel cembung** (`useLiquidRim.buildLens` / `axisCurve`): lapisan kaca `::before` diperbesar `--lg-margin` (6–12px, 16% tinggi) ke tiap sisi dan dipotong balik ke bentuk elemen dengan `clip-path: inset(margin round radius)`, supaya lensa punya konten di luar tepi untuk diambil. Peta dibuat dalam px: tepi mengambil dari luar (setengah kosinus), tengah sedikit membesar (kemiringan linear). `fullScale` hanya bergantung tinggi, jadi saat dock melipat hanya peta yang berganti, bukan kekuatannya. Garis kilap pindah ke `::after` (tanpa filter).
+- **Respon tekan**: hook mengembalikan handler pointer; ditekan → elemen membesar lewat properti `scale` (pegas sendiri, tidak bentrok dengan `transform`/transisi dock) dan lensa ditarik setengah jalan ke kekuatan penuh. Orb tab (menggembungkan nav terlipat) & orb Cari 1,1×, mini player 1,04× (HP saja). `:active` lama yang mengecilkan orb dihapus.
+- **Pengaman device lemah** (`canAffordLens`): `deviceMemory ≤ 4`, `hardwareConcurrency ≤ 4`, `prefers-reduced-motion` atau `prefers-reduced-transparency` → tanpa lensa (kaca buram biasa yang tetap ikut slider). Berlaku juga untuk lensa bubble tab. Respon tekan tetap jalan (kecuali reduced-motion).
+- Diverifikasi: build + lint + 132 test lolos, Docker frontend di-rebuild; harness GPU di posisi Bening & tengah: lipat, tekan orb, dan buka masing-masing 61 frame/detik tanpa frame >16,8ms; orb membesar ke 1,1× saat ditahan dan kembali setelah dilepas.
+
+## Perubahan terbaru — 2026-09-28 (biasan tidak lagi hilang saat dock melipat, next hilang di 1 dynamic)
+
+Feedback: saat berubah 1 ↔ 2 dynamic, biasan hilang dulu lalu muncul belakangan (terlihat delay); tombol next di dock terlipat bikin judul/artis terpotong.
+
+- **Tombol next saat 1 dynamic**: menyusut lewat `max-width`/padding + fade mengikuti animasi lipat (bukan `display:none`, supaya judul melebar mulus). Di 2 dynamic tetap ada.
+- **Lensa tetap menyala selama transisi** (`useLiquidRim`): peta digambar melar mengikuti kotak elemen, jadi lensa ikut bermorf bersama bentuknya. 80ms setelah ukurannya diam, peta untuk bentuk akhir mengambil alih lewat campuran 280ms dua lensa (`k2·A + k3·B`, filter dua pass hanya selama campuran), lalu kembali ke satu pass. Di Berwarna (lensa nol) peta langsung diganti tanpa campuran.
+- **Gerigi teks di tepi saat Bening**: `feDisplacementMap` Chrome mengambil piksel nearest-neighbour, dan kurva tepi kuadrat merenggangkan konten ~4,5× di tepi → teks berundak. Kurva tepi diganti setengah kosinus (renggangan maks ~2,6×, tetap mulus), plus blur minimum 0,8px sebelum lensa.
+- Diverifikasi: build + lint + 132 test lolos, Docker frontend di-rebuild; harness GPU di posisi Bening: lensa tidak pernah mati selama lipat/buka, 61 frame/detik tanpa frame >16,8ms (lipat & buka, diulang dua kali), filter kembali ke satu pass dengan peta seukuran elemen setelah selesai.
+
+## Perubahan terbaru — 2026-09-28 (kaca tanpa "lapisan", Bening lebih bening)
+
+Feedback: di posisi tengah kaca terlihat berlapis-lapis (gradasi tidak menyatu), dan sisi Bening masih kurang bening.
+
+- **Peta lensa dari satu kurva halus** (`useLiquidRim.lensCurve`, 33 sampel): tepi pakai falloff kuadrat (kemiringannya nol tepat di ujung zona) + kemiringan konstan kecil di tengah. Versi lama menyambung beberapa titik gradien dengan garis lurus; sudut di tiap sambungan muncul sebagai undakan di konten yang buram.
+- **Satu pass displacement** untuk permukaan kaca (tanpa tiga pass warna): di atas latar buram tiga salinan yang tergeser beda tipis terbaca sebagai lapisan, bukan fringe. Bubble tab tetap pakai versi berpelangi.
+- **Peta di-raster seukuran elemen** (dulu 100×100 lalu direntangkan).
+- **Bening lebih bening**: blur `t^1.6` (0 di Bening), tint `0.05 + 1.15t`, lensa maksimum 0,4× tinggi elemen (dulu 0,3).
+- Diverifikasi: build + lint + 132 test lolos, Docker frontend di-rebuild; harness GPU skala 3× di posisi tengah & Bening di atas daftar kartu gelap (kondisi screenshot) — tidak ada undakan.
+
+## Perubahan terbaru — 2026-09-28 (kaca jadi satu material Bening↔Berwarna, lipat dock dihaluskan)
+
+Feedback: blur di dalam kaca terasa aneh (tepi tajam gepeng + cincin di tengah); maunya kalau buram ya buram saja, biasan muncul makin ke Bening, dan saat Bening tengahnya benar-benar bening tapi membias. Animasi lipat/buka dock masih terasa patah.
+
+- **Satu material, bukan dua lapisan**: sistem lama (inti buram bermasker + tepi lensa 12px tanpa blur) dibuang. Sekarang satu `::before` dengan `blur → saturate → url(#lensa)`, dan peta lensanya halus dari tepi ke tengah (curam di tepi, landai di tengah = sedikit membesar). Slider menggeser tiga hal sekaligus: blur 44px→~2px (`0.05 + 0.95·t^1.6`), tint (`0.2 + t`), lensa `1 − t` (nol di Berwarna, dan filternya dimatikan lewat `data-lens-off`). Bawaan tetap di tengah. Sheet/modal (`--blur-lg`) tidak pernah di bawah 40% blur.
+- **Kenapa urutannya blur dulu baru lensa**: diuji langsung di Chrome — semua fungsi CSS setelah `url()` di `backdrop-filter` dibuang (`url() blur()` = tidak ter-blur, ini penyebab "aneh" tadi), dan di dalam filter SVG `feGaussianBlur` setelah `feDisplacementMap` juga dilewati. Blur→lensa adalah satu-satunya urutan yang dirender. Karena blur-nya kecil di sisi Bening, lensanya tetap kelihatan penuh.
+- **Lipat dock lebih halus**: MiniPlayer naik/turun lewat `transform` (compositor), bukan `bottom` (layout tiap frame). Saat ukuran elemen berubah, lensa diredupkan ke nol (120ms) sehingga yang ikut bermorf cuma blur biasa, lalu peta dibangun ulang untuk bentuk akhir dan lensa muncul lagi (260ms) — tidak ada lagi lompatan di akhir animasi. Urutan fade ikon dirapikan (label tab hilang 120ms → ikon orb masuk; saat membuka, label menunggu 200ms sampai bar cukup lebar).
+- Catatan uji: Chromium headless tanpa GPU (SwiftShader) gagal merender blur besar pada `::before` di skala 2× — artefak renderer, bukan bug app; semua uji visual sekarang pakai `--enable-gpu --use-angle=metal`.
+- Diverifikasi: build + lint + 132 test lolos, Docker frontend di-rebuild; harness `AppShell` 440×956 di tiga posisi slider + urutan frame lipat (55 frame/900ms, tidak ada frame >16,8ms). Belum dicek di app yang sudah login / HP asli.
+
+## Perubahan terbaru — 2026-09-28 (dock ala Apple Music, slider Liquid Glass, tepi kaca membias)
+
+Feedback: bubble tab jangan membias saat diam, tapi saat ditekan/digeser harus lebih besar & hidup seperti Apple; dock (mini player + nav) terlalu kecil di iPhone 16 Pro Max; saat scroll dock harus melipat seperti Apple Music; ada pengaturan transparansi kaca; semua kaca yang melayang harus membias.
+
+- **Bubble tab (`useLiquidPill.ts`, baru)**: animasi pindah dari transisi CSS ke pegas JS (posisi, "lift", stretch dari kecepatan jari). Ditekan → membesar ~1,4× dengan pantulan, meluber sedikit melewati bar, dan jadi lensa. Digeser → memanjang searah gerakan. Dilepas/pindah tab → meluncur dalam keadaan terangkat lalu mendarat dengan overshoot. Saat diam: tampilan persis sama, tanpa refraksi. Kekuatan lensa ditulis ke atribut `scale` filter tiap frame, jadi refraksi muncul/hilang mulus. Tab sekarang di-commit dari `pointerup` karena dengan pointer capture, `click` jatuh ke nav, bukan ke tombol. Menghormati `prefers-reduced-motion`. Bug lama setTimeout 150ms vs transisi 400ms ikut hilang.
+- **Ukuran dock (`variables.css`)**: token baru `--dock-side` (`clamp(14px, 4.5vw, 22px)`), `--dock-bottom` (sebagian masuk inset home indicator, tidak pernah lebih rendah dari margin samping), dan `--dock-gap`. Tinggi pill `clamp(58px, 14.5vw, 64px)`. Art dan tombol play mini player ikut skala di HP. Search box di tab Cari min. 48px.
+- **Dock terlipat ala Apple Music**: `uiStore.isDockCollapsed`, dipicu listener scroll di `AppShell` (hanya di HP, saat ada lagu, bukan remote). Scroll turun → nav menyusut jadi orb tab aktif di kiri, mini player turun ke baris yang sama, orb Cari muncul dari ujung kanan bar. Baru terbuka lagi saat scroll mentok atas; orb tab/Cari membuka dock sekaligus pindah menu. Transisi pakai kurva pegas `--ease-liquid` (`linear()`).
+- **Slider Liquid Glass (Pengaturan → Tampilan)**: `settingsStore.glassTint` (0 Bening … 1 Berwarna, bawaan 0,5 = tampilan lama). `useThemeSync` menulis `--glass-alpha-factor` dan `--glass-blur-factor`, dan `--glass-bg*` / `--blur-*` mengalikannya → semua permukaan kaca ikut.
+- **Tepi kaca membias (`useLiquidRim.ts` + `.liquid-glass` di `global.css`)**: nav, orb Cari, mini player, dan search bar desktop. Badan buram pindah ke `::before` dengan masker SVG yang mengikuti bentuk elemen. `::after` jadi lensa dengan peta displacement yang dibuat ulang per ukuran elemen (tepi ~12px tetap, di-debounce saat animasi lipat). Elemennya sendiri tidak boleh punya `backdrop-filter` (backdrop root). Gate sama: Apple WebKit/iOS tetap kaca biasa.
+- Diverifikasi: build + lint + 132 test lolos, Docker frontend di-rebuild. `AppShell` asli dirender di harness Chromium 440×956 (dock terbuka/terlipat/scroll naik/mentok atas/orb Cari, slider 0 & 100, desktop 1280). **Belum** dicek di app yang sudah login maupun di iPhone asli — di iPhone refraksi tidak muncul (batas WebKit), yang lain (ukuran, lipat, slider, animasi bubble) berlaku.
+
+## Perubahan terbaru — 2026-09-28 (pill BottomNav jadi lensa kaca beneran — refraksi SVG, bukan cuma blur)
+
+Feedback: bubble di tab bar mau bening dan membiaskan yang di belakangnya kayak kaca pembesar (referensi: Control Center / Dock macOS), bukan kaca buram + border.
+
+- **`LiquidGlassLens.tsx` (baru)**: dua `<filter>` SVG (`bn-lens-rest`, `bn-lens-active`) yang dipakai lewat `backdrop-filter: url(#...)`. Peta displacement dari dua gradien (R = geser x, G = geser y): curam di tepi, hampir datar di tengah → tepi pill membengkokkan konten, ikon aktif di tengah sedikit membesar tapi tetap terbaca. Tiap kanal warna digeser beda sedikit → fringe pelangi tipis di tepi.
+- **`BottomNav.module.css`**: material pill dasar jadi lebih bening (tint 0.06/0.1/0.04, blur 14/8/4px, bevel putih-gelap tipis) dan inset merah/biru hasil Gemini dihapus. Refraksi cuma aktif di blok `@supports (backdrop-filter: url(#a)) and (not (font: -apple-system-body))`: di situ pill naik ke atas tab (`z-index: 2`) supaya membiaskan ikon/label, dan kaca `.nav` dipindah ke `.nav::before` — kalau `.nav` sendiri punya `backdrop-filter`, ia jadi backdrop root sehingga lensa cuma lihat isi nav yang setengah transparan dan label asli nongol sebagai bayangan dobel.
+- **Safari/iOS tidak dapat refraksi**: WebKit tidak andal merender `backdrop-filter: url(#...)`, jadi Apple WebKit (Safari Mac + semua browser iOS) tetap pakai versi blur biasa di belakang tab. Gate `-webkit-touch-callout` sempat dicoba tapi WebKit desktop tidak mengenalinya; `font: -apple-system-body` terbukti true hanya di WebKit (dicek di Playwright Chromium vs WebKit).
+- Diverifikasi: build + lint + 132 test lolos, `docker compose up -d --build --force-recreate frontend`; komponen `BottomNav` asli dirender di harness Chromium (terang/gelap, diam/drag, sidebar desktop tetap solid). **Belum** dicek di app yang sudah login maupun di iPhone asli.
+
 ## Perubahan terbaru — 2026-09-27 (indikator tab BottomNav dibikin jadi "bubble" yang beneran nongol)
 
 Feedback: pas geser/tap antar tab, indikatornya nyaris gak kelihatan — cuma tint tipis (alpha 0.16), bukan "balon bubble" jelas kayak referensi Apple.

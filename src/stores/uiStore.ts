@@ -23,6 +23,8 @@ interface UiState {
   isConnectSheetOpen: boolean;
   detailStack: DetailRoute[];
   isNowPlayingOpen: boolean;
+  /** Phone dock folded into one row (tab orb · MiniPlayer · search orb) after scrolling down, like Apple Music. */
+  isDockCollapsed: boolean;
   isQueueOpen: boolean;
   isJamSheetOpen: boolean;
   /** Non-null while the "Gabung Jam?" prompt (opened via a `?jam=<roomId>` link) is showing. */
@@ -62,6 +64,7 @@ interface UiState {
   closeQueue: () => void;
   openJamSheet: () => void;
   closeJamSheet: () => void;
+  setDockCollapsed: (value: boolean) => void;
   openJoinJamSheet: (roomId: string) => void;
   closeJoinJamSheet: () => void;
   /** Switches to the Koleksi tab and opens this playlist's detail view directly. */
@@ -93,6 +96,7 @@ export const useUiStore = create<UiState>((set) => ({
   isConnectSheetOpen: false,
   detailStack: [],
   isNowPlayingOpen: false,
+  isDockCollapsed: false,
   isQueueOpen: false,
   isJamSheetOpen: false,
   joinJamRoomId: null,
@@ -104,6 +108,7 @@ export const useUiStore = create<UiState>((set) => ({
   openConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: true })),
   closeConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: false })),
   setView: (view) => set({ currentView: view, detailStack: [] }),
+  setDockCollapsed: (value) => set((state) => (state.isDockCollapsed === value ? state : { isDockCollapsed: value })),
   openArtist: ({ artistId, name }) =>
     set((state) => ({
       detailStack: [...state.detailStack, { type: 'artist', artistId: artistId ?? null, name }],

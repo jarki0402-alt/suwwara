@@ -45,7 +45,16 @@ Perbaikan yang diterapkan:
 - **Pembersihan garis ganda pada kapsul pencarian desktop (`TopBar.module.css` & `global.css`)**:
   - Menghilangkan `border: 1px solid var(--glass-border)` pada `.field` agar selaras dengan Dynamic Island Mini Player yang bersih tanpa efek double border.
   - Menyelaraskan background (`var(--glass-bg)`), drop-shadow, serta menambahkan `border: none` pada `.liquid-glass[data-rim]`.
-- Diverifikasi: `npm test` 140/140 lulus (3 test baru untuk `readTopSongsEndpoint`), `tsc -b && vite build` lulus (Exit 0), backend TypeScript build lulus (Exit 0), Docker container di-rebuild dan diverifikasi sehat di `http://localhost:8080`.
+- **Perbaikan glitch audio looping di detik pertama saat Jam rapid-skip (`AudioEngine.ts` & `usePlaybackController.ts`)**:
+  - *Akar masalah*: Saat Host menekan next cepat, lagu pertama langsung dimuat tanpa pembatalan saat lagu berikutnya masuk. Lagu yang terlanjur loading selesai buffering dan bersuara di detik ke-0 sebelum dipotong lagu berikutnya. Selain itu, kalkulasi `catchUpTarget` di Jam memicu `seek()` paksa beberapa milidetik setelah lagu baru mulai bermain karena mengira waktu loading sebagai desync.
+  - *Solusi*: Ditambahkan metode `audioEngine.cancelPendingTransition()` untuk langsung membatalkan buffer dan mematikan suara lagu yang dilewati. Coalesce Jam (`JAM_COALESCE_MS = 280ms`) menyatukan deretan skip cepat sehingga hanya lagu terakhir yang dimuat. Catch-up seek dikecualikan pada detik-detik awal lagu baru (`meta.positionSec === 0 && elapsed < 6s`) agar lagu berputar mulus dari awal tanpa stutter/jump.
+- **Perbaikan resolver audio YouTube "Sign in to confirm you're not a bot" (`server/ytdlp-service/`)**:
+  - *Akar masalah*: YouTube memperketat verifikasi BotGuard dan memblokir format web client default ("Sign in to confirm you're not a bot" / HTTP 429). Microservice `ytdlp-service` belum menginstal plugin Python `bgutil-ytdlp-pot-provider` sehingga token POT dari container `bgutil-provider` tidak terbaca (`PO Token Providers: none`), serta belum mengaktifkan Node.js runtime untuk eval challenge signature.
+  - *Solusi*:
+    - Menambahkan `bgutil-ytdlp-pot-provider` ke `requirements.txt` dan `Dockerfile` `ytdlp-service`.
+    - Mengonfigurasi `ydl_opts` di `main.py` dengan runtime `node` (`js_runtimes: {'node': {}}`), mengarahkan provider ke `youtubepot-bgutilhttp:base_url=http://bgutil-provider:4416`, dan mengutamakan client `player_client: ['android', 'ios']` yang terbukti bebas dari blokade SABR/botguard.
+    - Diverifikasi: resolusi video yang sebelumnya gagal (`bzO58iQM19g`, `HY397w59MT4`, `LVcbpFaGc_o`) kini sukses instan (status 200, mengembalikan audio stream Googlevideo asli).
+- Diverifikasi: `npm test` 140/140 lulus, `tsc -b && vite build` lulus (Exit 0), backend TypeScript build lulus (Exit 0), seluruh container Docker di-rebuild dan berjalan sehat di `http://localhost:8080`.
 
 ## Perubahan terbaru — 2026-09-28 (halaman publik /install + banner "Pasang Suwwara")
 

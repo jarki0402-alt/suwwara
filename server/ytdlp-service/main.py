@@ -56,7 +56,11 @@ def resolve_audio(req: ResolveRequest):
     url = f"https://www.youtube.com/watch?v={req.video_id}"
     ydl_opts = {
         'format': format_selector(req.quality),
-        'extractor_args': {'youtubepot': {'bgutilhttp': ['base_url=http://bgutil-provider:4416']}},
+        'js_runtimes': {'node': {}},
+        'extractor_args': {
+            'youtube': {'player_client': ['android', 'ios']},
+            'youtubepot-bgutilhttp': {'base_url': ['http://bgutil-provider:4416']},
+        },
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 20,

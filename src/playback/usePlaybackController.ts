@@ -56,11 +56,9 @@ const RESTART_FROM_BEGINNING_THRESHOLD_SEC = 3;
 // micro-seeking that would otherwise make playback feel jerky.
 const JAM_DRIFT_THRESHOLD_SEC = 1.5;
 const JAM_DRIFT_CHECK_MS = 2000;
-// In a Jam, when the room's song changes again this soon after the previous change, wait this long (~0.45s) for things to
-// settle before starting the load: a host skipping through the queue used to make every follower start (and abandon)
-// a load — and a backend resolve — for each song skipped past, only the last of which anyone hears.
-const JAM_RAPID_CHANGE_WINDOW_MS = 700;
-const JAM_COALESCE_MS = 450;
+// In a Jam, coalesce rapid track changes so a host skipping through the queue settles
+// before starting the resolve/load, avoiding overlapping downloads and playback blips.
+const JAM_COALESCE_MS = 280;
 // Short enough to feel instant ("langsung play"), just long enough to avoid
 // an audible click between tracks — no longer user-configurable.
 const TRANSITION_FADE_SEC = 0.35;
@@ -201,9 +199,14 @@ export function usePlaybackController() {
     const song = currentSong;
     const generation = ++loadGenerationRef.current;
     const changedAt = Date.now();
-    const isRapidJamChange =
-      useJamStore.getState().role !== 'solo' && !wasIdle && changedAt - lastSongChangeAtRef.current < JAM_RAPID_CHANGE_WINDOW_MS;
+    const inJam = useJamStore.getState().role !== 'solo';
+    const isRapidJamChange = inJam && !wasIdle;
     lastSongChangeAtRef.current = changedAt;
+
+    if (inJam) {
+      // Abort any in-flight load immediately so a skipped song never continues buffering or plays out loud
+      audioEngine.cancelPendingTransition();
+    }
 
     const startLoad = () => {
       // In solo mode always autoplay (existing behavior, unchanged). In a Jam,
@@ -240,6 +243,10 @@ export function usePlaybackController() {
           const meta = jamState.playbackMeta;
           if (!meta) return;
           if (!isLoadStillCurrent(song.id, audioEngine.getCurrentSong()?.id ?? null, useQueueStore.getState().currentSong()?.id ?? null)) return;
+          // When a track starts fresh from position 0 in the room, don't seek during the first few seconds:
+          // both participants are starting playback from 0:00, and seeking right at start flushes the buffer and causes
+          // an audible stutter at the first second. Only seek if the room was already significantly underway.
+          if (meta.positionSec === 0 && Date.now() - meta.lastUpdatedAtMs < 6000) return;
           const target = catchUpTarget(meta, Date.now(), audioEngine.getCurrentTime(), JAM_DRIFT_THRESHOLD_SEC, song.duration);
           if (target !== null) audioEngine.seek(target);
         })
@@ -642,6 +649,7 @@ export function usePlaybackController() {
       const engineSong = audioEngine.getCurrentSong();
       const roomSong = useQueueStore.getState().currentSong();
       if (!canSyncToRoom(engineSong?.id ?? null, roomSong?.id ?? null, audioEngine.getSnapshot().status)) return;
+      if (meta.positionSec === 0 && Date.now() - meta.lastUpdatedAtMs < 6000) return;
       const target = catchUpTarget(meta, Date.now(), audioEngine.getCurrentTime(), JAM_DRIFT_THRESHOLD_SEC, roomSong?.duration ?? 0);
       if (target !== null) audioEngine.seek(target);
     }, JAM_DRIFT_CHECK_MS);

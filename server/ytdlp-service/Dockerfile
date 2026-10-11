@@ -8,8 +8,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Ensure we get the latest yt-dlp since YouTube changes frequently
-RUN pip install --no-cache-dir -U yt-dlp
+# Ensure we get the latest yt-dlp and pot provider plugin since YouTube changes frequently
+RUN pip install --no-cache-dir -U yt-dlp bgutil-ytdlp-pot-provider
 
 COPY main.py .
 

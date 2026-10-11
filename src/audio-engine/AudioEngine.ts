@@ -800,6 +800,33 @@ class AudioEngine {
   }
 
   /**
+   * Cancels any pending or in-flight track transition (loadTrack / crossfadeTo).
+   * Increments playRequestId so in-flight async loads bail out before calling play(),
+   * aborts in-flight network fetches, and silences/resets the inactive incoming element.
+   */
+  cancelPendingTransition(): void {
+    this.playRequestId += 1;
+    this.blobFetch?.abort();
+    this.cancelPendingPause();
+    this.cancelPendingCrossfade();
+    if (this.elements) {
+      const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
+      const inactiveElement = this.elements[inactiveIndex];
+      inactiveElement.pause();
+      const oldSrc = inactiveElement.src;
+      inactiveElement.removeAttribute('src');
+      inactiveElement.load();
+      if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
+      if (this.context && this.gains) {
+        const inactiveGain = this.gains[inactiveIndex];
+        if (inactiveGain) setGainImmediate(inactiveGain, this.context, 0);
+      } else {
+        inactiveElement.volume = 0;
+      }
+    }
+  }
+
+  /**
    * Crossfades from the currently active track to `song` over `durationSec`.
    * Falls back to a hard cut (via loadTrack) when durationSec <= 0, or when the
    * browser blocks starting the second element's playback outside a user
@@ -867,7 +894,11 @@ class AudioEngine {
       incomingElement.load();
       if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
     }
-    if (incomingGain && context) setGainImmediate(incomingGain, context, 0);
+    if (incomingGain && context) {
+      setGainImmediate(incomingGain, context, 0);
+    } else {
+      incomingElement.volume = 0;
+    }
 
     try {
       await this.waitWithBlobFallback(incomingElement, networkUrl, requestId);
@@ -901,7 +932,11 @@ class AudioEngine {
     this.updateSnapshot({ status: 'playing', duration: song.duration || incomingElement.duration, error: null });
 
     if (outgoingGain && context) scheduleFadeOut(outgoingGain, context, durationSec);
-    if (incomingGain && context) scheduleFadeIn(incomingGain, context, this.volume, durationSec);
+    if (incomingGain && context) {
+      scheduleFadeIn(incomingGain, context, this.volume, durationSec);
+    } else {
+      incomingElement.volume = this.volume;
+    }
 
     this.cancelPendingCrossfade();
     this.crossfadeTimeoutId = setTimeout(() => {

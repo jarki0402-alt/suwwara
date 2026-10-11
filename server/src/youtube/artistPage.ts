@@ -100,6 +100,29 @@ function byYearDesc(a: AlbumSummary, b: AlbumSummary): number {
   return (b.year ?? 0) - (a.year ?? 0);
 }
 
+async function fetchExactViewCount(videoId: string): Promise<number | null> {
+  try {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        videoId,
+        context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00' } },
+      }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { videoDetails?: { viewCount?: string } };
+    const rawViews = data.videoDetails?.viewCount;
+    if (rawViews) {
+      const count = Number.parseInt(rawViews, 10);
+      return Number.isFinite(count) && count > 0 ? count : null;
+    }
+  } catch {
+    // Keep stats.playCounts fallback if fetch fails
+  }
+  return null;
+}
+
 export function getArtistPage(artistId: string): Promise<ArtistPage> {
   return artistPages.getOrLoad(artistId, async () => {
     const ytmusic = await getYTMusic();
@@ -130,13 +153,23 @@ export function getArtistPage(artistId: string): Promise<ArtistPage> {
       });
     }
 
+    const exactPlayCounts: Record<string, number> = { ...stats.playCounts };
+    await Promise.all(
+      topSongs.map(async (song) => {
+        const exact = await fetchExactViewCount(song.id);
+        if (exact !== null) {
+          exactPlayCounts[song.id] = exact;
+        }
+      }),
+    );
+
     return {
       artistId: artist.artistId || artistId,
       name: artist.name,
       banner: pickBanner(artist.thumbnails),
       topSongs,
       monthlyListeners: stats.monthlyListeners,
-      playCounts: stats.playCounts,
+      playCounts: exactPlayCounts,
       albums: dedupeAlbums([...allAlbums, ...artist.topAlbums].map((album) => toAlbumSummary(album as RawAlbum)).filter(isRealRelease)).sort(byYearDesc),
       singles: dedupeAlbums(artist.topSingles.map((album) => toAlbumSummary(album as RawAlbum)).filter(isRealRelease)).sort(byYearDesc),
       // "Similar artists" also comes back containing playlists (ids like `VLRD…`) — only real

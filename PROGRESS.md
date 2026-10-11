@@ -25,6 +25,22 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-10-11 (koherensi antrean radio satu genre & angka pemutaran artis riil)
+
+Feedback user:
+1. Algoritma radio kadang "mabok": setelah menyetel lagu slow/galau, lagu berikutnya tiba-tiba loncat ke hip-hop/jedag-jedug yang sama sekali tidak nyambung.
+2. Di halaman profil artis, angka pemutaran lagu populer berakhiran `.000.000` atau `.000` (seperti dibulatkan taksiran, tidak terlihat detail persisnya).
+
+Perbaikan yang diterapkan:
+- **Koherensi antrean radio (`src/playback/playSongRadio.ts`)**:
+  - *Akar masalah*: `buildRadioQueue` sebelumnya mencampur 2 lagu dari riwayat putar lama (`loadHistory()`) untuk dijadikan 3 seed pencarian bersama lagu yang baru diklik. Jika riwayat sebelumnya adalah lagu hip-hop/EDM dari sesi olahraga, lagu hip-hop yang muncul di kedua seed riwayat tersebut mendapatkan `appearanceCount >= 2` dan di-sort ke **posisi paling atas** (mengalahkan lagu galau yang hanya bernilai 1).
+  - *Solusi*: Memutus penarikan seed dari riwayat lama. Antrean radio kini 100% di-anchor murni ke lagu yang sedang diputar (`song.id`) dan mempertahankan urutan ranking kemiripan alami dari YouTube Music ("up next"). Panggilan jaringan berkurang dari 3 panggilan paralel menjadi 1 panggilan efisien. Top-up antrean hanya mengambil seed dari lagu kandidat pertama di sesi yang sama (terbukti satu genre). Riwayat lama hanya dipakai untuk `cooldownIds` (3 jam) agar tidak terjadi repetisi cepat, dengan graceful fallback jika cooldown terlalu agresif.
+  - Ditambahkan unit test baru di `tests/playback/playSongRadio.test.ts` (5 test, lolos semua). Total test suite: 137 test lulus.
+- **Angka pemutaran lagu populer asli (`server/src/youtube/artistPage.ts`)**:
+  - *Akar masalah*: Halaman browse YouTube Music hanya mengirim teks ringkas (misal `"81M plays"`, `"313M plays"`), yang sebelumnya dikalikan 1.000.000 oleh backend sehingga menghasilkan angka taksiran dengan buntut nol (`81.000.000`).
+  - *Solusi*: Backend sekarang secara paralel memanggil YouTube player API (`youtubei/v1/player`) untuk mengambil nilai `viewCount` asli dari masing-masing video populer tersebut. Angka yang tampil sekarang adalah angka riil/akurat sampai digit satuan (misal `15.466.820`, `18.694.442`, `24.541.465`, `26.648.297`, `7.014.806`), dengan fallback yang aman ke data ringkasan jika terjadi kegagalan jaringan.
+- Diverifikasi: `npm test` 137/137 lulus, `tsc -b && vite build` lulus (Exit 0), backend TypeScript build lulus, Docker container (`frontend` & `backend`) di-rebuild dan diverifikasi sehat di `http://localhost:8080`.
+
 ## Perubahan terbaru — 2026-09-28 (halaman publik /install + banner "Pasang Suwwara")
 
 Permintaan: halaman `https://suwwara.fajarrizky.my.id/install` yang mendeteksi perangkat — Android/desktop tombol install asli, iPhone langkah demi langkah. Disepakati: publik tanpa login, QR code di desktop, banner di Beranda.

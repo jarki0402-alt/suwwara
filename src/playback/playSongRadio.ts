@@ -3,11 +3,10 @@ import type { Song } from '../api/types';
 import { audioEngine } from '../audio-engine/AudioEngine';
 import { addToQueue, canAutoExtendQueue, setQueue } from '../jam/jamQueueActions';
 import { loadHistory, recentlyPlayedIds } from '../recommendation/historyLog';
-import { recentDistinctSongIds } from '../recommendation/recommendationEngine';
 import { useQueueStore } from '../stores/queueStore';
 
-const SEEDS_PER_QUEUE = 3;
-const PER_SEED_LOOKUP = 12;
+const PRIMARY_LOOKUP = 25;
+const TOPUP_LOOKUP = 20;
 const QUEUE_LENGTH_CAP = 18;
 // How long a song stays off-limits for radio suggestions after being played —
 // long enough that it doesn't feel like the same handful of songs on repeat,
@@ -15,67 +14,71 @@ const QUEUE_LENGTH_CAP = 18;
 const REPEAT_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 
 /**
- * Builds a "radio" queue for a single picked song — genuinely similar tracks, not
- * "more songs by this same artist" (explicitly not the goal here) and not one song's
- * raw up-next chain taken all the way to 20 (YT Music's own signal drifts further from
- * the seed the deeper into that list you go, which is what caused mood swings —
- * calm songs suddenly followed by something loud and unrelated).
+ * Builds a "radio" queue for a single picked song — genuinely similar tracks anchored
+ * strictly to `song`, preserving YouTube Music's high-coherence "up next" similarity ranking.
  *
- * The mitigation, with no audio/mood ML available: blend a *few* seeds — the clicked
- * song plus a couple of the user's other recent plays — and take only each seed's own
- * top slice (PER_SEED_LOOKUP), not its full length. A candidate that shows up as
- * "similar" to more than one of those seeds is a much stronger coherence signal than
- * anything in one seed's raw ordering, so those get prioritized first.
+ * Crucially, this does NOT blend unrelated songs from past listening history as seeds.
+ * Blending past history caused mood/genre contamination (e.g. earlier hip-hop sessions
+ * suddenly hijacking the radio queue of a slow ballad). History is only referenced for
+ * cooldown filtering (`cooldownIds`) so recently heard songs don't immediately repeat.
  */
 export async function buildRadioQueue(song: Song, excludeIds: Set<string> = new Set()): Promise<Song[]> {
   const history = loadHistory();
-  const otherRecentIds = recentDistinctSongIds(history, SEEDS_PER_QUEUE).filter((id) => id !== song.id);
-  const seedIds = [song.id, ...otherRecentIds].slice(0, SEEDS_PER_QUEUE);
-  // Time-based, not just "whatever's currently in the queue" — a fresh radio built
-  // from a newly-clicked song resets the queue entirely, which would otherwise lose
-  // all memory of what just played and let it resurface immediately.
   const cooldownIds = recentlyPlayedIds(REPEAT_COOLDOWN_MS, history);
 
-  const results = await Promise.allSettled(seedIds.map((id) => getSimilarSongs(id, PER_SEED_LOOKUP)));
+  try {
+    const primaryCandidates = await getSimilarSongs(song.id, PRIMARY_LOOKUP);
+    const candidates: Song[] = [];
+    const seenIds = new Set<string>();
 
-  const appearanceCount = new Map<string, number>();
-  const bySongId = new Map<string, Song>();
-  const firstSeenOrder: string[] = [];
-
-  for (const result of results) {
-    if (result.status !== 'fulfilled') continue;
-    for (const candidate of result.value) {
+    for (const candidate of primaryCandidates) {
       if (candidate.id === song.id || excludeIds.has(candidate.id) || cooldownIds.has(candidate.id)) continue;
-      if (!bySongId.has(candidate.id)) {
-        bySongId.set(candidate.id, candidate);
-        firstSeenOrder.push(candidate.id);
-      }
-      appearanceCount.set(candidate.id, (appearanceCount.get(candidate.id) ?? 0) + 1);
+      if (seenIds.has(candidate.id)) continue;
+      seenIds.add(candidate.id);
+      candidates.push(candidate);
     }
+
+    // Graceful fallback: if cooldown was so aggressive that it starved the queue to 0
+    // (e.g. user has been looping this genre all evening), re-allow cooldown tracks rather
+    // than leaving the queue empty.
+    if (candidates.length === 0 && primaryCandidates.length > 0) {
+      for (const candidate of primaryCandidates) {
+        if (candidate.id === song.id || excludeIds.has(candidate.id)) continue;
+        if (seenIds.has(candidate.id)) continue;
+        seenIds.add(candidate.id);
+        candidates.push(candidate);
+      }
+    }
+
+    // If we still need more tracks to fill the queue, top up using the top candidate
+    // from this SAME radio session (guaranteed same mood/vibe), never from historical plays.
+    if (candidates.length < QUEUE_LENGTH_CAP && candidates.length > 0) {
+      try {
+        const topCandidate = candidates[0];
+        const secondaryCandidates = await getSimilarSongs(topCandidate.id, TOPUP_LOOKUP);
+        for (const candidate of secondaryCandidates) {
+          if (candidates.length >= QUEUE_LENGTH_CAP) break;
+          if (
+            candidate.id === song.id ||
+            seenIds.has(candidate.id) ||
+            excludeIds.has(candidate.id) ||
+            cooldownIds.has(candidate.id)
+          ) {
+            continue;
+          }
+          seenIds.add(candidate.id);
+          candidates.push(candidate);
+        }
+      } catch {
+        // Top-up failure is non-fatal — preserve whatever candidates we already have.
+      }
+    }
+
+    return candidates.slice(0, QUEUE_LENGTH_CAP);
+  } catch {
+    // If fetching similar songs fails (e.g. network/offline), return empty gracefully.
+    return [];
   }
-
-  // Without this, a candidate that showed up in only ONE of the "other recent plays"
-  // seeds — a completely unrelated song from hours ago, possibly a different genre or
-  // language than what's actually playing right now — got queued anyway (just ranked
-  // lower). That's exactly how a Western pop song's radio ended up pulling in an
-  // Indonesian dangdut track: the dangdut song wasn't similar to the seed the user was
-  // actually listening to, it was similar to some unrelated song from their history.
-  // Now a candidate must EITHER come from the primary seed's own list (the song
-  // actually playing) OR be corroborated by at least two seeds — a lone secondary-seed
-  // hit, with nothing tying it back to what's playing, gets dropped instead of queued.
-  const primaryResult = results[0];
-  const primarySeedSucceeded = primaryResult?.status === 'fulfilled';
-  const primarySeedIds = new Set(primarySeedSucceeded ? primaryResult.value.map((candidate) => candidate.id) : []);
-
-  const coherentOrder = primarySeedSucceeded
-    ? firstSeenOrder.filter((id) => primarySeedIds.has(id) || (appearanceCount.get(id) ?? 0) >= 2)
-    : firstSeenOrder; // primary seed fetch failed — nothing to anchor coherence to, fall back to the old blend.
-
-  return coherentOrder
-    .sort((a, b) => (appearanceCount.get(b) ?? 0) - (appearanceCount.get(a) ?? 0))
-    .map((id) => bySongId.get(id))
-    .filter((candidate): candidate is Song => candidate !== undefined)
-    .slice(0, QUEUE_LENGTH_CAP);
 }
 
 // Module-level (not per-hook-instance) so every caller — the initial radio build

@@ -34,19 +34,20 @@
     display: flex;
     align-items: center;
     gap: var(--space-3);
-    border: 1px solid var(--glass-border);
+    border: none;
     border-radius: var(--radius-full);
-    padding: 9px var(--space-4);
-    background: var(--glass-bg-strong);
+    padding: 10px var(--space-4);
+    background: var(--glass-bg);
     backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
     -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
-    box-shadow: var(--glass-sheen), 0 10px 24px rgba(0, 0, 0, 0.14);
+    box-shadow: var(--glass-sheen), 0 10px 30px rgba(0, 0, 0, 0.18);
     color: var(--color-text-secondary);
-    transition: border-color var(--transition-glass), box-shadow var(--transition-glass), transform var(--transition-fast);
+    transition: outline-color var(--transition-fast), box-shadow var(--transition-glass), transform var(--transition-fast);
   }
 
   .field:focus-within {
-    border-color: var(--color-accent);
+    outline: 1.5px solid var(--color-accent);
+    outline-offset: -1px;
     transform: scale(1.01);
   }
 

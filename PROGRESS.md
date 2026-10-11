@@ -39,7 +39,13 @@ Perbaikan yang diterapkan:
 - **Angka pemutaran lagu populer asli (`server/src/youtube/artistPage.ts`)**:
   - *Akar masalah*: Halaman browse YouTube Music hanya mengirim teks ringkas (misal `"81M plays"`, `"313M plays"`), yang sebelumnya dikalikan 1.000.000 oleh backend sehingga menghasilkan angka taksiran dengan buntut nol (`81.000.000`).
   - *Solusi*: Backend sekarang secara paralel memanggil YouTube player API (`youtubei/v1/player`) untuk mengambil nilai `viewCount` asli dari masing-masing video populer tersebut. Angka yang tampil sekarang adalah angka riil/akurat sampai digit satuan (misal `15.466.820`, `18.694.442`, `24.541.465`, `26.648.297`, `7.014.806`), dengan fallback yang aman ke data ringkasan jika terjadi kegagalan jaringan.
-- Diverifikasi: `npm test` 137/137 lulus, `tsc -b && vite build` lulus (Exit 0), backend TypeScript build lulus, Docker container (`frontend` & `backend`) di-rebuild dan diverifikasi sehat di `http://localhost:8080`.
+- **Daftar lengkap lagu populer & angka pemutaran saat "Lihat semua lagu" diklik (`ArtistView.tsx` & `artistPage.ts`)**:
+  - *Akar masalah*: Saat "Lihat semua lagu" diklik di profil artis, sistem sebelumnya memanggil `getArtistAllSongs` yang menyusuri seluruh album studio satu per satu (lambat & urutan terbalik, sehingga album pertama yang muncul menimpa daftar lagu populer). Selain itu, lagu-lagu lanjutan tersebut tidak menyertakan `playCounts`, sehingga kolom angka pemutaran pada lagu ke-6 dan seterusnya hilang/kosong.
+  - *Solusi*: Backend sekarang membaca playlist resmi "Top songs" artis dari YouTube Music (`browseEndpoint` shelf lagu populer). Seluruh daftar lagu populer artis (hingga 100 lagu, misal *American Idiot*, *When I Come Around*, dll.) dimuat dalam satu panggilan cepat lengkap dengan `playCounts` masing-masing lagu dan `viewCount` riil untuk 15 lagu teratas. Frontend (`ArtistView.tsx`) kini menggabungkan data `playCounts` saat `showAll` aktif, sehingga seluruh baris lagu populer memiliki angka pemutaran yang tampil rapi.
+- **Pembersihan garis ganda pada kapsul pencarian desktop (`TopBar.module.css` & `global.css`)**:
+  - Menghilangkan `border: 1px solid var(--glass-border)` pada `.field` agar selaras dengan Dynamic Island Mini Player yang bersih tanpa efek double border.
+  - Menyelaraskan background (`var(--glass-bg)`), drop-shadow, serta menambahkan `border: none` pada `.liquid-glass[data-rim]`.
+- Diverifikasi: `npm test` 140/140 lulus (3 test baru untuk `readTopSongsEndpoint`), `tsc -b && vite build` lulus (Exit 0), backend TypeScript build lulus (Exit 0), Docker container di-rebuild dan diverifikasi sehat di `http://localhost:8080`.
 
 ## Perubahan terbaru — 2026-09-28 (halaman publik /install + banner "Pasang Suwwara")
 

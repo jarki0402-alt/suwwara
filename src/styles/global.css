@@ -186,6 +186,7 @@ html.is-resizing * {
    backdrop-filter: url(#...) unreliably, so it keeps each surface's plain glass. */
 @supports (backdrop-filter: url(#a)) and (not (font: -apple-system-body)) {
   .liquid-glass[data-rim] {
+    border: none;
     background: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;

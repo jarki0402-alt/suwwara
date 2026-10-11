@@ -60,10 +60,18 @@ export function getAlbumPage(albumId: string): Promise<AlbumPageData> {
   });
 }
 
-export function getArtistAllSongs(artistId: string): Promise<Song[]> {
+export interface ArtistAllSongsData {
+  songs: Song[];
+  playCounts: Record<string, number>;
+}
+
+export function getArtistAllSongs(artistId: string): Promise<ArtistAllSongsData> {
   return cached(`artist-songs:${artistId}`, async () => {
-    const raw = await apiGet<{ songs: BackendSong[] }>(`/api/artists/${encodeURIComponent(artistId)}/songs`);
-    return mapBackendSongs(raw.songs);
+    const raw = await apiGet<{ songs: BackendSong[]; playCounts?: Record<string, number> }>(`/api/artists/${encodeURIComponent(artistId)}/songs`);
+    return {
+      songs: mapBackendSongs(raw.songs),
+      playCounts: raw.playCounts ?? {},
+    };
   });
 }
 

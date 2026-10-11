@@ -1,6 +1,6 @@
 // Imports backend code (server/src) — see the note in tests/server/priorityLimiter.test.ts.
 import { describe, expect, it } from 'vitest';
-import { parseCompactCount, readArtistStats } from '../../server/src/youtube/artistStats';
+import { parseCompactCount, readArtistStats, readTopSongsEndpoint } from '../../server/src/youtube/artistStats';
 
 describe('parseCompactCount', () => {
   it('expands K / M / B suffixes', () => {
@@ -57,3 +57,46 @@ describe('readArtistStats', () => {
     expect(readArtistStats({ header: 'nope', contents: [] })).toEqual({ monthlyListeners: null, playCounts: {} });
   });
 });
+
+describe('readTopSongsEndpoint', () => {
+  it('reads the browseEndpoint from shelf bottomEndpoint', () => {
+    const raw = {
+      contents: {
+        singleColumnBrowseResultsRenderer: {
+          tabs: [{ tabRenderer: { content: { sectionListRenderer: { contents: [
+            {
+              musicShelfRenderer: {
+                title: { runs: [{ text: 'Top songs' }] },
+                bottomEndpoint: { browseEndpoint: { browseId: 'VLOLAK5uy_test', params: 'ggMCCAI%3D' } },
+              },
+            },
+          ] } } } }],
+        },
+      },
+    };
+    expect(readTopSongsEndpoint(raw)).toEqual({ browseId: 'VLOLAK5uy_test', params: 'ggMCCAI%3D' });
+  });
+
+  it('reads the browseEndpoint from title navigationEndpoint as fallback', () => {
+    const raw = {
+      contents: {
+        singleColumnBrowseResultsRenderer: {
+          tabs: [{ tabRenderer: { content: { sectionListRenderer: { contents: [
+            {
+              musicShelfRenderer: {
+                title: { runs: [{ text: 'Top songs', navigationEndpoint: { browseEndpoint: { browseId: 'VLOLAK5uy_title', params: 'abc' } } }] },
+              },
+            },
+          ] } } } }],
+        },
+      },
+    };
+    expect(readTopSongsEndpoint(raw)).toEqual({ browseId: 'VLOLAK5uy_title', params: 'abc' });
+  });
+
+  it('returns null when no top songs shelf or endpoint is present', () => {
+    expect(readTopSongsEndpoint(null)).toBeNull();
+    expect(readTopSongsEndpoint({})).toBeNull();
+  });
+});
+

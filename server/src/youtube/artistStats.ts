@@ -33,9 +33,14 @@ export interface ArtistStats {
   playCounts: Record<string, number>;
 }
 
+export interface TopSongsEndpoint {
+  browseId: string;
+  params?: string;
+}
+
 // The raw browse response is deeply nested and untyped; every step tolerates a missing level, because a shape change on
 // YouTube's side must cost us the extra numbers, never the artist page.
-function dig(value: unknown, ...path: Array<string | number>): unknown {
+export function dig(value: unknown, ...path: Array<string | number>): unknown {
   let current = value;
   for (const key of path) {
     if (current === null || typeof current !== 'object') return undefined;
@@ -44,7 +49,7 @@ function dig(value: unknown, ...path: Array<string | number>): unknown {
   return current;
 }
 
-function joinRuns(runs: unknown): string {
+export function joinRuns(runs: unknown): string {
   if (!Array.isArray(runs)) return '';
   return runs.map((run) => (typeof dig(run, 'text') === 'string' ? (dig(run, 'text') as string) : '')).join('');
 }
@@ -74,3 +79,24 @@ export function readArtistStats(raw: unknown): ArtistStats {
   }
   return stats;
 }
+
+/**
+ * Reads the browse endpoint for the artist's full "Top songs" playlist (e.g. VLOLAK...),
+ * found in bottomEndpoint or the shelf title's navigationEndpoint.
+ */
+export function readTopSongsEndpoint(raw: unknown): TopSongsEndpoint | null {
+  const sections = dig(raw, 'contents', 'singleColumnBrowseResultsRenderer', 'tabs', 0, 'tabRenderer', 'content', 'sectionListRenderer', 'contents');
+  for (const section of Array.isArray(sections) ? sections : []) {
+    const shelf = dig(section, 'musicShelfRenderer');
+    if (!shelf) continue;
+    const title = joinRuns(dig(shelf, 'title', 'runs'));
+    const bottomEp = dig(shelf, 'bottomEndpoint', 'browseEndpoint') as { browseId?: string; params?: string } | undefined;
+    const titleEp = dig(shelf, 'title', 'runs', 0, 'navigationEndpoint', 'browseEndpoint') as { browseId?: string; params?: string } | undefined;
+    const ep = bottomEp || titleEp;
+    if (ep?.browseId && (ep.browseId.startsWith('VL') || /top songs|lagu populer|populer/i.test(title))) {
+      return { browseId: ep.browseId, params: ep.params };
+    }
+  }
+  return null;
+}
+

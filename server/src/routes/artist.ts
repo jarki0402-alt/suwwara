@@ -65,7 +65,8 @@ artistRouter.get('/artists/:artistId/songs', async (req, res) => {
     return;
   }
   try {
-    res.json({ songs: await getArtistAllSongs(artistId) });
+    const result = await getArtistAllSongs(artistId);
+    res.json(result);
   } catch (error) {
     res.status(502).json({ error: 'Failed to load the artist songs.', message: (error as Error).message });
   }

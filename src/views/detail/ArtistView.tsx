@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getArtistAllSongs, getArtistPage, resolveArtistId, type ArtistPageData } from '../../api/endpoints/artistPage';
+import { getArtistAllSongs, getArtistPage, resolveArtistId, type ArtistAllSongsData, type ArtistPageData } from '../../api/endpoints/artistPage';
 import type { Song } from '../../api/types';
 import { Icon } from '../../components/Icon/Icon';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
@@ -75,11 +75,12 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
   const isDesktop = useIsDesktop();
   const [showAll, setShowAll] = useState(false);
   const [bannerFailed, setBannerFailed] = useState(false);
-  const allSongs = useLoaded<Song[]>(showAll ? `all:${data.artistId}` : 'all:idle', () =>
-    showAll ? getArtistAllSongs(data.artistId) : Promise.resolve([]),
+  const allSongs = useLoaded<ArtistAllSongsData>(showAll ? `all:${data.artistId}` : 'all:idle', () =>
+    showAll ? getArtistAllSongs(data.artistId) : Promise.resolve({ songs: [], playCounts: {} }),
   );
 
-  const songs: Song[] = showAll && allSongs.status === 'ready' && allSongs.data.length > 0 ? allSongs.data : data.topSongs;
+  const songs: Song[] = showAll && allSongs.status === 'ready' && allSongs.data.songs.length > 0 ? allSongs.data.songs : data.topSongs;
+  const playCounts: Record<string, number> = showAll && allSongs.status === 'ready' ? { ...allSongs.data.playCounts, ...data.playCounts } : data.playCounts;
   const visible = showAll ? songs : songs.slice(0, POPULAR_COUNT);
   const canShowMore = data.topSongs.length > 0 || data.albums.length > 0;
 
@@ -119,9 +120,9 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
                   <span className={styles.rank}>{index + 1}</span>
                   <SongRow
                     song={song}
-                    plays={data.playCounts[song.id]}
+                    plays={playCounts[song.id]}
                     // A phone shows the play count under the title (Spotify's layout); desktop has it as a column instead.
-                    subtitle={!isDesktop && data.playCounts[song.id] !== undefined ? formatCount(data.playCounts[song.id]) : undefined}
+                    subtitle={!isDesktop && playCounts[song.id] !== undefined ? formatCount(playCounts[song.id]) : undefined}
                     onClick={() => playSongList(songs, index)}
                     trailing={<SongRowActions song={song} />}
                   />

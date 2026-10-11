@@ -1,5 +1,5 @@
 import { BoundedTtlCache } from './boundedCache';
-import { readArtistStats } from './artistStats';
+import { dig, joinRuns, parseCompactCount, readArtistStats, readTopSongsEndpoint, type TopSongsEndpoint } from './artistStats';
 import type { SearchSong } from './search';
 import { bestThumbnail } from './search';
 import { cleanTitle } from './textClean';
@@ -27,6 +27,12 @@ export interface ArtistPage {
   albums: AlbumSummary[];
   singles: AlbumSummary[];
   similarArtists: Array<{ id: string; name: string; thumbnail: string }>;
+  topSongsEndpoint?: TopSongsEndpoint | null;
+}
+
+export interface ArtistAllSongsResult {
+  songs: SearchSong[];
+  playCounts: Record<string, number>;
 }
 
 export interface AlbumPage extends AlbumSummary {
@@ -38,7 +44,7 @@ export interface AlbumPage extends AlbumSummary {
 const TTL_MS = 6 * 60 * 60 * 1000;
 const artistPages = new BoundedTtlCache<ArtistPage>(120, TTL_MS);
 const albumPages = new BoundedTtlCache<AlbumPage>(300, TTL_MS);
-const allSongs = new BoundedTtlCache<SearchSong[]>(40, TTL_MS);
+const allSongs = new BoundedTtlCache<ArtistAllSongsResult>(40, TTL_MS);
 const resolvedNames = new BoundedTtlCache<string | null>(400, 24 * 60 * 60 * 1000);
 
 /**
@@ -177,6 +183,7 @@ export function getArtistPage(artistId: string): Promise<ArtistPage> {
       similarArtists: artist.similarArtists
         .filter((similar) => similar.artistId && ARTIST_ID_PATTERN.test(similar.artistId))
         .map((similar) => ({ id: similar.artistId as string, name: similar.name, thumbnail: bestThumbnail(similar.thumbnails) })),
+      topSongsEndpoint: readTopSongsEndpoint(raw),
     };
   });
 }
@@ -221,18 +228,129 @@ function normalizeTitle(title: string): string {
     .trim();
 }
 
+function parseDurationSec(text: string): number {
+  if (!text) return 0;
+  const parts = text.split(':').map((part) => Number.parseInt(part, 10));
+  if (parts.some((n) => Number.isNaN(n))) return 0;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return 0;
+}
+
+function parseTopSongsPlaylist(raw: unknown, defaultArtistName: string, defaultArtistId: string): { songs: SearchSong[]; playCounts: Record<string, number> } {
+  const section = dig(raw, 'contents', 'twoColumnBrowseResultsRenderer', 'secondaryContents', 'sectionListRenderer', 'contents', 0)
+    || dig(raw, 'contents', 'singleColumnBrowseResultsRenderer', 'tabs', 0, 'tabRenderer', 'content', 'sectionListRenderer', 'contents', 0);
+  const items = dig(section, 'musicPlaylistShelfRenderer', 'contents') || dig(section, 'musicShelfRenderer', 'contents');
+  if (!Array.isArray(items)) return { songs: [], playCounts: {} };
+
+  const songs: SearchSong[] = [];
+  const playCounts: Record<string, number> = {};
+
+  for (const entry of items) {
+    const item = dig(entry, 'musicResponsiveListItemRenderer');
+    if (!item) continue;
+    const videoId = dig(item, 'playlistItemData', 'videoId')
+      || dig(item, 'flexColumns', 0, 'musicResponsiveListItemFlexColumnRenderer', 'text', 'runs', 0, 'navigationEndpoint', 'watchEndpoint', 'videoId');
+    if (typeof videoId !== 'string' || !videoId) continue;
+
+    const titleRuns = dig(item, 'flexColumns', 0, 'musicResponsiveListItemFlexColumnRenderer', 'text', 'runs');
+    const title = cleanTitle(joinRuns(titleRuns));
+
+    const artistRuns = dig(item, 'flexColumns', 1, 'musicResponsiveListItemFlexColumnRenderer', 'text', 'runs');
+    const artist = joinRuns(artistRuns) || defaultArtistName;
+    const artistId = (dig(artistRuns, 0, 'navigationEndpoint', 'browseEndpoint', 'browseId') as string) || defaultArtistId;
+
+    let plays: number | null = null;
+    let album: string | null = null;
+    let albumId: string | null = null;
+
+    const flexColumns = dig(item, 'flexColumns');
+    if (Array.isArray(flexColumns)) {
+      for (let i = 2; i < flexColumns.length; i++) {
+        const colRuns = dig(flexColumns[i], 'musicResponsiveListItemFlexColumnRenderer', 'text', 'runs');
+        const colText = joinRuns(colRuns);
+        if (/\bplays?\b/i.test(colText)) {
+          plays = parseCompactCount(colText);
+        } else if (Array.isArray(colRuns) && colRuns.length > 0) {
+          const colEp = dig(colRuns[0], 'navigationEndpoint', 'browseEndpoint', 'browseId') as string | undefined;
+          if (colEp && colEp.startsWith('MPREb_')) {
+            album = colText;
+            albumId = colEp;
+          } else if (!album && colText && !/^\d+$/.test(colText)) {
+            album = colText;
+          }
+        }
+      }
+    }
+
+    const durationText = joinRuns(dig(item, 'fixedColumns', 0, 'musicResponsiveListItemFixedColumnRenderer', 'text', 'runs'));
+    const durationSec = parseDurationSec(durationText);
+
+    const thumbnails = dig(item, 'thumbnail', 'musicThumbnailRenderer', 'thumbnail', 'thumbnails');
+    const thumbList = Array.isArray(thumbnails) ? (thumbnails as Array<{ url: string; width: number }>) : [];
+    const thumbnail = bestThumbnail(thumbList);
+
+    songs.push({
+      id: videoId,
+      title,
+      artist,
+      artistId,
+      durationSec,
+      thumbnail,
+      album,
+      albumId,
+      isOfficial: true,
+    });
+
+    if (plays !== null) {
+      playCounts[videoId] = plays;
+    }
+  }
+
+  return { songs, playCounts };
+}
+
 /**
- * Every song of an artist, assembled from their releases. YouTube Music's own "all songs"
- * call (ytmusic-api's getArtistSongs) fails with a 400 (see artist.ts), and the artist page's
- * own top-songs shelf is only 5 tracks — so the full list is the union of every album/single's
- * track list. Slow-ish on a miss (one getAlbum per release), hence lazy + long-cached.
- *
- * Studio releases are read first (oldest first) so a song is kept in its original version, and
- * later live/remix/deluxe re-issues of the same title are dropped rather than listed again.
+ * Every song of an artist. Prefers the artist's official "Top songs" playlist from YouTube Music
+ * (contains full popular catalog with actual play counts). Falls back to assembling across album releases
+ * if no playlist is available.
  */
-export function getArtistAllSongs(artistId: string): Promise<SearchSong[]> {
+export function getArtistAllSongs(artistId: string): Promise<ArtistAllSongsResult> {
   return allSongs.getOrLoad(artistId, async () => {
     const page = await getArtistPage(artistId);
+
+    if (page.topSongsEndpoint?.browseId) {
+      try {
+        const ytmusic = await getYTMusic();
+        const raw = await (ytmusic as unknown as { constructRequest: (endpoint: string, body: object) => Promise<unknown> })
+          .constructRequest('browse', {
+            browseId: page.topSongsEndpoint.browseId,
+            params: page.topSongsEndpoint.params,
+          });
+        const parsed = parseTopSongsPlaylist(raw, page.name, page.artistId);
+        if (parsed.songs.length > 0) {
+          const exactPlayCounts: Record<string, number> = { ...parsed.playCounts };
+          // Preserve exact play counts from page
+          for (const [id, count] of Object.entries(page.playCounts)) {
+            exactPlayCounts[id] = count;
+          }
+          // Fetch exact view counts for top 15 songs if not already known
+          await Promise.all(
+            parsed.songs.slice(0, 15).map(async (song) => {
+              if (exactPlayCounts[song.id] === undefined || exactPlayCounts[song.id] % 1000 === 0) {
+                const exact = await fetchExactViewCount(song.id);
+                if (exact !== null) exactPlayCounts[song.id] = exact;
+              }
+            }),
+          );
+          return { songs: parsed.songs, playCounts: exactPlayCounts };
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(`[artist] failed to load top songs playlist: ${(err as Error).message}`);
+      }
+    }
+
     const releases = dedupeAlbums([...page.albums, ...page.singles])
       .sort((a, b) => Number(VARIANT_RELEASE.test(a.name)) - Number(VARIANT_RELEASE.test(b.name)) || (a.year ?? 9999) - (b.year ?? 9999))
       .slice(0, ALL_SONGS_MAX_RELEASES);
@@ -262,7 +380,7 @@ export function getArtistAllSongs(artistId: string): Promise<SearchSong[]> {
       songs.push(song);
       if (songs.length >= MAX_ALL_SONGS) break;
     }
-    return songs;
+    return { songs, playCounts: page.playCounts };
   });
 }
 

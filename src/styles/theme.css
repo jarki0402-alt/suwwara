@@ -7,23 +7,91 @@
  * [data-theme] is applied to <html> by useThemeSync (src/hooks/useThemeSync.ts) based on
  * settingsStore's theme preference; "system" leaves the attribute unset so step 2 alone decides.
  */
+/*
+ * Palettes (Pengaturan → Tampilan → Warna). Each one sets its own light (--pl-*) and dark (--pd-*) primitives —
+ * not just an accent: Hutan's paper is warm, Kobalt's cool — and the theme blocks below map whichever mode applies
+ * onto the semantic tokens every component uses, so no component knows which palette is on. data-palette is set on
+ * <html> by useThemeSync and, before the first paint, by index.html's boot script (no flash of the old colours).
+ * Switching is one style recalculation; nothing here costs anything per frame. Each accent is picked per mode for
+ * contrast: a honey yellow that reads on near-black is unreadable on white, so Mentari's light accent is darker.
+ */
+:root,
+:root[data-palette='simple'] {
+  --pl-bg: #ffffff; --pl-elevated: #f2f2f4; --pl-sidebar: #f7f7f8; --pl-glass: 255, 255, 255;
+  --pl-text: #111113; --pl-text-2: #6b6b72; --pl-text-3: #9a9aa2;
+  --pl-accent: #e2462a; --pl-accent-rgb: 226, 70, 42; --pl-accent-strong: #c23a21; --pl-on-accent: #ffffff;
+  --pd-bg: #0b0b0c; --pd-elevated: #1a1a1d; --pd-sidebar: #111113; --pd-glass: 30, 30, 33;
+  --pd-text: #f5f5f7; --pd-text-2: #9d9da5; --pd-text-3: #6e6e76;
+  --pd-accent: #ef5a3e; --pd-accent-rgb: 239, 90, 62; --pd-accent-strong: #ff7a5e; --pd-on-accent: #ffffff;
+}
+
+:root[data-palette='hutan'] {
+  --pl-bg: #fbfaf7; --pl-elevated: #efeee9; --pl-sidebar: #f5f4ef; --pl-glass: 251, 250, 247;
+  --pl-text: #141714; --pl-text-2: #646a63; --pl-text-3: #9aa09a;
+  --pl-accent: #1e7a4f; --pl-accent-rgb: 30, 122, 79; --pl-accent-strong: #165e3c; --pl-on-accent: #ffffff;
+  --pd-bg: #0d100e; --pd-elevated: #1a1f1b; --pd-sidebar: #121512; --pd-glass: 26, 31, 27;
+  --pd-text: #f1f3ef; --pd-text-2: #9aa39a; --pd-text-3: #6b736b;
+  --pd-accent: #4cc08a; --pd-accent-rgb: 76, 192, 138; --pd-accent-strong: #6fd3a3; --pd-on-accent: #0d100e;
+}
+
+:root[data-palette='kobalt'] {
+  --pl-bg: #ffffff; --pl-elevated: #eef1f6; --pl-sidebar: #f6f8fb; --pl-glass: 255, 255, 255;
+  --pl-text: #0f1420; --pl-text-2: #5f6675; --pl-text-3: #9198a6;
+  --pl-accent: #2f5bd3; --pl-accent-rgb: 47, 91, 211; --pl-accent-strong: #2347ae; --pl-on-accent: #ffffff;
+  --pd-bg: #0a0d14; --pd-elevated: #171c27; --pd-sidebar: #0f131c; --pd-glass: 23, 28, 39;
+  --pd-text: #eef2fa; --pd-text-2: #9099ad; --pd-text-3: #636b7d;
+  --pd-accent: #7c9cff; --pd-accent-rgb: 124, 156, 255; --pd-accent-strong: #a3bbff; --pd-on-accent: #0a0d14;
+}
+
+:root[data-palette='mentari'] {
+  --pl-bg: #fffdf8; --pl-elevated: #f4efe4; --pl-sidebar: #faf6ec; --pl-glass: 255, 253, 248;
+  --pl-text: #1a1712; --pl-text-2: #6e675b; --pl-text-3: #a39b8c;
+  --pl-accent: #9a6400; --pl-accent-rgb: 154, 100, 0; --pl-accent-strong: #7a4f00; --pl-on-accent: #ffffff;
+  --pd-bg: #12100c; --pd-elevated: #211d16; --pd-sidebar: #17140f; --pd-glass: 33, 29, 22;
+  --pd-text: #f7f2e8; --pd-text-2: #a69e8e; --pd-text-3: #756e61;
+  --pd-accent: #f2b33d; --pd-accent-rgb: 242, 179, 61; --pd-accent-strong: #f7c866; --pd-on-accent: #12100c;
+}
+
+:root[data-palette='monokrom'] {
+  --pl-bg: #ffffff; --pl-elevated: #f1f1f1; --pl-sidebar: #f7f7f7; --pl-glass: 255, 255, 255;
+  --pl-text: #0a0a0a; --pl-text-2: #6a6a6a; --pl-text-3: #9c9c9c;
+  --pl-accent: #0a0a0a; --pl-accent-rgb: 10, 10, 10; --pl-accent-strong: #000000; --pl-on-accent: #ffffff;
+  --pd-bg: #000000; --pd-elevated: #161616; --pd-sidebar: #0b0b0b; --pd-glass: 24, 24, 24;
+  --pd-text: #fafafa; --pd-text-2: #9a9a9a; --pd-text-3: #6a6a6a;
+  --pd-accent: #fafafa; --pd-accent-rgb: 250, 250, 250; --pd-accent-strong: #ffffff; --pd-on-accent: #000000;
+}
+
+:root[data-palette='senja'] {
+  --pl-bg: #fff9f6; --pl-elevated: #f6ebe6; --pl-sidebar: #fbf2ee; --pl-glass: 255, 249, 246;
+  --pl-text: #1d1416; --pl-text-2: #715f62; --pl-text-3: #a8979a;
+  --pl-accent: #c93a50; --pl-accent-rgb: 201, 58, 80; --pl-accent-strong: #a82d41; --pl-on-accent: #ffffff;
+  --pd-bg: #140d0f; --pd-elevated: #24181b; --pd-sidebar: #1a1113; --pd-glass: 36, 24, 27;
+  --pd-text: #fbeff0; --pd-text-2: #b09a9d; --pd-text-3: #7d6a6d;
+  --pd-accent: #f27a8c; --pd-accent-rgb: 242, 122, 140; --pd-accent-strong: #f79aa8; --pd-on-accent: #140d0f;
+}
+
 :root {
   color-scheme: light dark;
 
-  --color-bg: #fbfbfc;
-  --color-bg-elevated: #f3f3f6;
+  --color-bg: var(--pl-bg);
+  --color-bg-elevated: var(--pl-elevated);
+  --color-bg-sidebar: var(--pl-sidebar);
   --color-bg-overlay: rgba(251, 251, 252, 0.9);
-  --color-text-primary: #16161a;
-  --color-text-secondary: #6b6b76;
-  --color-text-tertiary: #9a9aa5;
+  --color-text-primary: var(--pl-text);
+  --color-text-secondary: var(--pl-text-2);
+  --color-text-tertiary: var(--pl-text-3);
   --color-border: rgba(22, 22, 26, 0.09);
 
-  --color-accent: #7c3aed;
-  --color-accent-rgb: 124, 58, 237;
-  --color-accent-strong: #6d28d9;
-  --color-accent-soft: rgba(124, 58, 237, 0.12);
-  --color-accent-2: #ec4899;
-  --color-on-accent: #ffffff;
+  --color-accent: var(--pl-accent);
+  --color-accent-rgb: var(--pl-accent-rgb);
+  --color-accent-strong: var(--pl-accent-strong);
+  --color-accent-soft: rgba(var(--pl-accent-rgb), 0.12);
+  /* Kept as an alias so older rules still resolve; the second (pink) brand colour is gone. */
+  --color-accent-2: var(--pl-accent-strong);
+  --color-on-accent: var(--pl-on-accent);
+  /* Now Playing always sits on dark album art, whatever the theme — it reads the palette's dark accent from these. */
+  --color-accent-on-dark: var(--pd-accent);
+  --color-accent-on-dark-strong: var(--pd-accent-strong);
   --color-danger: #e5484d;
   --color-success: #30a46c;
 
@@ -32,7 +100,7 @@
 
   --shadow-elevated: 0 8px 24px rgba(22, 22, 26, 0.08);
   --shadow-floating: 0 2px 10px rgba(22, 22, 26, 0.1);
-  --shadow-glow: 0 6px 24px rgba(124, 58, 237, 0.18);
+  --shadow-glow: 0 6px 24px rgba(var(--pl-accent-rgb), 0.18);
 
   /* Liquid-glass surface tokens. --glass-tint is a light wash of the surface's own base
      colour (not pure white/black) so frosted panels pick up a hint of whatever they float
@@ -55,7 +123,7 @@
      `border` declarations across components stop reading as a visible grey ring. */
   /* --glass-alpha-factor (and --glass-blur-factor in variables.css) come from the Liquid Glass slider in
      Pengaturan, set on <html> by useThemeSync; 1 = the stock look. */
-  --glass-tint: 255, 255, 255;
+  --glass-tint: var(--pl-glass);
   --glass-bg: rgba(var(--glass-tint), min(0.96, calc(0.62 * var(--glass-alpha-factor, 1))));
   --glass-bg-strong: rgba(var(--glass-tint), min(0.97, calc(0.74 * var(--glass-alpha-factor, 1))));
   --glass-border: rgba(255, 255, 255, 0.22);
@@ -65,38 +133,38 @@
   /* BottomNav's resting tab capsule (Apple's dark selection pill): black at this alpha. */
   --pill-rest-alpha: 0.1;
 
-  /* Two-tone brand gradient — used sparingly for hero/highlight surfaces
-     (hero banner, active nav pill, play buttons) so it reads as an accent,
-     not the app's base palette. */
-  --gradient-brand: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  /* Was a violet → pink two-tone; every palette is one accent now, so the "brand" fill is that accent, flat. Kept as a
+     token (still an image, so it drops into background-image slots) rather than touching each surface that uses it. */
+  --gradient-brand: linear-gradient(var(--color-accent), var(--color-accent));
   --gradient-scrim: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.55) 55%, rgba(0, 0, 0, 0.85) 100%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-bg: #0e0e11;
-    --color-bg-elevated: #17171b;
+    --color-bg: var(--pd-bg);
+    --color-bg-elevated: var(--pd-elevated);
+    --color-bg-sidebar: var(--pd-sidebar);
     --color-bg-overlay: rgba(14, 14, 17, 0.9);
-    --color-text-primary: #f3f3f5;
-    --color-text-secondary: #9d9da8;
-    --color-text-tertiary: #6e6e79;
+    --color-text-primary: var(--pd-text);
+    --color-text-secondary: var(--pd-text-2);
+    --color-text-tertiary: var(--pd-text-3);
     --color-border: rgba(255, 255, 255, 0.07);
 
-    --color-accent: #a78bfa;
-    --color-accent-rgb: 167, 139, 250;
-    --color-accent-strong: #c4b5fd;
-    --color-accent-soft: rgba(167, 139, 250, 0.14);
-    --color-accent-2: #f472b6;
-    --color-on-accent: #17102b;
+    --color-accent: var(--pd-accent);
+    --color-accent-rgb: var(--pd-accent-rgb);
+    --color-accent-strong: var(--pd-accent-strong);
+    --color-accent-soft: rgba(var(--pd-accent-rgb), 0.14);
+    --color-accent-2: var(--pd-accent-strong);
+    --color-on-accent: var(--pd-on-accent);
 
     --color-skeleton-base: rgba(245, 244, 248, 0.06);
     --color-skeleton-highlight: rgba(245, 244, 248, 0.14);
 
     --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
     --shadow-floating: 0 2px 10px rgba(0, 0, 0, 0.35);
-    --shadow-glow: 0 6px 24px rgba(167, 139, 250, 0.2);
+    --shadow-glow: 0 6px 24px rgba(var(--pd-accent-rgb), 0.2);
 
-    --glass-tint: 28, 28, 32;
+    --glass-tint: var(--pd-glass);
     --glass-bg: rgba(var(--glass-tint), min(0.96, calc(0.58 * var(--glass-alpha-factor, 1))));
     --glass-bg-strong: rgba(var(--glass-tint), min(0.97, calc(0.7 * var(--glass-alpha-factor, 1))));
     --glass-border: rgba(255, 255, 255, 0.07);
@@ -107,29 +175,30 @@
 }
 
 :root[data-theme='dark'] {
-  --color-bg: #0e0e11;
-  --color-bg-elevated: #17171b;
+  --color-bg: var(--pd-bg);
+  --color-bg-elevated: var(--pd-elevated);
+  --color-bg-sidebar: var(--pd-sidebar);
   --color-bg-overlay: rgba(14, 14, 17, 0.9);
-  --color-text-primary: #f3f3f5;
-  --color-text-secondary: #9d9da8;
-  --color-text-tertiary: #6e6e79;
+  --color-text-primary: var(--pd-text);
+  --color-text-secondary: var(--pd-text-2);
+  --color-text-tertiary: var(--pd-text-3);
   --color-border: rgba(255, 255, 255, 0.07);
 
-  --color-accent: #a78bfa;
-  --color-accent-rgb: 167, 139, 250;
-  --color-accent-strong: #c4b5fd;
-  --color-accent-soft: rgba(167, 139, 250, 0.14);
-  --color-accent-2: #f472b6;
-  --color-on-accent: #17102b;
+  --color-accent: var(--pd-accent);
+  --color-accent-rgb: var(--pd-accent-rgb);
+  --color-accent-strong: var(--pd-accent-strong);
+  --color-accent-soft: rgba(var(--pd-accent-rgb), 0.14);
+  --color-accent-2: var(--pd-accent-strong);
+  --color-on-accent: var(--pd-on-accent);
 
   --color-skeleton-base: rgba(245, 244, 248, 0.06);
   --color-skeleton-highlight: rgba(245, 244, 248, 0.14);
 
   --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.4);
   --shadow-floating: 0 2px 10px rgba(0, 0, 0, 0.35);
-  --shadow-glow: 0 6px 24px rgba(167, 139, 250, 0.2);
+  --shadow-glow: 0 6px 24px rgba(var(--pd-accent-rgb), 0.2);
 
-  --glass-tint: 28, 28, 32;
+  --glass-tint: var(--pd-glass);
   --glass-bg: rgba(var(--glass-tint), min(0.96, calc(0.58 * var(--glass-alpha-factor, 1))));
   --glass-bg-strong: rgba(var(--glass-tint), min(0.97, calc(0.7 * var(--glass-alpha-factor, 1))));
   --glass-border: rgba(255, 255, 255, 0.07);

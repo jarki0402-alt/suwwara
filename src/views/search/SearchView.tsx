@@ -151,6 +151,7 @@ export function SearchView() {
         <form className={styles.searchBox} onSubmit={handleSubmit}>
           <Icon name="search" size={18} />
           <input
+            id="search-input"
             className={styles.input}
             type="text"
             inputMode="search"

@@ -53,9 +53,11 @@
   --color-text-secondary: rgba(255, 255, 255, 0.78);
   --color-text-tertiary: rgba(255, 255, 255, 0.55);
   --color-border: rgba(255, 255, 255, 0.22);
-  --color-accent: #a78bfa;
-  --color-accent-rgb: 167, 139, 250;
-  --color-accent-strong: #c4b5fd;
+  /* The palette's own dark-mode accent (theme.css), since this screen is always dark. */
+  --color-accent: var(--color-accent-on-dark);
+  --color-accent-rgb: var(--pd-accent-rgb);
+  --color-accent-strong: var(--color-accent-on-dark-strong);
+  --color-on-accent: var(--pd-on-accent);
 }
 
 .ambientBackdrop {

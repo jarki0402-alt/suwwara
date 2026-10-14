@@ -31,14 +31,22 @@ export function JamAvatars({ count, size = 28, max = 4 }: { count: number; size?
 /**
  * Phone: a pill in the top-right corner, on every screen while you are in a Jam — the phone has no sidebar or top
  * bar to hold it. Tapping it opens the Jam sheet (share link, leave). Hidden on desktop, where JamSidebarCard does this.
+ * On Beranda the header has its own row of buttons in that corner, so there the pill sits in that row (`inline`)
+ * and the pinned one steps aside instead of covering the avatar.
  */
-export function JamPill() {
+export function JamPill({ inline = false }: { inline?: boolean }) {
   const jam = useJamStatus();
   const openJamSheet = useUiStore((state) => state.openJamSheet);
-  if (!jam.active) return null;
+  const onHomeHeader = useUiStore((state) => state.currentView === 'home' && state.detailStack.length === 0 && state.openedCollectionId === null);
+  if (!jam.active || (!inline && onHomeHeader)) return null;
 
   return (
-    <button type="button" className={[styles.pill, jam.live ? '' : styles.pillWarn].join(' ')} onClick={openJamSheet} aria-label={`${jam.summary}. Ketuk untuk mengelola.`}>
+    <button
+      type="button"
+      className={[styles.pill, inline ? styles.pillInline : '', jam.live ? '' : styles.pillWarn].join(' ')}
+      onClick={openJamSheet}
+      aria-label={`${jam.summary}. Ketuk untuk mengelola.`}
+    >
       {jam.live ? (
         <>
           <JamAvatars count={jam.count} size={20} max={3} />

@@ -20,9 +20,9 @@
 }
 
 .heading {
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 /* A heading with a quiet line under it ("Baru Diputar / Lanjutkan mendengarkan…"). */
@@ -33,7 +33,7 @@
 
 .scroller {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--space-3);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   padding: 0 var(--space-4) var(--space-2);
@@ -79,11 +79,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--glass-border);
+    border: none;
     border-radius: var(--radius-full);
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-    -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+    /* Solid, not glass: they sit on the flat page, where a frost only costs a backdrop pass and shows nothing. */
+    background: var(--color-bg-elevated);
     color: var(--color-text-primary);
     cursor: pointer;
     transition: border-color var(--transition-fast), opacity var(--transition-fast), transform 160ms var(--ease-spring);
@@ -94,7 +93,7 @@
   }
 
   .arrow:hover:not(:disabled) {
-    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
 
   .arrow:disabled {

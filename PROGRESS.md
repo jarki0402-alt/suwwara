@@ -25,6 +25,99 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru — 2026-10-14 (redesign tampilan: 6 palet warna, Figtree, Beranda baru)
+
+Feedback user: tampilan terasa "generated AI" (gradasi ungu–pink). Diminta desain sederhana ala Spotify/Apple Music, terang & gelap, pilihan warna di Pengaturan, satu font, tata letak baru — tanpa memberatkan HP lemah dan tanpa menyentuh play/pause.
+
+- **6 palet** (Pengaturan → Tampilan → Warna): Simple (bawaan, merah bata), Hutan, Kobalt, Mentari, Monokrom, Senja — masing-masing terang & gelap.
+  - `theme.css` sekarang dua lapis. Tiap palet (`:root[data-palette=…]`) hanya mengisi primitif terang `--pl-*` dan gelap `--pd-*` (latar, permukaan, sidebar, teks ×3, aksen, aksen-rgb, aksen-kuat, teks-di-atas-aksen, warna kaca). Blok mode terang/gelap yang sudah ada memetakannya ke token semantik (`--color-*`, `--glass-tint`), jadi komponen tidak tahu palet mana yang aktif.
+  - Ganti palet = satu kali hitung ulang style; tidak ada biaya per frame.
+  - `settingsStore.palette` (lokal per perangkat). `useThemeSync` memasang `data-palette` dan menyetel `theme-color` status bar dari `--color-bg` palet.
+  - Skrip kecil di `index.html` memasang palet & tema sebelum paint pertama (terverifikasi: dengan JS aplikasi diblok pun warnanya sudah benar), jadi tidak ada kedipan ungu.
+  - Aksen tiap mode dipilih untuk kontras, mis. kuning Mentari di mode terang memakai versi gelap `#9a6400`.
+- **Ungu dihapus**:
+  - `--gradient-brand` jadi aksen polos; `--color-accent-2` (pink) jadi alias aksen-kuat.
+  - Now Playing memakai aksen gelap palet (`--color-accent-on-dark`), bukan `#a78bfa`.
+  - Pill & kartu Jam memakai aksen palet; peringatan Jam tetap amber.
+  - Kotak genre di Cari jadi warna polos kalem.
+  - Semua teks putih di atas aksen diganti `--color-on-accent` (Button, segmen, avatar Jam, Lagu Disukai, badge peringkat, Auth). Di Monokrom/Mentari/Senja gelap aksennya terang, jadi teks putih tidak akan terbaca.
+- **Font Figtree, satu untuk semua palet**:
+  - Disimpan sendiri di `public/fonts/` (variable font: 20KB Latin + 10KB Latin-ext yang hanya dimuat kalau perlu), di-preload dan masuk precache service worker, jadi jalan offline.
+  - `font-display: swap` dengan font sistem sebagai cadangan.
+- **Beranda baru**:
+  - `HomeHeader` (baru): HP menampilkan judul besar "Beranda" + avatar inisial (→ Pengaturan); desktop menampilkan sapaan sesuai jam.
+  - "Dibuat untukmu": HP berupa kartu persegi bergeser dengan sampul mozaik 2×2 dari lagu koleksi; desktop berupa ubin pintasan ala Spotify di bawah sapaan. Kolase blur lama (filter blur per gambar) dihapus.
+  - Kartu lagu jadi sampul polos + teks tanpa bingkai.
+  - Judul section diseragamkan (1,3rem/700).
+  - Tangga lagu jadi baris polos dengan nomor berwarna aksen.
+  - Panah shelf solid (tanpa blur).
+- **Desktop**: sidebar berlatar warna sidebar palet, tab aktif solid dengan teks aksen (blur di panel solid dihapus), logo "Suwwara." dengan titik aksen.
+- **Perbaikan lanjutan (feedback user)**:
+  - *Kotak berwarna sekilas saat tab bawah HP diketuk*: tab memakai ripple aksen, dan di dalam tombol persegi panjang riak bulat itu terpotong jadi kotak. Ripple dilepas dari tab (`BottomNav.tsx`); pill kaca sudah menjadi umpan balik tekan, seperti tab bar Apple. Terverifikasi: 3 riak dari 3 ketukan sebelumnya, 0 sesudahnya. Peringatan lint `react(refs)` di BottomNav ikut hilang.
+  - *Teks kartu Jam tidak terbaca di beberapa palet* (Monokrom gelap: putih di atas putih; Mentari: subjudul pudar): kartu dulu diisi warna aksen dengan detail putih transparan yang ditulis langsung. Sekarang kartu berlatar permukaan netral, dan aksen hanya di ikon, chip HOST, serta tombol Undang, semuanya lewat token. Varian amber "menyambung" memetakan ulang token secara lokal. Avatar "+N" tidak lagi memakai blur, dan warna avatar peserta jadi polos.
+  - *Pill Jam menabrak avatar di header Beranda HP*: pill Jam dipaku `fixed` di pojok kanan atas, tepat di posisi avatar. Di Beranda pill itu sekarang ada di baris header (`JamPill inline`), dan yang dipaku disembunyikan hanya di Beranda; layar lain tetap seperti sebelumnya. Di header, status "menyambung" tampil sebagai ikon saja (label lengkap tetap di `aria-label`), dan ukuran judul menyesuaikan lebar layar, supaya satu baris muat di layar 360px (diuji, tanpa overflow).
+  - *Tombol cari di samping avatar* (permintaan user): membuka Cari dan memfokuskan kolomnya dalam ketukan yang sama (`flushSync` + `#search-input`), karena iOS hanya membuka keyboard untuk `focus()` di dalam gesture pengguna. Terverifikasi fokus jatuh di kolom cari.
+  - *Sampul playlist berbingkai hitam/abu*: lagu tanpa sampul resmi YT Music memakai cuplikan video `i.ytimg.com/.../hqdefault.jpg` (480×360). Bingkainya sudah ada di dalam pikselnya: letterbox hitam (video 16:9 di gambar 4:3), dan pada video "official audio", bingkai samping di sekitar sampul persegi. Sampul aslinya tepat di 75% tengah gambar, jadi `isVideoFrame()` (`api/mappers.ts`, hanya untuk varian 4:3: default/hqdefault/sddefault/0–3; varian 16:9 seperti mqdefault/hq720 tidak disentuh) memberi kelas zoom 1,34× dari tengah di `LazyImage`, mozaik "Dibuat untukmu" (tiap sel memotong gambarnya sendiri), dan `RemoteBar`. Murni CSS, tanpa unduhan tambahan, dan ikut memperbaiki playlist yang sudah tersimpan. Diverifikasi dengan gambar tiruan bergeometri hqdefault (sebelum: berbingkai, sesudah: penuh). Test `tests/utils/videoFrame.test.ts`.
+- **Tidak diubah**: audio-engine, playback, server, service worker, dan logika Liquid Glass (hanya warnanya yang ikut palet).
+- **Performa**: skenario scroll sama seperti entri Liquid Glass di bawah, median 4 putaran.
+  - Penuh: 5% frame patah (sebelum redesign 5%).
+  - Otomatis A15: 4% (sebelumnya 3%, masih dalam batas noise).
+- Diverifikasi: `npm run build` lulus, `npm run test` 162/162 lulus (test baru `tests/utils/palettes.test.ts` memastikan tiap palet mengisi semua primitif terang & gelap; `tsconfig.vitest.json` kini memuat tipe `node` untuk test yang membaca file), lint tanpa temuan baru, container frontend di-rebuild di `http://localhost:8080`, screenshot HP/desktop terang/gelap di beberapa palet. Belum diuji di perangkat asli.
+
+## Perubahan terbaru — 2026-10-14 (Liquid Glass: mode "Efek Kaca" & optimasi performa)
+
+Feedback user: di Android (laporan teman, Galaxy A15) Liquid Glass terasa sangat lemot. Minta tetap terlihat seperti Liquid Glass Apple (pembiasan, pelangi di pinggir pill), tapi mulus dan hemat di semua device, plus tombol nyala/mati.
+
+Diukur dulu sebelum diubah (Playwright + Chrome, layar setara A15 411×891 DPR 2,625, CPU diperlambat 4×, `/api/*` di-mock, versi lama vs baru diadu bergantian):
+- *Akar masalah 1*: filter lensa `backdrop-filter: url(#...)` membuat Chrome menjalankan layout ulang **setiap frame selama elemen pemakainya bergerak** (dock melipat, orb Cari muncul, mini player turun) dan setiap kali kekuatan lensa ditulis ulang: 1962 layout vs 302 dalam 4 kali lipat dock.
+- *Akar masalah 2*: kode lama mengubah width/height pill, radius blur, dan atribut `scale` SVG setiap frame.
+- *Akar masalah 3*: `canAffordLens()` menebak dari jumlah core. Hampir semua Android punya 8 core, jadi HP lemah tetap mendapat lensa.
+- 33 kartu Beranda masing-masing punya `backdrop-filter` di atas latar polos (tidak terlihat, tapi tetap dihitung tiap frame scroll).
+- Tidak terbukti: radius blur besar (dengan slider bawaan blur aslinya cuma ~14,5px).
+
+Perbaikan:
+- **Mode "Efek Kaca"** (Pengaturan → Liquid Glass): Otomatis (bawaan) / Penuh / Ringan / Mati. Disimpan per perangkat (`settingsStore.glassMode`), tidak disinkron. `<html data-glass="full|lite|off">` dipasang oleh `useThemeSync`.
+  - *Penuh*: blur + lensa SVG (hanya Chromium).
+  - *Ringan*: blur + kilap tepi & pelangi yang dilukis (box-shadow statis). Selalu ini di iPhone.
+  - *Mati*: tanpa `backdrop-filter` sama sekali, isi kaca hampir solid (alpha 0,96) supaya teks tetap terbaca.
+- **Otomatis yang mengukur, bukan menebak** (`src/hooks/glassQuality.ts`, baru):
+  - Tebakan awal: RAM ≤4GB atau ≤4 core → Ringan; WebKit → Ringan; `prefers-reduced-transparency` → Mati.
+  - Lalu setiap animasi kaca nyata (pill pindah tab, dock melipat) diukur persentase frame yang hilang. Penuh → Ringan kalau 2 dari 4 animasi terakhir patah; Ringan → Mati kalau 3 dari 5 parah.
+  - Sampel yang bertumpuk dengan *long task* JavaScript (mis. React merender halaman baru) diabaikan, supaya CPU lambat tidak mencabut kaca.
+  - Hasil tersimpan (`glassAutoTier`); memilih Otomatis lagi = ukur ulang.
+- **`useLiquidRim`**:
+  - Lensa disingkirkan selama transisi yang menggerakkan elemen (left/right/width/height/transform/scale), lalu kembali dalam 4 langkah (bukan tiap frame).
+  - Kekuatan lensa saat ditekan hanya ditulis saat tekan/lepas.
+  - Atribut yang nilainya sama tidak ditulis ulang.
+  - Tidak lagi memasang filter SVG di iPhone (sebelumnya 3 filter terpasang tanpa pernah dipakai).
+- **Pill (`useLiquidPill` + `BottomNav.module.css`)**:
+  - Kedua lapisan digambar sekali di ukuran terangkat lalu di-`scale` turun, dengan `will-change` (tanpa itu bevel & bayangan digambar ulang tiap frame: ganti tab ~8fps vs ~34fps di GPU lemah).
+  - Lift hanya menggerakkan opacity.
+  - Kekuatan lensa ditulis 8 langkah per angkat, bukan tiap frame.
+  - Pelangi asli 3 kanal tetap di mode Penuh; pelangi lukisan di Ringan/iPhone.
+- Kartu `HorizontalSongCard` tanpa blur (warna tint tetap). `GlassDistortionFilter` (tidak pernah dirujuk) dihapus.
+
+Hasil (persentase frame patah, GPU Mac + CPU 4×, rata-rata 2 putaran):
+
+| Skenario | Lama lensa ON | **Baru Penuh** | Lama lensa OFF | **Baru Otomatis (A15)** | **Baru Mati** |
+|---|---|---|---|---|---|
+| Scroll Beranda | 10% | **5%** | 2% | **3%** | **2–3%** |
+| Lipat dock | 0–4% | **0%** | 0% | **0%** | **0%** |
+| Ganti tab | 2% | **2%** | 2% | **2%** | **2–3%** |
+
+Simulasi GPU lemah (SwiftShader), ganti tab: lama lensa OFF 49% patah → baru Otomatis A15 **14%**, Mati **10%**. Lipat dock: lama 47% → baru Penuh 32%. Data simulasi ini berisik, jadi hanya dipakai sebagai petunjuk arah.
+
+Uji Otomatis:
+- HP kuat tetap Penuh.
+- GPU lemah turun ke Mati.
+- CPU lambat dengan GPU normal turun ke Ringan (bukan Mati).
+
+Belum diverifikasi di HP Android/iPhone asli.
+
+Temuan terpisah (belum diubah): `frameTicker` (audio-engine) menjalankan loop rAF 30fps selama ada pelanggan, termasuk saat lagu tidak diputar. Kandidat penghematan baterai berikutnya.
+
+- Diverifikasi: `npm run build` lulus, `npm run test` 156/156 lulus (16 test baru di `tests/utils/glassQuality.test.ts`), lint tanpa temuan baru, container frontend di-rebuild dan berjalan di `http://localhost:8080`.
+
 ## Perubahan terbaru — 2026-10-11 (koherensi antrean radio satu genre & angka pemutaran artis riil)
 
 Feedback user:

@@ -7,9 +7,9 @@
 }
 
 .heading {
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .hint {
@@ -27,13 +27,9 @@
   color: var(--color-text-secondary);
 }
 
-/* One bordered card, rows separated by hairlines. */
+/* Plain rows on the page, separated by hairlines (Apple Music's chart), not a boxed card. */
 .list {
   margin: 0 var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-bg-elevated);
-  overflow: hidden;
 }
 
 .row {
@@ -51,10 +47,10 @@
 
 .rank {
   text-align: center;
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-secondary);
+  color: var(--color-accent);
 }
 
 @media (min-width: 960px) {

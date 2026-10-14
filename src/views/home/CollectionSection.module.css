@@ -9,8 +9,8 @@
 }
 
 .likedArt {
-  background: var(--gradient-brand);
-  color: #ffffff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .placeholderArt {

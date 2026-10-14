@@ -86,7 +86,7 @@
   align-items: center;
   justify-content: center;
   background: var(--gradient-brand);
-  color: #ffffff;
+  color: var(--color-on-accent);
 }
 
 .info {

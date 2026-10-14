@@ -80,3 +80,15 @@
   font-size: 0.74rem;
   color: var(--color-text-tertiary);
 }
+
+.modeNote {
+  font-size: 0.76rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+/* Efek Kaca "Mati" has no frost or lens for the slider to move. */
+.sliderDisabled {
+  opacity: 0.4;
+  pointer-events: none;
+}

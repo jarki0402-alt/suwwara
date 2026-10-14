@@ -1,3 +1,4 @@
+import { isVideoFrame } from '../api/mappers';
 import type { MouseEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { sendCommand } from '../connect/connectClient';
@@ -65,7 +66,9 @@ export function RemoteBar() {
       </div>
 
       <div className={styles.row}>
-        {song?.image ? <img src={song.image} alt="" className={styles.art} /> : <div className={styles.art} />}
+        <span className={styles.art}>
+          {song?.image && <img src={song.image} alt="" className={isVideoFrame(song.image) ? styles.videoFrame : undefined} />}
+        </span>
         <div className={styles.text}>
           <span className={styles.title}>{song?.name ?? 'Belum ada lagu diputar'}</span>
           <span className={styles.subtitle}>{song?.artist ?? 'Pilih lagu di perangkat itu, atau pindahkan pemutaran ke sini.'}</span>

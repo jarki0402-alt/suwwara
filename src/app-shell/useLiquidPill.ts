@@ -1,5 +1,5 @@
 import { useEffect, useRef, type PointerEvent, type RefObject } from 'react';
-import { canAffordLens } from '../hooks/useLiquidRim';
+import { watchGlassAnimation } from '../hooks/glassQuality';
 import { BUBBLE_LENS_SCALE, LENS_FILTER_ID } from './liquidGlassFilters';
 
 type Spring = { stiffness: number; damping: number };
@@ -14,13 +14,18 @@ const spring = (stiffness: number, dampingRatio: number): Spring => ({
 const FOLLOW = spring(1100, 0.8); // under the finger: a hint of lag so it reads as pushed, not glued
 const TRAVEL = spring(340, 0.62); // tab-to-tab and release: visible overshoot when it lands
 const LIFT = spring(420, 0.5); // grow/shrink: the bouncy pop of the lens
-const LIFTED_GROWTH = 0.4; // 82x50 → ~115x70, deliberately spilling past the 58px bar
+// 82x50 → ~115x70, deliberately spilling past the 58px bar. BottomNav.module.css draws both pill layers at this
+// lifted size (--pill-lifted) and scales them down, so the two must match.
+const LIFTED_GROWTH = 0.4;
 const MAX_STRETCH = 0.28;
 const STRETCH_AT_SPEED = 2600; // px/s
 // Rainbow fringe at the rim. The lens's centre doesn't shift at all, so this only ever shows where
 // the rim bends (as on Apple's), never on an icon sitting in the middle.
 const LENS_CHANNEL_SPREAD = 1;
 const MAX_SUBSTEP = 1 / 240;
+// Each new lens strength makes Chrome rebuild the 3-channel filter, so the strength moves in these steps (a lift
+// in or out costs 8 rebuilds) rather than once per frame. At full lift — the whole slide — nothing is rewritten.
+const LENS_STEPS = 8;
 
 type State = {
   x: number;
@@ -35,7 +40,9 @@ type State = {
   initialized: boolean;
   raf: number;
   last: number;
-  lensAllowed: boolean | null;
+  lensStep: number;
+  lensOn: boolean;
+  endWatch: (() => void) | null;
 };
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -52,6 +59,7 @@ export function useLiquidPill({
   activeIndex,
   count,
   enabled,
+  lens,
   lensClassName,
   onSelect,
 }: {
@@ -62,6 +70,8 @@ export function useLiquidPill({
   activeIndex: number;
   count: number;
   enabled: boolean;
+  /** Whether this device draws the SVG lens (Efek Kaca full tier) — otherwise the lifted pill is plain glass. */
+  lens: boolean;
   lensClassName: string;
   onSelect: (index: number) => void;
 }) {
@@ -78,9 +88,12 @@ export function useLiquidPill({
     initialized: false,
     raf: 0,
     last: 0,
-    lensAllowed: null,
+    lensStep: -1,
+    lensOn: false,
+    endWatch: null,
   });
   const activeIndexRef = useRef(activeIndex);
+  const lensRef = useRef(lens);
 
   const slotWidth = () => (navRef.current?.clientWidth ?? 0) / count;
 
@@ -98,12 +111,14 @@ export function useLiquidPill({
     return Math.min(Math.floor(fraction * count), count - 1);
   };
 
+  // Per frame only transform, opacity and three custom properties change (BottomNav.module.css turns --sx/--sy/--lift
+  // into a scale and opacities) — no layout, no new blur radius, no new filter.
   const render = () => {
     const s = state.current;
     const pill = pillRef.current;
     if (!pill) return;
     const stretch = Math.min(Math.abs(s.vx) / STRETCH_AT_SPEED, 1) * MAX_STRETCH;
-    const growth = 1 + LIFTED_GROWTH * s.lift;
+    const growth = (1 + LIFTED_GROWTH * s.lift) / (1 + LIFTED_GROWTH);
     const lift = Math.min(Math.max(s.lift, 0), 1);
     // At rest the position is a percentage, so a later resize/rotation can't strand the pill.
     const transform = s.resting ? `translateX(${Math.max(s.targetIndex, 0) * 100}%)` : `translateX(${s.x}px)`;
@@ -115,18 +130,23 @@ export function useLiquidPill({
       layer.style.setProperty('--sy', String(growth * (1 - stretch * 0.45)));
       layer.style.setProperty('--lift', String(lift));
     }
-    s.lensAllowed ??= canAffordLens();
-    const lensOn = s.lensAllowed && lift > 0.02;
-    pill.classList.toggle(lensClassName, lensOn);
-    if (lensOn) {
+    const step = lensRef.current ? Math.round(lift * LENS_STEPS) : 0;
+    const lensOn = step > 0;
+    if (lensOn !== s.lensOn) {
+      s.lensOn = lensOn;
+      pill.classList.toggle(lensClassName, lensOn);
+    }
+    if (lensOn && step !== s.lensStep) {
       // feDisplacementMap's scale can't come from CSS, so the lens strength is written straight
       // into the filter — this is what makes the refraction fade in/out with the lift instead of
       // snapping on.
+      const strength = step / LENS_STEPS;
       document
         .getElementById(LENS_FILTER_ID)
         ?.querySelectorAll('feDisplacementMap')
-        .forEach((map, i) => map.setAttribute('scale', String(lift * (BUBBLE_LENS_SCALE - i * LENS_CHANNEL_SPREAD))));
+        .forEach((map, i) => map.setAttribute('scale', String(strength * (BUBBLE_LENS_SCALE - i * LENS_CHANNEL_SPREAD))));
     }
+    s.lensStep = step;
   };
 
   const frame = (now: number) => {
@@ -158,6 +178,8 @@ export function useLiquidPill({
     if (settled) {
       Object.assign(s, { x: target, vx: 0, lift: s.liftTarget, vlift: 0, resting: true, raf: 0 });
       render();
+      s.endWatch?.();
+      s.endWatch = null;
       return;
     }
     render();
@@ -184,6 +206,7 @@ export function useLiquidPill({
     if (!s.raf) {
       s.last = performance.now();
       s.raf = requestAnimationFrame(frame);
+      s.endWatch ??= watchGlassAnimation();
     }
   };
 
@@ -206,7 +229,22 @@ export function useLiquidPill({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex]);
 
-  useEffect(() => () => cancelAnimationFrame(state.current.raf), []);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(state.current.raf);
+      state.current.endWatch?.();
+    },
+    [],
+  );
+
+  // Efek Kaca changed tier mid-session: drop a lens the pill is still wearing (or let the next lift wear one).
+  useEffect(() => {
+    if (lensRef.current === lens) return;
+    lensRef.current = lens;
+    state.current.lensStep = -1;
+    render();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lens]);
 
   const onPointerDown = (event: PointerEvent<HTMLElement>) => {
     if (!enabled || (event.pointerType === 'mouse' && event.button !== 0)) return;

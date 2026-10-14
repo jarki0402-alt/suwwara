@@ -1,9 +1,19 @@
 import { useEffect, useId, useRef, type PointerEvent, type RefObject } from 'react';
 import { gradientMap } from '../app-shell/liquidGlassFilters';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useLensEnabled, watchGlassAnimation } from './glassQuality';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SETTLE_DELAY_MS = 80;
+// After a move the lens fades back in this many steps over LENS_RETURN_MS — not every frame: each new strength is
+// a filter rebuild plus a layout in Chrome.
+const LENS_RETURN_MS = 240;
+const LENS_RETURN_STEPS = 4;
+// Transitions that move the glass. While an element wearing the lens moves — resized (the dock fold) or transformed
+// (the search orb growing in, the mini player dropping) — Chrome re-runs layout for the url() filter every frame:
+// ~4 layouts a frame, 1962 over four folds vs 302 with the lens set aside. So it steps aside for the move and the
+// moving glass is plain frost, which nobody can tell apart mid-motion anyway.
+const MOTION_PROPERTIES = new Set(['left', 'right', 'top', 'bottom', 'width', 'height', 'transform', 'scale', 'translate']);
 const MAP_SAMPLES = 48;
 // Press: a quick, slightly bouncy swell (Apple's glass grows under the finger, it doesn't sink).
 const PRESS_STIFFNESS = 520;
@@ -86,19 +96,6 @@ function buildLens(id: string, height: number): Lens {
   return { markup, margin, fullScale, height };
 }
 
-// Phones that would drop frames under a live lens get the plain frost (which still follows the
-// slider) — as do people who asked their system for less motion or transparency.
-export function canAffordLens() {
-  const media = (query: string) => window.matchMedia(query).matches;
-  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  return !(
-    media('(prefers-reduced-motion: reduce)') ||
-    media('(prefers-reduced-transparency: reduce)') ||
-    (memory !== undefined && memory <= 4) ||
-    navigator.hardwareConcurrency <= 4
-  );
-}
-
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
 
 /**
@@ -106,9 +103,8 @@ const easeOut = (t: number) => 1 - (1 - t) ** 3;
  * global.css): frost, then a convex lens over what's behind it. How much it bends follows the
  * Liquid Glass slider — none at "Berwarna" (plain frost), strongest at "Bening". Pressing it
  * (spread the returned handlers onto whatever the finger lands on) swells the glass and briefly
- * strengthens the lens. Only engines that render backdrop-filter: url(#...) get the lens;
- * elsewhere the data attributes set here are never matched by the gated CSS, and the press swell
- * still works.
+ * strengthens the lens. Only Efek Kaca's full tier on an engine that renders backdrop-filter: url(#...) gets the
+ * lens (useLensEnabled); elsewhere nothing is installed and the press swell still works.
  */
 export function useLiquidRim(ref: RefObject<HTMLElement | null>, enabled = true, { grow = 0.08 } = {}) {
   const id = `lg-rim-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
@@ -116,6 +112,7 @@ export function useLiquidRim(ref: RefObject<HTMLElement | null>, enabled = true,
   const strengthRef = useRef(1 - glassTint);
   const retargetRef = useRef<(() => void) | null>(null);
   const pressRef = useRef<((pressed: boolean) => void) | null>(null);
+  const useLens = useLensEnabled();
 
   useEffect(() => {
     strengthRef.current = 1 - glassTint;
@@ -125,7 +122,6 @@ export function useLiquidRim(ref: RefObject<HTMLElement | null>, enabled = true,
   useEffect(() => {
     const element = ref.current;
     if (!element || !enabled) return;
-    const useLens = canAffordLens();
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let lens: Lens | null = null;
     let base = 0;
@@ -136,19 +132,58 @@ export function useLiquidRim(ref: RefObject<HTMLElement | null>, enabled = true,
     let lastPressFrame = 0;
     let scaleRaf = 0;
     let settleTimer = 0;
+    // 0 while the box is moving (lens set aside), tweened back to 1 once it stops.
+    let presence = 1;
+    let presenceRaf = 0;
+    let appliedScale = -1;
+    const moving = new Set<string>();
+    let endWatch: (() => void) | null = null;
 
     const filter = () => document.getElementById(id);
     const target = () => (lens ? lens.fullScale * strengthRef.current : 0);
 
-    // The lens actually applied: the slider's strength, pulled halfway toward full while pressed.
+    // The lens actually applied: the slider's strength, pulled halfway toward full while pressed. The boost follows
+    // the press target, not the spring: every new `scale` makes Chrome rebuild the filter, so a press costs two
+    // rebuilds instead of one per frame of the swell (the swell itself is `scale` on the element, compositor-only).
     const render = () => {
       if (!lens) return;
-      const boost = Math.min(Math.max(press, 0), 1) * 0.5;
-      const scale = base + (lens.fullScale - base) * boost;
+      const boost = pressTarget * 0.5;
+      const scale = moving.size > 0 ? 0 : (base + (lens.fullScale - base) * boost) * presence;
+      if (scale === appliedScale) return;
+      appliedScale = scale;
       filter()?.querySelector('feDisplacementMap')?.setAttribute('scale', String(scale));
       // At zero the filter is an identity that still costs a full pass; switch it off instead.
       if (scale === 0) element.dataset.lensOff = '';
       else delete element.dataset.lensOff;
+    };
+
+    const fadeLensIn = () => {
+      cancelAnimationFrame(presenceRaf);
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min((now - start) / LENS_RETURN_MS, 1);
+        // render() skips a strength it already applied, so only LENS_RETURN_STEPS of these frames write.
+        presence = easeOut(Math.ceil(t * LENS_RETURN_STEPS) / LENS_RETURN_STEPS);
+        render();
+        if (t < 1) presenceRaf = requestAnimationFrame(step);
+      };
+      presence = 0;
+      presenceRaf = requestAnimationFrame(step);
+    };
+
+    const onTransitionRun = (event: TransitionEvent) => {
+      if (event.target !== element || !MOTION_PROPERTIES.has(event.propertyName)) return;
+      if (moving.size === 0) endWatch = watchGlassAnimation();
+      moving.add(event.propertyName);
+      cancelAnimationFrame(presenceRaf);
+      render();
+    };
+
+    const onTransitionEnd = (event: TransitionEvent) => {
+      if (event.target !== element || !moving.delete(event.propertyName) || moving.size > 0) return;
+      endWatch?.();
+      endWatch = null;
+      if (lens) fadeLensIn();
     };
 
     const tweenTo = (to: number, duration: number) => {
@@ -172,6 +207,7 @@ export function useLiquidRim(ref: RefObject<HTMLElement | null>, enabled = true,
       const height = element.offsetHeight;
       if (height < 1 || element.offsetWidth < 1) return;
       lens = buildLens(id, height);
+      appliedScale = -1;
       filter()?.remove();
       defs().insertAdjacentHTML('beforeend', lens.markup);
       element.style.setProperty('--lg-margin', `${lens.margin}px`);
@@ -226,6 +262,11 @@ export function useLiquidRim(ref: RefObject<HTMLElement | null>, enabled = true,
 
     retargetRef.current = () => tweenTo(target(), 200);
 
+    // Watched in every tier — Otomatis also needs to know when plain frost can't keep up.
+    element.addEventListener('transitionrun', onTransitionRun);
+    element.addEventListener('transitionend', onTransitionEnd);
+    element.addEventListener('transitioncancel', onTransitionEnd);
+
     if (useLens) {
       install();
       syncRadius();
@@ -236,7 +277,12 @@ export function useLiquidRim(ref: RefObject<HTMLElement | null>, enabled = true,
 
     return () => {
       observer.disconnect();
+      element.removeEventListener('transitionrun', onTransitionRun);
+      element.removeEventListener('transitionend', onTransitionEnd);
+      element.removeEventListener('transitioncancel', onTransitionEnd);
+      endWatch?.();
       cancelAnimationFrame(scaleRaf);
+      cancelAnimationFrame(presenceRaf);
       cancelAnimationFrame(pressRaf);
       window.clearTimeout(settleTimer);
       retargetRef.current = null;
@@ -247,7 +293,7 @@ export function useLiquidRim(ref: RefObject<HTMLElement | null>, enabled = true,
       element.style.scale = '';
       for (const name of ['--rim-filter', '--lg-margin', '--lg-radius']) element.style.removeProperty(name);
     };
-  }, [ref, enabled, id, grow]);
+  }, [ref, enabled, id, grow, useLens]);
 
   return {
     onPointerDown: (event: PointerEvent<HTMLElement>) => {

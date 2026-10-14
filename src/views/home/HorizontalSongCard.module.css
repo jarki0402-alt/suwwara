@@ -2,15 +2,14 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  width: 124px;
+  width: 140px;
   flex-shrink: 0;
-  /* A bordered card holding the art and its text (rather than bare art on the page). */
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  padding: var(--space-2);
+  /* Bare art with its text under it (Apple Music / Spotify), no box around it — and no frost: these sit on the flat
+     page, where a blur changes nothing visible but costs a backdrop pass on every scroll frame. Glass belongs to the
+     floating controls. */
+  background: none;
+  border: none;
+  padding: 0;
   color: var(--color-text-primary);
   cursor: pointer;
   text-align: left;
@@ -54,10 +53,6 @@
   /* The wrapper is what lifts, not just the image: the dark play overlay sits on the wrapper, and
      lifting only the image left its top 4px uncovered by the overlay — a bright band across the
      top of the cover while the rest looked dimmed. */
-  .card:hover {
-    border-color: rgba(255, 255, 255, 0.16);
-  }
-
   .card:hover .artWrapper {
     transform: translateY(-3px);
     box-shadow: var(--shadow-elevated);
@@ -72,7 +67,7 @@
 @media (min-width: 960px) {
   /* Every shelf scrolls sideways on desktop too (Shelf.tsx), so a card keeps one fixed size; a touch wider than on a phone. */
   .card {
-    width: 140px;
+    width: 160px;
   }
 }
 
@@ -84,8 +79,8 @@
   height: 28px;
   padding: 0 6px;
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-strong));
-  color: #ffffff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-size: 0.78rem;
   font-weight: 800;
   display: flex;
@@ -97,7 +92,7 @@
 
 .title {
   padding: 0 2px;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-text-primary);
   overflow: hidden;
@@ -107,7 +102,7 @@
 
 .subtitle {
   padding: 0 2px;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;

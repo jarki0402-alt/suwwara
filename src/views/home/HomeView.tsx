@@ -2,6 +2,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { ArtistMixesSection } from './ArtistMixesSection';
 import { CollectionSection } from './CollectionSection';
 import { GeneratedCollectionView } from './GeneratedCollectionView';
+import { HomeHeader } from './HomeHeader';
 import { MadeForYouSection } from './MadeForYouSection';
 import { RecentlyPlayedSection } from './RecentlyPlayedSection';
 import { RecommendedSection } from './RecommendedSection';
@@ -32,6 +33,7 @@ export function HomeView() {
 
   return (
     <div className={styles.view}>
+      <HomeHeader />
       <MadeForYouSection />
       <CollectionSection />
       <RecentlyPlayedSection />

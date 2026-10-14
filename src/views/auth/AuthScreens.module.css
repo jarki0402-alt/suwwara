@@ -68,7 +68,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .headline {
@@ -257,7 +257,7 @@
   border: none;
   border-radius: var(--radius-full);
   background: var(--gradient-brand);
-  color: #fff;
+  color: var(--color-on-accent);
   font-size: 0.95rem;
   font-weight: 800;
   cursor: pointer;

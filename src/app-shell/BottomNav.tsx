@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { LazyImage } from '../components/Image/LazyImage';
 import { PlaylistNameDialog } from '../components/PlaylistNameDialog/PlaylistNameDialog';
 import { Icon, type IconName } from '../components/Icon/Icon';
-import { useBubbleRipple } from '../hooks/useBubbleRipple';
+import { useLensEnabled } from '../hooks/glassQuality';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useLiquidRim } from '../hooks/useLiquidRim';
 import { useLibraryStore } from '../stores/libraryStore';
@@ -20,9 +20,8 @@ const TABS: { view: ViewName; label: string; icon: IconName }[] = [
   { view: 'settings', label: 'Pengaturan', icon: 'settings' },
 ];
 
-// Own component (not inlined in the TABS.map below) so each tab gets its own ripple-hook
-// instance — calling useBubbleRipple directly inside a .map callback would call a variable
-// number of hooks from React's perspective.
+// No bubble ripple on the tabs: the lifted glass pill (useLiquidPill) already answers the press, as in Apple's tab bar,
+// and inside the rectangular tab the clipped ripple flashed as a coloured box.
 function TabButton({
   tab,
   isActive,
@@ -34,15 +33,8 @@ function TabButton({
   hasUpdate: boolean;
   onSelect: () => void;
 }) {
-  const ripple = useBubbleRipple<HTMLButtonElement>();
   return (
-    <button
-      ref={ripple.ref}
-      type="button"
-      className={[styles.tabButton, 'glass-ripple-host', isActive ? styles.tabActive : ''].join(' ')}
-      onClick={onSelect}
-      onPointerDown={ripple.onPointerDown}
-    >
+    <button type="button" className={[styles.tabButton, isActive ? styles.tabActive : ''].join(' ')} onClick={onSelect}>
       <span className={styles.tabIcon}>
         <Icon name={tab.icon} size={22} />
         {tab.view === 'settings' && hasUpdate && <span className={styles.updateDot} aria-label="Ada pembaruan" />}
@@ -82,6 +74,7 @@ export function BottomNav() {
   // Pressing the folded tab orb swells the nav itself — that's the glass the orb is.
   const navGlass = useLiquidRim(navRef, !isDesktop, { grow: 0.1 });
   const searchOrbGlass = useLiquidRim(searchOrbRef, !isDesktop, { grow: 0.1 });
+  const lens = useLensEnabled();
 
   // Mobile only: the pill is a thing you can physically push around (Apple's own tab bar does
   // this), not just a by-product of tapping a tab — see useLiquidPill for the spring model.
@@ -92,6 +85,7 @@ export function BottomNav() {
     activeIndex,
     count: TABS.length,
     enabled: !isDesktop && !isCollapsed,
+    lens,
     lensClassName: styles.lensOn,
     onSelect: (index) => setView(TABS[index].view),
   });
@@ -125,7 +119,9 @@ export function BottomNav() {
       >
         <Icon name={orbTab.icon} size={24} />
       </button>
-      <span className={styles.brand}>Suwwara</span>
+      <span className={styles.brand}>
+        Suwwara<span className={styles.brandDot}>.</span>
+      </span>
       {TABS.map((tab, index) => (
         <TabButton key={tab.view} tab={tab} isActive={index === activeIndex} hasUpdate={hasUpdate} onSelect={() => setView(tab.view)} />
       ))}

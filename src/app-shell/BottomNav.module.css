@@ -116,58 +116,77 @@
      transform transition here — a CSS transition would lag a beat behind each spring step. */
   transition: opacity var(--transition-glass);
   pointer-events: none;
-  --sx: 1;
-  --sy: 1;
+  --sx: 0.714;
+  --sy: 0.714;
   --lift: 0;
 }
 
-/* Sized, not transform-scaled, by --sx/--sy: Chrome runs a backdrop filter at the element's
-   untransformed size and then scales the result, so a lens under scale(1.4) came out soft. */
+/* Both layers are drawn once at the LIFTED size (--pill-lifted = 1 + useLiquidPill's LIFTED_GROWTH) and scaled down
+   by transform; --sx/--sy (written per frame, relative to that size) only ever change a scale. Sizing them by
+   width/height re-laid-out the pill every frame of every press and slide. Scaling down (not up) is what keeps the
+   lens sharp: Chrome runs a backdrop filter at the untransformed size, and an upscaled lens came out soft. The
+   lift (0 resting → 1 pressed/travelling) only moves opacities, so nothing here asks for a new blur or filter
+   while the pill moves. will-change keeps both layers on their own GPU layers: without it every new scale
+   re-rasterised the bevel and drop shadow, and on a weak GPU tab switches fell to ~8fps (vs ~34fps with it);
+   screenshots of the lifted pill came out identical either way. */
+.indicator,
+.indicatorFill {
+  --pill-lifted: 1.4;
+}
+
 .indicator::before,
 .indicatorFill::before {
   content: '';
   flex: none;
-  height: calc((var(--bottom-nav-height) - 8px) * var(--sy));
-  width: calc(min((var(--bottom-nav-height) - 8px) * 82 / 50, 100% - 6px) * var(--sx));
+  height: calc((var(--bottom-nav-height) - 8px) * var(--pill-lifted));
+  width: calc(min((var(--bottom-nav-height) - 8px) * 82 / 50, 100% - 6px) * var(--pill-lifted));
   border-radius: 999px;
-  transition: opacity 180ms ease;
+  transform: scale(var(--sx), var(--sy));
+  will-change: transform, opacity;
 }
 
-/* --lift: 0 = resting under a tab, 1 = pressed/travelling. Resting it's a flat translucent black,
-   no frost, no bright bevel, the same whatever sits behind it (as glass it turned whitish over
-   bright album art); lifting drains the black out as the glass comes in on the layer above. */
+/* Resting it's a flat translucent black, no frost, no bright bevel, the same whatever sits behind it (as glass it
+   turned whitish over bright album art); lifting fades it out as the glass comes in on the layer above. */
 .indicatorFill::before {
-  background: rgba(0, 0, 0, calc(var(--pill-rest-alpha) * (1 - var(--lift))));
+  background: rgba(0, 0, 0, var(--pill-rest-alpha));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  opacity: calc(1 - var(--lift));
 }
 
+/* The lifted glass: frost, bevel, drop shadow and — on every tier — the rainbow rim real glass shows where it bends
+   light, painted as two faint coloured edge glows (red bends least, blue most). On the full tier the SVG lens
+   below adds the real refraction and a true per-channel fringe on top. */
 .indicator::before {
-  background-image: linear-gradient(rgba(255, 255, 255, calc(0.02 * var(--lift))), rgba(255, 255, 255, calc(0.02 * var(--lift))));
-  backdrop-filter: blur(calc(4px * var(--lift))) saturate(calc(1 + 1.4 * var(--lift)));
-  -webkit-backdrop-filter: blur(calc(4px * var(--lift))) saturate(calc(1 + 1.4 * var(--lift)));
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(4px) saturate(2.4);
+  -webkit-backdrop-filter: blur(4px) saturate(2.4);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, calc(0.75 * var(--lift))),
-    inset 0 -1px 1px rgba(0, 0, 0, calc(0.08 * var(--lift))),
-    inset 0 0 0 1px rgba(255, 255, 255, calc(0.04 + 0.21 * var(--lift))),
-    0 calc(10px * var(--lift)) calc(26px * var(--lift)) rgba(0, 0, 0, calc(0.22 * var(--lift)));
+    inset 0 1px 1px rgba(255, 255, 255, 0.75),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+    inset 3px 0 3px -2px rgba(255, 70, 90, 0.35),
+    inset -3px 0 3px -2px rgba(70, 150, 255, 0.35),
+    0 10px 26px rgba(0, 0, 0, 0.22);
+  opacity: var(--lift);
 }
 
-/* Real lens refraction (LiquidGlassLens.tsx), only while the pill is lifted — resting under a
-   tab it's plain glass so the active icon/label stays crisp. The pill moves ABOVE the tabs so the
-   lens bends the icons/labels like Apple's tab bar. .nav's own glass lives in pseudo-elements
-   (global .liquid-glass): a backdrop-filter on .nav itself would make it the backdrop root, and the
+/* Real lens refraction (LiquidGlassLens.tsx), only while the pill is lifted and only on Efek Kaca's full tier
+   (useLiquidPill adds .lensOn) — resting under a tab it's plain glass so the active icon/label stays crisp. The pill
+   moves ABOVE the tabs so the lens bends the icons/labels like Apple's tab bar. .nav's own glass lives in
+   pseudo-elements (global .liquid-glass): a backdrop-filter on .nav itself would make it the backdrop root, and the
    lens would only see .nav's translucent fill with the unbent labels showing through as a ghost.
    Apple WebKit (every iOS browser) renders backdrop-filter: url(#...) unreliably, so it keeps the
    plain version above; -apple-system-body is a font keyword only Apple's WebKit accepts. */
 @supports (backdrop-filter: url(#a)) and (not (font: -apple-system-body)) {
-  .indicator {
+  :root[data-glass='full'] .indicator {
     z-index: 2;
   }
 
-  .indicator::before {
+  :root[data-glass='full'] .indicator::before {
     backdrop-filter: none;
   }
 
-  .lensOn::before {
+  :root[data-glass='full'] .lensOn::before {
     backdrop-filter: url(#bn-lens);
   }
 }
@@ -181,6 +200,10 @@
 
 .brand {
   display: none;
+}
+
+.brandDot {
+  color: var(--color-accent);
 }
 
 /* Desktop-only "Your Library" shortcut list — see .library's own media query
@@ -256,7 +279,8 @@
        mobile bars, where it's over content only briefly. */
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    background: var(--color-bg);
+    /* A shade off the page (each palette's own sidebar tone), like Spotify's sidebar. */
+    background: var(--color-bg-sidebar);
     box-shadow: none;
     /* Reset from the mobile rule's touch-action:none (there for the drag-the-pill gesture,
        BottomNav.tsx) — this sidebar's .library list still needs to scroll normally on a
@@ -300,17 +324,14 @@
     transform: scale(0.97);
   }
 
+  /* Solid, not frosted: the sidebar is a flat panel, so a blur here was a backdrop pass with nothing to show. */
   .tabActive {
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-    -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-    color: var(--color-text-primary);
-    box-shadow: var(--glass-sheen), inset 0 0 0 1px var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-accent);
   }
 
   .tabActive svg {
     transform: none;
-    color: var(--color-accent);
   }
 
   .library {

@@ -58,6 +58,19 @@ function buildImageVariants(videoId: string, bestThumbnail: string): ImageVarian
   ];
 }
 
+/**
+ * A YouTube video frame (i.ytimg.com — what a song falls back to when it has no YT Music album art, see
+ * buildImageVariants) rather than real cover art. Its hqdefault is 4:3 with the 16:9 video letterboxed inside (black
+ * bars top and bottom), and an "official audio" video pillarboxes its square art in that 16:9 frame (bars left and
+ * right) — so the art itself is the centred 75% of the image, both ways. Covers that get one zoom it 1/0.75 ≈ 1.34×
+ * from the centre (the `videoFrame` crop classes) instead of downloading anything else.
+ */
+export function isVideoFrame(url: string): boolean {
+  // Only the 4:3 frames (default, hqdefault, sddefault, 0–3) carry the letterbox; the 16:9 ones (mqdefault, hq720,
+  // maxresdefault) are already just the frame, which a square cover-crop trims to the art on its own.
+  return /^https?:\/\/i\d?\.ytimg\.com\/vi(?:_webp)?\/[^/]+\/(?:(?:hq|sd)?default|[0-3])\.(?:jpg|webp)(?:\?|$)/.test(url);
+}
+
 /** The three image tiers for a plain image URL that isn't tied to a video (an artist's photo). */
 export function imagesFromUrl(url: string): ImageVariant[] {
   if (!url) return [];

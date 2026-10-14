@@ -9,7 +9,7 @@ export function BrowseCategoriesGrid({ onSelect }: { onSelect: (category: Browse
           key={category.id}
           type="button"
           className={styles.tile}
-          style={{ background: `linear-gradient(135deg, ${category.gradientFrom}, ${category.gradientTo})` }}
+          style={{ background: category.color }}
           onClick={() => onSelect(category)}
         >
           {category.label}

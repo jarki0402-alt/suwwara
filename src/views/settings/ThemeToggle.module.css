@@ -66,5 +66,54 @@
 
 .segmentActive {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-on-accent);
+}
+
+.palettes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: var(--space-2) 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.swatch {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  transition: box-shadow var(--transition-fast);
+}
+
+/* Half paper, half accent: the two colours a palette is mostly made of. */
+.swatchDot {
+  position: absolute;
+  inset: 0 0 0 50%;
+}
+
+.paletteActive {
+  color: var(--color-text-primary);
+}
+
+.paletteActive .swatch {
+  box-shadow: 0 0 0 2px var(--color-bg-elevated), 0 0 0 4px var(--color-accent);
+}
+
+.paletteLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
 }

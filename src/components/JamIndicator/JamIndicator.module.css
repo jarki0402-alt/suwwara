@@ -26,30 +26,32 @@
   margin-left: 0;
 }
 
-/* The first avatar is you: the brand gradient. The rest each get a different tint so they read as different people. */
+/* The first avatar is you: the palette's accent. The rest each get a different tint so they read as different people. */
 .tint0 {
-  background: var(--gradient-brand);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .tint1 {
-  background: linear-gradient(135deg, #0e7490, #06b6d4);
+  background: #0e7490;
 }
 
 .tint2 {
-  background: linear-gradient(135deg, #15803d, #22c55e);
+  background: #15803d;
 }
 
 .tint3 {
-  background: linear-gradient(135deg, #b45309, #f59e0b);
+  background: #b45309;
 }
 
 .tint4 {
-  background: linear-gradient(135deg, #be123c, #fb7185);
+  background: #be123c;
 }
 
+/* "+N": the page colour, so it reads on the accent pill and on the neutral card alike (and no frost for a 24px dot). */
 .avatarMore {
-  background: rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(6px);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
 }
 
 /* ---- phone: a pill pinned to the top-right corner ---- */
@@ -59,7 +61,7 @@
   right: 12px;
   /* Under the Now Playing sheet (which carries its own "Jam · N" label) and every dialog, above the page. */
   z-index: var(--z-mini-player);
-  --jam-ring: #5b21b6;
+  --jam-ring: var(--color-accent);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -67,9 +69,9 @@
   padding: 0 12px 0 6px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius-full);
-  background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
+  background: var(--color-accent);
   box-shadow: var(--shadow-floating);
-  color: #ffffff;
+  color: var(--color-on-accent);
   font-size: 0.76rem;
   font-weight: 700;
   cursor: pointer;
@@ -81,14 +83,30 @@
   transform: scale(0.97);
 }
 
+/* In Beranda's header row, beside the search button and avatar, instead of pinned over them. The reconnecting state
+   keeps only its icon there — "Menyambung ulang…" pushed the row past a 360px screen; the aria-label still says it. */
+.pillInline {
+  position: static;
+  height: 36px;
+}
+
+.pillInline.pillWarn {
+  padding: 0 11px;
+}
+
+.pillInline.pillWarn .pillLabel {
+  display: none;
+}
+
 .pillLabel {
   white-space: nowrap;
 }
 
-/* Link to the room dropped: the same pill, but grey-amber instead of violet, so it does not look healthy. */
+/* Link to the room dropped: the same pill, but amber instead of the accent, so it does not look healthy. */
 .pillWarn {
   padding-left: 12px;
-  background: linear-gradient(135deg, #451a03 0%, #92400e 100%);
+  background: #92400e;
+  color: #ffffff;
 }
 
 /* ---- desktop: a card in the sidebar ---- */
@@ -101,8 +119,11 @@
     display: none;
   }
 
+  /* A neutral surface with the accent in its details (badge, role chip, Undang), not a card filled with the accent:
+     filled, its translucent-white details vanished on the light accents (Mentari's honey, Monokrom's white). Every
+     colour here is a theme token, so it reads in all twelve palette × theme combinations. */
   .card {
-    --jam-ring: #5b21b6;
+    --jam-ring: var(--color-bg-elevated);
     position: relative;
     isolation: isolate;
     display: flex;
@@ -110,21 +131,24 @@
     gap: var(--space-3);
     margin: var(--space-2) 0 0;
     padding: var(--space-3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    /* Brand violet with a soft pink glow in one corner — the app's accent → accent-2 gradient, kept dark enough that white
-       text stays readable in both themes. */
-    background:
-      radial-gradient(120% 100% at 100% 0%, rgba(236, 72, 153, 0.38), transparent 62%),
-      linear-gradient(135deg, #4c1d95 0%, #6d28d9 100%);
-    box-shadow: var(--shadow-floating);
-    color: #ffffff;
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
     overflow: hidden;
   }
 
+  /* Link to the room dropped: amber, and the tokens re-pointed locally so the same rules below stay readable on it. */
   .cardWarn {
-    --jam-ring: #78350f;
-    background: linear-gradient(135deg, #451a03 0%, #92400e 100%);
+    --jam-ring: #92400e;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: rgba(255, 255, 255, 0.82);
+    --color-accent: #ffffff;
+    --color-accent-soft: rgba(255, 255, 255, 0.18);
+    --color-on-accent: #92400e;
+    --color-border: rgba(255, 255, 255, 0.45);
+    background: #92400e;
+    color: var(--color-text-primary);
   }
 
   .cardHead {
@@ -141,7 +165,8 @@
     width: 32px;
     height: 32px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.18);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
   }
 
   .cardHeadText {
@@ -170,7 +195,7 @@
     align-items: center;
     gap: 4px;
     font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--color-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -180,7 +205,8 @@
     flex-shrink: 0;
     padding: 2px 7px;
     border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.18);
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
     font-size: 0.62rem;
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -225,19 +251,19 @@
   .cardPrimary {
     flex: 1;
     border: none;
-    background: #ffffff;
-    color: #4c1d95;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
   }
 
   .cardSecondary {
     padding: 0 var(--space-4);
-    border: 1px solid rgba(255, 255, 255, 0.38);
+    border: 1px solid var(--color-border);
     background: transparent;
-    color: #ffffff;
+    color: var(--color-text-primary);
   }
 
   .cardSecondary:hover {
-    background: rgba(255, 255, 255, 0.14);
+    background: var(--color-accent-soft);
   }
 
   .cardPrimary:active,

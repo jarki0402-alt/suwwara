@@ -1,3 +1,23 @@
+/* Figtree, self-hosted rather than from Google Fonts: it must work offline in the installed PWA, and one variable file
+   per script covers every weight (~20KB for Latin; the -ext file only loads if a page uses those letters). */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url('/fonts/figtree-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url('/fonts/figtree-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 *,
 *::before,
 *::after {
@@ -174,6 +194,30 @@ html.is-resizing * {
     transform: scale(1);
     opacity: 0;
   }
+}
+
+/* Floating glass without the SVG lens — Efek Kaca's lite tier, and every iPhone (Apple WebKit can't draw it): the
+   same two soft edge glints the lensed glass wears (see its ::after below), plus the faint rainbow rim real glass
+   shows where it bends light, painted instead of refracted. Static box-shadows — painted once, nothing per frame.
+   Phone-only: on desktop .nav is a solid sidebar that carries the class but must stay flat. */
+@media (max-width: 959.98px) {
+  .liquid-glass:not([data-rim]) {
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.14),
+      inset 0 -1px 2px rgba(255, 255, 255, 0.05),
+      inset 2px 0 3px -2px rgba(255, 80, 100, 0.12),
+      inset -2px 0 3px -2px rgba(80, 150, 255, 0.12),
+      0 10px 30px rgba(0, 0, 0, 0.18);
+  }
+}
+
+/* Efek Kaca "Mati": no backdrop filter anywhere — the one setting that costs the GPU nothing per frame. The glass
+   fill goes near-opaque instead (useThemeSync raises --glass-alpha-factor) so text over album art stays readable. */
+:root[data-glass='off'] *,
+:root[data-glass='off'] *::before,
+:root[data-glass='off'] *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* Liquid Glass surfaces (useLiquidRim sets data-rim once the element's own lens filter exists): one

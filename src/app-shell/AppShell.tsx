@@ -21,15 +21,12 @@ import { PaneResizers } from './PaneResizers';
 import { TopBar } from './TopBar';
 import { ViewRouter } from './ViewRouter';
 
-import { GlassDistortionFilter } from './GlassDistortionFilter';
-
 export function AppShell() {
   useJamSync();
   useBackNavigation();
 
   return (
     <PlaybackProvider>
-      <GlassDistortionFilter />
       <ShellBody />
     </PlaybackProvider>
   );

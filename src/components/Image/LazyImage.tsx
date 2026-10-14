@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ImageVariant } from '../../api/types';
-import { bestImageUrl } from '../../api/mappers';
+import { bestImageUrl, isVideoFrame } from '../../api/mappers';
 import styles from './LazyImage.module.css';
 
 interface LazyImageProps {
@@ -46,7 +46,14 @@ export function LazyImage({ images, quality, alt, className }: LazyImageProps) {
   return (
     <div ref={wrapperRef} className={[styles.wrapper, className].filter(Boolean).join(' ')}>
       {showImage ? (
-        <img src={src} alt={alt} loading="lazy" decoding="async" onError={() => setHasError(true)} />
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          className={isVideoFrame(src) ? styles.videoFrame : undefined}
+          onError={() => setHasError(true)}
+        />
       ) : (
         <div className={styles.placeholder} aria-hidden="true" />
       )}

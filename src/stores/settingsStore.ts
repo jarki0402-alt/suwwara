@@ -4,6 +4,12 @@ import { DEFAULT_CACHE_RETENTION_DAYS } from '../audio-engine/cachePolicy';
 import { DEFAULT_OFFLINE_QUOTA_MB } from '../downloads/downloadPolicy';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
+/** How much of the Liquid Glass material this device draws — see hooks/glassQuality.ts. */
+export type GlassTier = 'full' | 'lite' | 'off';
+export type GlassMode = 'auto' | GlassTier;
+/** "Warna" in Pengaturan → Tampilan; each id is a [data-palette] block in theme.css. */
+export const PALETTES = ['simple', 'hutan', 'kobalt', 'mentari', 'monokrom', 'senja'] as const;
+export type PaletteId = (typeof PALETTES)[number];
 
 // Two failures in a row (not "ever") is enough to call blob: audio unreliable on this device and stop
 // trying it — see localAudioEnabled below. A single failure is treated as a possible one-off network/decode
@@ -42,6 +48,15 @@ interface SettingsState {
   audioCacheDays: number;
   /** Liquid Glass material, 0 = clear … 1 = tinted (macOS's own Clear/Tinted slider). 0.5 is the stock look. */
   glassTint: number;
+  /** "Efek Kaca" in Pengaturan. Otomatis picks full/lite/off for this device; the others pin it. Per device, never synced. */
+  glassMode: GlassMode;
+  /**
+   * The ceiling Otomatis has measured on this device (glass animations that kept missing frames), or null while
+   * nothing has been janky. Persisted so a weak phone doesn't stutter through the same discovery every launch;
+   * picking Otomatis again clears it, which is how a user asks for a fresh measurement.
+   */
+  glassAutoTier: GlassTier | null;
+  palette: PaletteId;
   setDataSaver: (value: boolean) => void;
   setVolume: (value: number) => void;
   setTheme: (value: ThemePreference) => void;
@@ -51,6 +66,9 @@ interface SettingsState {
   setOfflineQuotaMB: (value: number) => void;
   setAudioCacheDays: (value: number) => void;
   setGlassTint: (value: number) => void;
+  setGlassMode: (value: GlassMode) => void;
+  setGlassAutoTier: (value: GlassTier) => void;
+  setPalette: (value: PaletteId) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -64,6 +82,9 @@ export const useSettingsStore = create<SettingsState>()(
       offlineQuotaMB: DEFAULT_OFFLINE_QUOTA_MB,
       audioCacheDays: DEFAULT_CACHE_RETENTION_DAYS,
       glassTint: 0.5,
+      glassMode: 'auto',
+      glassAutoTier: null,
+      palette: 'simple',
       setDataSaver: (value) => set({ dataSaver: value }),
       setVolume: (value) => set({ volume: Math.min(Math.max(value, 0), 1) }),
       setTheme: (value) => set({ theme: value }),
@@ -76,6 +97,9 @@ export const useSettingsStore = create<SettingsState>()(
       setOfflineQuotaMB: (value) => set({ offlineQuotaMB: value }),
       setAudioCacheDays: (value) => set({ audioCacheDays: value }),
       setGlassTint: (value) => set({ glassTint: Math.min(Math.max(value, 0), 1) }),
+      setGlassMode: (value) => set(value === 'auto' ? { glassMode: value, glassAutoTier: null } : { glassMode: value }),
+      setGlassAutoTier: (value) => set({ glassAutoTier: value }),
+      setPalette: (value) => set({ palette: PALETTES.includes(value) ? value : 'simple' }),
     }),
     { name: 'suwwara-settings' },
   ),

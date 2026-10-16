@@ -22,6 +22,36 @@
     pointer-events: auto;
   }
 
+  /* Same glass and height as the search pill beside it, pinned to the bar's right edge (out of the pill's centred
+     column, so it never pushes the search off centre). */
+  .fullscreenButton {
+    position: absolute;
+    top: 14px;
+    right: var(--space-5);
+    pointer-events: auto;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+    -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+    box-shadow: var(--glass-sheen), 0 10px 30px rgba(0, 0, 0, 0.18);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: color var(--transition-fast), transform var(--transition-fast);
+  }
+
+  .fullscreenButton:hover {
+    color: var(--color-text-primary);
+  }
+
+  .fullscreenButton:active {
+    transform: scale(0.92);
+  }
+
   /* Centred, and proportioned to the page: wide enough to type in, never a stretched slab. */
   .inner {
     position: relative;

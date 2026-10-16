@@ -7,6 +7,7 @@ import { AudioCache } from './AudioCache';
 import { scheduleFadeIn, scheduleFadeOut, scheduleFadeTo, setGainImmediate } from './crossfade';
 import type { AudioEngineListener, LoadTrackOptions, PlaybackState } from './types';
 import { AudioEngineError } from './types';
+import { isPageHidden, usesPlainMediaElements } from './platform';
 
 /**
  * A locally stored blob: URL to play `songId` from instead of hitting the network — a deliberate offline
@@ -25,6 +26,8 @@ async function localUrlFor(songId: string, dataSaver: boolean): Promise<string |
 }
 
 const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+// iOS and Android (tablets included) play straight through <audio>, never through Web Audio — see platform.ts.
+const playsPlainElements = typeof navigator !== 'undefined' && usesPlainMediaElements(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
 
 // Deliberately longer than the backend's own worst case (a 25s yt-dlp resolve timeout,
 // see server/src/youtube/stream.ts): giving up on the client before the server does
@@ -44,6 +47,19 @@ const RESUME_FADE_SEC = 0.06;
 
 // HTMLMediaElement.HAVE_FUTURE_DATA — enough buffered to start playing.
 const HAVE_FUTURE_DATA = 3;
+
+/**
+ * The next track starting while the screen is off / another app is in front. A browser in the background holds back
+ * loading a media element that isn't playing (Chrome on Android parks it until the page is visible again), so waiting
+ * for 'canplay' before play() could wait forever: the song after a few prefetched ones never got going and the music
+ * just stopped. Asking for play() straight away marks it as wanted, so it loads and starts like the one before it.
+ * In the foreground nothing changes (the usual canplay-then-play path). A refusal here is harmless: playWhenReady()
+ * asks again once the element is ready.
+ */
+function startWhileHidden(element: HTMLMediaElement): void {
+  if (!isPageHidden()) return;
+  element.play().catch(() => {});
+}
 
 function waitForEvent(target: HTMLMediaElement, event: 'canplay', timeoutMs: number): Promise<void> {
   // A track natively preloaded into the spare element (preloadNextTrack) has usually
@@ -164,11 +180,11 @@ class AudioEngine {
     }
 
     const AudioContextCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    // iOS WebKit has severe bugs with MediaElementAudioSourceNode (silences audio
-    // randomly in background, breaks on screen lock). We bypass Web Audio API completely
-    // on iOS and just use raw <audio> tags. Crossfading degrades to hard cuts, but
-    // background playback becomes perfectly stable.
-    const context = isIOS ? null : new AudioContextCtor();
+    // iOS WebKit and Android Chrome both break MediaElementAudioSourceNode in the background (iOS: random silence,
+    // broken on screen lock; Android: the AudioContext is suspended once the screen is off or another app is in front,
+    // which stopped the music). Both use raw <audio> tags instead — see platform.ts. Crossfading degrades to hard
+    // cuts there, but background playback becomes stable.
+    const context = playsPlainElements ? null : new AudioContextCtor();
 
     const makeChain = (): { element: HTMLAudioElement; gain: GainNode | null } => {
       const element = new Audio();
@@ -453,6 +469,7 @@ class AudioEngine {
         newElement.volume = this.volume;
       }
 
+      if (options.autoplay !== false) startWhileHidden(newElement);
       await this.waitWithBlobFallback(newElement, networkUrl, requestId);
       if (requestId !== this.playRequestId) return;
       this.updateSnapshot({ duration: song.duration || newElement.duration });
@@ -478,7 +495,7 @@ class AudioEngine {
     beginTrace(song, dataSaver ? 'low' : 'high', element, false, tapAt);
     const oldSrc = element.src;
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
-    await this.loadElementWithFallback(element, url, networkUrl, requestId);
+    await this.loadElementWithFallback(element, url, networkUrl, requestId, options.autoplay !== false);
     if (requestId !== this.playRequestId) return; // a newer request claimed this element meanwhile
 
     // Deliberately song.duration first, not element.duration: browsers can badly
@@ -786,9 +803,10 @@ class AudioEngine {
 
   /** Same as waitWithBlobFallback, but also does the initial `element.src = url; element.load()` — for the
    * (more common) case where the caller hasn't pointed the element at `url` yet. */
-  private async loadElementWithFallback(element: HTMLAudioElement, url: string, networkUrl: string, requestId: number): Promise<void> {
+  private async loadElementWithFallback(element: HTMLAudioElement, url: string, networkUrl: string, requestId: number, autoplay = false): Promise<void> {
     element.src = url;
     element.load();
+    if (autoplay) startWhileHidden(element);
     await this.waitWithBlobFallback(element, networkUrl, requestId);
   }
 

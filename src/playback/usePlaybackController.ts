@@ -366,7 +366,10 @@ export function usePlaybackController() {
   useEffect(() => {
     if (!playerError || !currentSong) return;
     const songToRetry = currentSong;
-    const isTimeout = playerError.includes('Koneksi lambat');
+    // A timeout normally waits for the user's "Coba lagi" (see below). With the screen off or another app in front
+    // there is nobody to tap it, and the music just stopped there for good — so in the background a timeout gets the
+    // same treatment as any other failure: one quiet retry, then move on (capped, like every auto-skip).
+    const isTimeout = playerError.includes('Koneksi lambat') && document.visibilityState !== 'hidden';
 
     // A failure that isn't a timeout (the element errored, the backend answered 502, the
     // connection dropped mid-file) is very often transient — retry the same track once,

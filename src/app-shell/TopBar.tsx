@@ -10,6 +10,7 @@ import { useRecentSearches } from '../hooks/useRecentSearches';
 import { playSongRadio } from '../playback/playSongRadio';
 import { useUiStore } from '../stores/uiStore';
 import { debounce, type Debounced } from '../utils/debounce';
+import { isFullscreenSupported, toggleAppFullscreen, useIsDocumentFullscreen } from '../utils/documentFullscreen';
 import styles from './TopBar.module.css';
 
 const DEBOUNCE_MS = 300;
@@ -28,6 +29,7 @@ export function TopBar() {
   const detailDepth = useUiStore((state) => state.detailStack.length);
   const openArtist = useUiStore((state) => state.openArtist);
   const recent = useRecentSearches();
+  const isFullscreen = useIsDocumentFullscreen();
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Song[]>([]);
@@ -152,6 +154,18 @@ export function TopBar() {
 
   return (
     <div className={styles.bar}>
+      {/* Whole-app fullscreen, top right like a native app's window control (the F key does the same). */}
+      {isFullscreenSupported && (
+        <button
+          type="button"
+          className={[styles.fullscreenButton, 'liquid-glass'].join(' ')}
+          onClick={toggleAppFullscreen}
+          aria-label={isFullscreen ? 'Keluar dari layar penuh' : 'Layar penuh'}
+          title={isFullscreen ? 'Keluar dari layar penuh (F)' : 'Layar penuh (F)'}
+        >
+          <Icon name={isFullscreen ? 'fullscreen-exit' : 'fullscreen'} size={18} />
+        </button>
+      )}
       <div className={styles.inner} ref={boxRef}>
         <div ref={fieldRef} className={[styles.field, 'liquid-glass'].join(' ')}>
           <Icon name="search" size={19} />

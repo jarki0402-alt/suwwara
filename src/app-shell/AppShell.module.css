@@ -26,6 +26,7 @@
        silently collapsed every view down to its narrowest child's width. */
     width: 100%;
     max-width: calc(1400px + var(--sidebar-width));
+    padding-top: var(--titlebar-height);
     margin: 0 auto;
     padding-left: var(--sidebar-width);
     /* MiniPlayer's real desktop height is 82px (its own CSS override), floating with its own
@@ -40,4 +41,23 @@
   .contentWithPanel {
     padding-right: var(--now-playing-panel-width);
   }
+}
+
+/* The installed desktop app's own title bar strip (Window Controls Overlay): the sidebar's and the page's colours
+   carried up to the window's top edge, and the handle the window is dragged by. Only exists while data-wco is set. */
+.titlebar {
+  display: none;
+}
+
+:global(:root[data-wco]) .titlebar {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar-height);
+  z-index: calc(var(--z-sheet) + 2);
+  background: linear-gradient(to right, var(--color-bg-sidebar) var(--sidebar-width), var(--color-bg) var(--sidebar-width));
+  -webkit-app-region: drag;
+  app-region: drag;
 }

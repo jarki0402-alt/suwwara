@@ -10,7 +10,7 @@ suwwara/
 │   ├── api/            klien REST (musicClient: search/audio, authClient: library/perangkat; auth/authApi+authStore: login & sesi)
 │   ├── auth/            login (authStore, authApi) + id perangkat (deviceIdentity.ts)
 │   ├── sync/            write-through sync library ⇄ server (src/sync/librarySync.ts)
-│   ├── audio-engine/   AudioEngine singleton (Web Audio graph, crossfade)
+│   ├── audio-engine/   AudioEngine singleton (Web Audio + crossfade di desktop; `<audio>` langsung di iOS/Android, lihat platform.ts)
 │   ├── media-session/  integrasi lock-screen / notification media controls
 │   ├── playback/       orkestrasi queue ⇄ AudioEngine ⇄ MediaSession
 │   ├── jam/             client "Jam" (dengerin bareng) — SSE client, aksi antrean yang jam-aware
@@ -82,7 +82,7 @@ Untuk deploy ke GCP + Vercel beneran, lihat bagian **Deploy** di bawah.
 - **Search/metadata (Vercel)**: Vercel Functions (Node runtime), `ytmusic-api`/`youtube-sr` — stateless, tanpa akses Postgres
 - **Database**: Postgres 16 (akun/device, snapshot library, cache resolve audio) — self-hosted di kontainer yang sama dengan backend, tidak pernah diekspos publik
 - **Akun**: login wajib (nama pengguna + kata sandi, dibuat admin); sesi = cookie HttpOnly; kata sandi scrypt bawaan Node (lihat `server/src/auth/`, ARCHITECTURE.md §4). Deploy: lihat [DEPLOY.md](./DEPLOY.md)
-- **Audio**: Web Audio API (dua `<audio>` element paralel untuk crossfade)
+- **Audio**: dua `<audio>` element paralel; di desktop lewat Web Audio API untuk crossfade, di iOS/Android diputar langsung supaya stabil di background
 - **Lirik**: backend mencari di LRCLIB lalu YouTube Music (cache Postgres), parser LRC sendiri
 
 ## Deploy

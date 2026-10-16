@@ -57,6 +57,8 @@ interface SettingsState {
    */
   glassAutoTier: GlassTier | null;
   palette: PaletteId;
+  /** "Buka dalam layar penuh": the first click/key after opening Suwwara makes it fullscreen. Per device. */
+  openInFullscreen: boolean;
   setDataSaver: (value: boolean) => void;
   setVolume: (value: number) => void;
   setTheme: (value: ThemePreference) => void;
@@ -69,6 +71,7 @@ interface SettingsState {
   setGlassMode: (value: GlassMode) => void;
   setGlassAutoTier: (value: GlassTier) => void;
   setPalette: (value: PaletteId) => void;
+  setOpenInFullscreen: (value: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -85,6 +88,7 @@ export const useSettingsStore = create<SettingsState>()(
       glassMode: 'auto',
       glassAutoTier: null,
       palette: 'simple',
+      openInFullscreen: false,
       setDataSaver: (value) => set({ dataSaver: value }),
       setVolume: (value) => set({ volume: Math.min(Math.max(value, 0), 1) }),
       setTheme: (value) => set({ theme: value }),
@@ -100,6 +104,7 @@ export const useSettingsStore = create<SettingsState>()(
       setGlassMode: (value) => set(value === 'auto' ? { glassMode: value, glassAutoTier: null } : { glassMode: value }),
       setGlassAutoTier: (value) => set({ glassAutoTier: value }),
       setPalette: (value) => set({ palette: PALETTES.includes(value) ? value : 'simple' }),
+      setOpenInFullscreen: (value) => set({ openInFullscreen: value }),
     }),
     { name: 'suwwara-settings' },
   ),

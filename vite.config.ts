@@ -74,6 +74,10 @@ export default defineConfig({
         theme_color: '#0b0b0f',
         background_color: '#0b0b0f',
         display: 'standalone',
+        // Installed on Chrome/Edge desktop, the window draws no title bar of its own: Suwwara's own colours run to the
+        // top edge and only the window buttons stay, like a native app (see useAppFullscreen / --titlebar-height).
+        // Every other browser ignores this and keeps the plain standalone window.
+        display_override: ['window-controls-overlay'],
         orientation: 'portrait',
         start_url: '/',
         scope: '/',

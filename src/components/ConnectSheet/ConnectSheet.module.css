@@ -177,7 +177,7 @@
    are open. Its bottom edge is set from the player bar's height (ConnectSheet.tsx). */
 .panel {
   position: fixed;
-  top: 0;
+  top: var(--titlebar-height);
   right: 0;
   bottom: calc(82px + var(--pill-gap));
   width: var(--now-playing-panel-width);

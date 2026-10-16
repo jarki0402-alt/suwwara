@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { ArtistLinks } from '../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../connect/connectStore';
 import { playheadDuration, playheadSec } from '../connect/playhead';
+import { enterFullscreen } from '../utils/documentFullscreen';
 import { playHere, remoteSetVolume } from '../connect/remote';
 import { frameTicker } from '../audio-engine/frameTicker';
 import { Icon } from '../components/Icon/Icon';
@@ -241,7 +242,11 @@ export function MiniPlayer() {
           ref={expandRipple.ref}
           type="button"
           className={[styles.iconButton, 'glass-ripple-host'].join(' ')}
-          onClick={openFullscreenLyrics}
+          onClick={() => {
+            openFullscreenLyrics();
+            // In the click itself: browsers grant real fullscreen only from a user gesture.
+            enterFullscreen('view');
+          }}
           onPointerDown={expandRipple.onPointerDown}
           aria-label="Perbesar layar penuh"
         >

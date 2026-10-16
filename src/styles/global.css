@@ -278,3 +278,14 @@ html.is-resizing * {
     backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
   }
 }
+
+/* Installed desktop app with Window Controls Overlay (data-wco, set by useAppFullscreen): the title bar area belongs to
+   the page. Everything that starts at the top edge moves down by its height, so nothing sits under the window
+   buttons. 0 everywhere else, which makes every use of it a no-op. */
+:root {
+  --titlebar-height: 0px;
+}
+
+:root[data-wco] {
+  --titlebar-height: env(titlebar-area-height, 0px);
+}

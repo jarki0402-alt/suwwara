@@ -34,6 +34,9 @@
 }
 
 .title {
+  /* The fullscreen bar always sits on the dark ambient backdrop, so its text is fixed white like everything else in it;
+     inheriting the theme's text colour left the title dark-on-dark in the light theme. */
+  color: #ffffff;
   font-weight: 700;
   font-size: 0.9rem;
   overflow: hidden;

@@ -138,6 +138,7 @@
      what was wanted, a Spotify-style side panel was. */
   .overlay {
     left: auto;
+    top: var(--titlebar-height);
     width: var(--now-playing-panel-width);
     /* Stops above the desktop MiniPlayer bar (82px tall + its own --pill-gap
        detachment from the bottom edge, MiniPlayer.module.css) instead of inheriting the

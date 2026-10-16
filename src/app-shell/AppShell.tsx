@@ -6,6 +6,7 @@ import { ConnectBridge } from '../connect/ConnectBridge';
 import { useJamSync } from '../jam/useJamSync';
 import { PlaybackProvider, usePlayback } from '../playback/PlaybackContext';
 import { useBackNavigation } from '../hooks/useBackNavigation';
+import { useAppFullscreen } from './useAppFullscreen';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useUiStore } from '../stores/uiStore';
 import { InstallBanner } from '../components/InstallBanner/InstallBanner';
@@ -22,6 +23,7 @@ import { ViewRouter } from './ViewRouter';
 export function AppShell() {
   useJamSync();
   useBackNavigation();
+  useAppFullscreen();
 
   return (
     <PlaybackProvider>
@@ -88,6 +90,7 @@ function ShellBody() {
 
   return (
     <div className={styles.shell}>
+      <div className={styles.titlebar} aria-hidden="true" />
       <main ref={contentRef} className={[styles.content, showRightPanel ? styles.contentWithPanel : ''].join(' ')}>
         <TopBar />
         {currentView === 'home' && detailDepth === 0 && <InstallBanner />}

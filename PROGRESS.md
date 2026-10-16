@@ -25,6 +25,39 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-10-16 (Android: musik berhenti saat layar mati / pindah app)
+
+Laporan beberapa pengguna Android (HP dan tablet): layar dimatikan, sekitar 5 lagu lalu musik berhenti; keluar dari Suwwara untuk membuka app lain, musik langsung berhenti.
+
+- **Akar masalah 1, jalur Web Audio di Android**: suara Android dialirkan `<audio>` → `MediaElementAudioSourceNode` → `GainNode` (untuk crossfade). Chrome Android menangguhkan `AudioContext` saat layar mati atau app lain di depan, dan `resume()` tanpa sentuhan bisa ditolak, sehingga elemen tetap "memutar" ke graph yang mati. Chrome juga tidak memperlakukannya sebagai pemutar media biasa yang boleh jalan di background. iPhone sudah lama dikecualikan karena alasan yang sama.
+- **Akar masalah 2, lagu berikutnya menunggu `canplay` sebelum `play()`**: browser di background menahan pemuatan elemen media yang belum diputar, jadi setelah beberapa lagu yang sudah di-prefetch, lagu berikutnya tidak pernah siap.
+- **Akar masalah 3, timeout sengaja tidak lanjut**: menunggu pengguna mengetuk "Coba lagi". Di background tidak ada yang mengetuk, jadi musik berhenti di situ.
+- **Tablet Android** di Chrome bawaannya meminta situs desktop (user agent "X11; Linux x86_64", tanpa "Android"), jadi deteksi berbasis kata "Android" saja akan melewatkannya.
+- **Fix** (`src/audio-engine/platform.ts`, `AudioEngine.ts`, `usePlaybackController.ts`): iOS dan Android (termasuk tablet mode desktop: layar sentuh + Linux, bukan ChromeOS) memutar langsung lewat `<audio>` tanpa `AudioContext`, memakai jalur iPhone yang sudah terbukti. Saat halaman tersembunyi, lagu baru langsung diminta `play()` begitu sumbernya dipasang (`startWhileHidden`), tanpa menunggu `canplay`; di foreground tidak berubah. Timeout di background diperlakukan seperti gagal biasa: dicoba ulang sekali dengan tenang, lalu lanjut ke lagu berikutnya (tetap dibatasi 3 kali beruntun).
+- **Trade-off**: di Android tidak ada lagi crossfade 0,35 dtk dan fade saat jeda (pergantian langsung, sama seperti iPhone). Desktop tetap memakai Web Audio dan crossfade.
+- **Tidak diubah**: backend audio, resolve, cache, prefetch, Media Session, logika urutan lagu.
+- **Diverifikasi**: build, 180/180 test (baru: `tests/audio-engine/platform.test.ts`, termasuk UA tablet mode desktop dan Chromebook), lint tanpa warning baru, Docker. Playwright: Pixel 7, Galaxy Tab S4, dan tablet mode desktop membuat 0 `AudioContext`, desktop Mac tetap 1; HP dengan halaman disetel "hidden" (seperti layar mati) memutar 5 lagu berturut-turut, tiap lagu berganti dan berbunyi. Tes sync dua perangkat 20/20 di 4 dari 5 putaran; satu putaran gagal sekali di langkah "HP diam dan kembali jadi remote" dan tidak terulang di 4 putaran berikutnya. **Background Android sungguhan (penangguhan oleh OS, Doze) tidak bisa disimulasikan di Playwright**, jadi perlu dicoba di HP/tablet Android asli: layar mati 30+ menit, dan pindah ke app lain selama beberapa lagu.
+
+## Perubahan terbaru · 2026-10-16 (layar penuh seluruh aplikasi + jendela PWA desktop ala native)
+
+Permintaan: seluruh Suwwara bisa benar-benar layar penuh (bukan cuma lirik), sebisa mungkin langsung saat dibuka, dan versi yang di-install terasa seperti aplikasi native.
+
+- **Batasan yang tidak bisa dilewati**: browser tidak mengizinkan halaman masuk layar penuh sendiri saat dibuka, hanya dari klik/tombol pengguna, dan layar penuh selalu lepas saat halaman dimuat ulang.
+- **Layar penuh seluruh aplikasi** (`src/utils/documentFullscreen.ts`): tombol di kanan atas top bar desktop, shortcut `F` (diabaikan saat mengetik), dan baris "Layar penuh" di Pengaturan → Tampilan. Disembunyikan di perangkat yang tidak mendukung (iPhone).
+- **"Buka dalam layar penuh"** (`settingsStore.openInFullscreen`, per perangkat): klik atau tombol pertama setelah membuka Suwwara langsung masuk layar penuh, dan klik itu tetap menjalankan aksinya. Sekali per pembukaan: setelah keluar dengan Esc, tidak dipaksa masuk lagi. Menyalakannya langsung masuk layar penuh.
+- **Pemilik layar penuh**: yang memulai yang mengakhiri. Lirik "Perbesar" di dalam layar penuh aplikasi, saat ditutup, tidak ikut mengeluarkan aplikasi dari layar penuh; lirik yang memulai layar penuhnya sendiri tetap mengakhirinya seperti sebelumnya.
+- **Jendela PWA desktop tanpa bar judul** (Window Controls Overlay, Chrome/Edge): `display_override: ['window-controls-overlay']` di manifest. Saat aktif, `<html data-wco>` dipasang dari `matchMedia('(display-mode: window-controls-overlay)')`; `--titlebar-height` (0 di tempat lain) menurunkan sidebar, konten, panel Now Playing/Perangkat, dan pegangan geser tepat di bawah tombol jendela; strip `.titlebar` membawa warna sidebar dan halaman sampai ke tepi atas dan jadi pegangan untuk menyeret jendela (`app-region: drag`). Browser lain tetap jendela standalone biasa.
+- **Diverifikasi**: build (manifest berisi `display_override`, CSS `app-region` utuh), 176/176 test, lint tanpa warning baru, Docker. Playwright 17/17: tombol masuk/keluar, F masuk/keluar, lirik di dalam layar penuh aplikasi tetap layar penuh setelah ditutup, lirik sendiri tetap keluar, mengetik "f" di pencarian tidak memicu, saklar langsung masuk, setelah dibuka ulang tidak layar penuh sendiri, klik pertama masuk, setelah Esc tetap keluar; tata letak B disimulasikan dengan area judul 33px: strip di atas, sidebar/search/panel mulai di bawahnya, search sticky tetap di bawah saat di-scroll. **Belum dicoba sebagai PWA ter-install sungguhan** (Window Controls Overlay tidak bisa dijalankan di Playwright), Safari Mac, dan Firefox.
+
+## Perubahan terbaru · 2026-10-16 (layar penuh sungguhan di desktop)
+
+Permintaan: PWA desktop dan browser bisa layar penuh dari dalam aplikasi.
+
+- **Tombol "Perbesar layar penuh"** (bar player desktop) kini memakai Fullscreen API (`src/utils/documentFullscreen.ts`, plus nama `webkit*` untuk Safari Mac): tanpa bar judul jendela, dock, atau tab browser. Dipanggil di dalam klik karena browser hanya mengizinkan fullscreen dari gesture pengguna.
+- **Keluar tetap sinkron dua arah** (`NowPlayingView`): tombol panah, Back, atau menutup Now Playing ikut keluar dari fullscreen; Esc atau UI browser yang mengakhiri fullscreen ikut menutup tampilan layar penuh, jadi jendela tidak pernah tertinggal fullscreen menampilkan panel biasa. Di tempat yang menolak fullscreen (iPhone Safari hanya untuk video), tampilan tetap mengisi jendela seperti dulu, dan Esc kini juga menutupnya.
+- **Judul lagu di bar layar penuh** dibuat putih tetap seperti teks lain di bar itu; sebelumnya ikut warna tema sehingga gelap di atas latar gelap pada tema terang.
+- **Diverifikasi**: build, 176/176 test, lint tanpa warning baru, Docker. Playwright (Chromium 1440×900): Perbesar → `document.fullscreenElement` aktif; panah → keluar; Esc (browser mengakhiri fullscreen) → tampilan ikut tertutup; Back → keluar. 6/6 lulus. Belum dicoba di Safari Mac dan Firefox sungguhan.
+
 ## Perubahan terbaru · 2026-10-16 (tanpa em dash di seluruh teks aplikasi)
 
 Permintaan: tidak boleh ada em dash (U+2014) di teks aplikasi mana pun, dari landing/login sampai layar terdalam, dan tidak boleh muncul lagi walau teksnya di-generate.

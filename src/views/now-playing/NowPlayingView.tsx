@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../../connect/connectStore';
@@ -16,6 +16,7 @@ import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { usePlayback } from '../../playback/PlaybackContext';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUiStore } from '../../stores/uiStore';
+import { isDocumentFullscreen, leaveFullscreen, onDocumentFullscreenChange } from '../../utils/documentFullscreen';
 import { QueueView } from '../queue/QueueView';
 import { ArtistInfo } from './ArtistInfo';
 import { FullscreenControls } from './FullscreenControls';
@@ -58,6 +59,29 @@ export function NowPlayingView() {
   const sheetOpen = isOpen && currentSong !== null && !isDesktop;
   useSwipeGesture(overlayRef, { direction: 'down', enabled: sheetOpen && !isQueueOpen, onCommit: closeNowPlaying });
   useSwipeGesture(queueSheetRef, { direction: 'down', enabled: sheetOpen && isQueueOpen, onCommit: closeQueue });
+
+  // Real fullscreen follows the fullscreen view both ways: leaving the view (chevron, Back, closing Now Playing) leaves
+  // the fullscreen the view itself started (not the whole-app one, which stays); leaving fullscreen from outside (Esc,
+  // the browser's own UI) leaves the view, so the window is never stuck fullscreen showing the docked panel.
+  useEffect(() => {
+    if (!isFullscreen) leaveFullscreen('view');
+  }, [isFullscreen]);
+  useEffect(
+    () =>
+      onDocumentFullscreenChange(() => {
+        if (!isDocumentFullscreen() && useUiStore.getState().isNowPlayingFullscreen) closeFullscreenLyrics();
+      }),
+    [closeFullscreenLyrics],
+  );
+  // Where the page couldn't go fullscreen (the view just fills the window), Esc still steps back out of it.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isDocumentFullscreen()) closeFullscreenLyrics();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isFullscreen, closeFullscreenLyrics]);
 
   // Only listens for mouse/keyboard activity while fullscreen is actually
   // open (see useIdleMouse's own `active` param) — docked-panel/mobile-sheet

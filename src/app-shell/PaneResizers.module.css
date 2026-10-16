@@ -6,7 +6,7 @@
   .handle {
     display: block;
     position: fixed;
-    top: 0;
+    top: var(--titlebar-height);
     bottom: 0;
     width: 9px;
     z-index: 25;

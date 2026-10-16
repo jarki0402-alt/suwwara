@@ -34,7 +34,7 @@ export function JoinJamSheet({ isOpen, roomId, onClose }: JoinJamSheetProps) {
     if (result.ok) {
       showToast('Gabung Jam!');
     } else if (result.reason === 'not-found') {
-      showToast('Room Jam tidak ditemukan — mungkin sudah berakhir.', { type: 'error' });
+      showToast('Room Jam tidak ditemukan. Mungkin sudah berakhir.', { type: 'error' });
     } else {
       showToast('Gagal gabung Jam. Coba lagi.', { type: 'error' });
     }
@@ -51,7 +51,7 @@ export function JoinJamSheet({ isOpen, roomId, onClose }: JoinJamSheetProps) {
         </div>
 
         <p className={styles.description}>
-          Kamu bakal dengerin bareng room <strong>{roomId}</strong> — antrean lagu kamu saat ini disimpan dulu dan
+          Kamu bakal dengerin bareng room <strong>{roomId}</strong>. Antrean lagu kamu saat ini disimpan dulu dan
           dikembalikan begitu keluar dari Jam.
         </p>
 

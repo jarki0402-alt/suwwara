@@ -3,6 +3,7 @@ import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../../connect/connectStore';
 import { canSetVolume } from '../../audio-engine/volumeSupport';
+import { remoteSetVolume } from '../../connect/remote';
 import { useIsDesktop } from '../../hooks/useIsDesktop';
 import { useJamStatus } from '../../jam/useJamStatus';
 import { DownloadButton } from '../../components/DownloadButton/DownloadButton';
@@ -40,10 +41,14 @@ export function NowPlayingView() {
   const showLyrics = useUiStore((state) => state.isLyricsOpen);
   const toggleLyrics = useUiStore((state) => state.toggleLyrics);
 
-  const volume = useSettingsStore((state) => state.volume);
-  const setVolume = useSettingsStore((state) => state.setVolume);
+  const localVolume = useSettingsStore((state) => state.volume);
+  const setLocalVolume = useSettingsStore((state) => state.setVolume);
 
-  const { currentSong, playbackState, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
+  const { currentSong, playbackState, remoteDevice, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
+  // As a remote, the slider is the other device's (shown only where that device lets a web page set it).
+  const volume = remoteDevice ? (remoteDevice.state?.volume ?? 1) : localVolume;
+  const setVolume = remoteDevice ? remoteSetVolume : setLocalVolume;
+  const showVolume = remoteDevice ? remoteDevice.state?.canSetVolume === true : canSetVolume;
   const closeQueue = useUiStore((state) => state.closeQueue);
 
   // Phone only: pull the sheet down to close it (the queue, when it's showing, back to Now Playing).
@@ -106,6 +111,11 @@ export function NowPlayingView() {
             <span className={[styles.topBarLabel, styles.topBarLabelJam].join(' ')}>
               <Icon name={jam.live ? 'users' : 'wifi-off'} size={15} />
               {jam.live ? `Jam · ${jam.count} pendengar` : jam.statusText}
+            </span>
+          ) : remoteDevice ? (
+            <span className={[styles.topBarLabel, styles.topBarLabelRemote].join(' ')}>
+              <Icon name="speaker" size={15} />
+              Memutar di {remoteDevice.name}
             </span>
           ) : (
             <span className={styles.topBarLabel}>Sedang Diputar</span>
@@ -210,7 +220,7 @@ export function NowPlayingView() {
                   {hasOtherDevices && <span className={styles.deviceDot} aria-hidden="true" />}
                 </button>
               </div>
-              {canSetVolume && (
+              {showVolume && (
                 <div className={styles.volumeRow}>
                   <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={24} />
                   <input

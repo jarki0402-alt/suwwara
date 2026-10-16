@@ -11,7 +11,7 @@ function fakeResponse() {
   return { res, writes, isEnded: () => ended };
 }
 
-const playing = (song = 's1'): DeviceState => ({ song: { id: song, name: song, artist: 'A', image: '' }, isPlaying: true, positionSec: 0, durationSec: 200, volume: 1, canSetVolume: true });
+const playing = (song = 's1'): DeviceState => ({ song: { id: song, name: song, artist: 'A', image: '' }, isPlaying: true, positionSec: 0, durationSec: 200, volume: 1, canSetVolume: true, followingRef: null, inJam: false });
 const commandsIn = (writes: string[]) => writes.filter((chunk) => chunk.startsWith('event: command')).map((chunk) => JSON.parse(chunk.split('data: ')[1]));
 
 let account = 0;

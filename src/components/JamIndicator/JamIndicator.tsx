@@ -76,7 +76,7 @@ export function JamSidebarCard() {
 
   const handleInvite = async () => {
     if (!roomId) return;
-    if (await copyJamLink(roomId)) showToast('Link Jam disalin — kirim ke temanmu.');
+    if (await copyJamLink(roomId)) showToast('Link Jam disalin. Kirim ke temanmu.');
     else showToast('Gagal menyalin link.', { type: 'error' });
   };
 

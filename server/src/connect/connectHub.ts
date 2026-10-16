@@ -21,6 +21,10 @@ export interface DeviceState {
   volume: number;
   /** False on iOS, where the volume of a web page's audio is the hardware's alone. */
   canSetVolume: boolean;
+  /** Set while this device is a remote for another one (shows as "Remote" in the device list instead of a song). */
+  followingRef: string | null;
+  /** In a Jam, the device is out of the account's session; the others show that instead of offering to move playback there. */
+  inJam: boolean;
 }
 
 interface Connection {
@@ -113,6 +117,15 @@ export function sendCommand(accountId: string, fromRef: string, targetRef: strin
   if (!target) return false;
   write(target, 'command', { from: fromRef, type, payload });
   return true;
+}
+
+/** Hands an update of the account's playback session to every OTHER device of the account (the sender already has it). */
+export function broadcastSession(accountId: string, fromRef: string, session: unknown): void {
+  const hub = hubs.get(accountId);
+  if (!hub) return;
+  for (const connection of hub.values()) {
+    if (connection.ref !== fromRef) write(connection, 'session', session);
+  }
 }
 
 /** Tells the account's OTHER devices the library changed, so they pull it now instead of on their next poll. */

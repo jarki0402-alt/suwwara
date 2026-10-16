@@ -1,7 +1,7 @@
 .nav {
   /* A detached floating pill (Dynamic-Island-style), not a bar flush against the edge —
      the home-indicator inset goes into the `bottom` offset (--dock-bottom) instead of
-     internal padding. MiniPlayer/RemoteBar/AppShell/Toast all derive their own offsets
+     internal padding. MiniPlayer/AppShell/Toast all derive their own offsets
      from the same --dock-* tokens (variables.css). */
   position: fixed;
   left: var(--dock-side);

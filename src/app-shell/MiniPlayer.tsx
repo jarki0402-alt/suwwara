@@ -2,7 +2,8 @@ import { canSetVolume } from '../audio-engine/volumeSupport';
 import { useEffect, useRef } from 'react';
 import { ArtistLinks } from '../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../connect/connectStore';
-import { audioEngine } from '../audio-engine/AudioEngine';
+import { playheadDuration, playheadSec } from '../connect/playhead';
+import { playHere, remoteSetVolume } from '../connect/remote';
 import { frameTicker } from '../audio-engine/frameTicker';
 import { Icon } from '../components/Icon/Icon';
 import { LazyImage } from '../components/Image/LazyImage';
@@ -31,11 +32,15 @@ export function MiniPlayer() {
   const setLyricsOpen = useUiStore((state) => state.setLyricsOpen);
   const openFullscreenLyrics = useUiStore((state) => state.openFullscreenLyrics);
   const isDockCollapsed = useUiStore((state) => state.isDockCollapsed);
-  const { currentSong, playbackState, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
+  const { currentSong, playbackState, remoteDevice, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
   const shuffle = useQueueStore((state) => state.shuffle);
   const repeatMode = useQueueStore((state) => state.repeatMode);
-  const volume = useSettingsStore((state) => state.volume);
-  const setVolume = useSettingsStore((state) => state.setVolume);
+  const localVolume = useSettingsStore((state) => state.volume);
+  const setLocalVolume = useSettingsStore((state) => state.setVolume);
+  // While this is a remote, the slider is the other device's volume (iPhone/iPad have none a web page may set).
+  const volume = remoteDevice ? (remoteDevice.state?.volume ?? 1) : localVolume;
+  const setVolume = remoteDevice ? remoteSetVolume : setLocalVolume;
+  const showVolume = remoteDevice ? remoteDevice.state?.canSetVolume === true : canSetVolume;
   const progressBarRef = useRef<ProgressBarHandle>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isDesktop = useIsDesktop();
@@ -61,8 +66,8 @@ export function MiniPlayer() {
 
   useEffect(() => {
     return frameTicker.subscribe(() => {
-      const duration = audioEngine.getDuration();
-      const current = audioEngine.getCurrentTime();
+      const duration = playheadDuration();
+      const current = playheadSec();
       progressBarRef.current?.setProgress(duration > 0 ? current / duration : 0);
     });
   }, []);
@@ -71,6 +76,7 @@ export function MiniPlayer() {
 
   const isPlaying = playbackState.status === 'playing';
   const isBuffering = playbackState.status === 'loading';
+  const isRemote = remoteDevice !== null;
 
   // Clicking this used to just flip isLyricsOpen — invisible if the docked
   // panel wasn't already open (NowPlayingView returns null entirely while
@@ -93,7 +99,7 @@ export function MiniPlayer() {
   return (
     <div
       ref={wrapperRef}
-      className={[styles.wrapper, 'liquid-glass', isDockCollapsed ? styles.docked : ''].join(' ')}
+      className={[styles.wrapper, 'liquid-glass', isDockCollapsed ? styles.docked : '', isRemote ? styles.remote : ''].join(' ')}
       data-player-bar=""
       {...(isDesktop ? {} : glass)}
     >
@@ -101,13 +107,29 @@ export function MiniPlayer() {
         <ProgressBar ariaLabel="Posisi lagu" ref={progressBarRef} compact />
       </div>
 
-      <button ref={mainRef} type="button" className={styles.main} onClick={openNowPlaying}>
-        <LazyImage images={currentSong.image} quality="50x50" alt={currentSong.name} className={styles.art} />
-        <span className={styles.text}>
-          <span className={styles.title}>{currentSong.name}</span>
-          <span className={styles.subtitle}><ArtistLinks song={currentSong} /></span>
-        </span>
-      </button>
+      <div className={styles.infoGroup}>
+        <button ref={mainRef} type="button" className={styles.main} onClick={openNowPlaying}>
+          <LazyImage images={currentSong.image} quality="50x50" alt={currentSong.name} className={styles.art} />
+          <span className={styles.text}>
+            <span className={styles.title}>{currentSong.name}</span>
+            <span className={[styles.subtitle, isRemote ? styles.subtitleBesideRemote : ''].join(' ')}><ArtistLinks song={currentSong} /></span>
+            {remoteDevice && (
+              <span className={styles.remoteLine}>
+                <Icon name="speaker" size={13} />
+                <span className={styles.remoteLineText}>Memutar di {remoteDevice.name}</span>
+              </span>
+            )}
+          </span>
+        </button>
+        {/* The one-tap way to bring the music to the device in your hand (the Perangkat list has every other move). */}
+        {isRemote && (
+          <button type="button" className={styles.hereButton} onClick={playHere}>
+            <Icon name="play" size={12} />
+            <span className={styles.hereLong}>Putar di sini</span>
+            <span className={styles.hereShort}>Di sini</span>
+          </button>
+        )}
+      </div>
 
       <div className={styles.centerColumn}>
         <div className={styles.actions}>
@@ -201,7 +223,7 @@ export function MiniPlayer() {
         >
           <Icon name="lyrics" size={20} />
         </button>
-        {canSetVolume && (
+        {showVolume && (
           <div className={styles.volumeControl}>
             <Icon name={volume === 0 ? 'volume-mute' : 'volume'} size={20} />
             <input

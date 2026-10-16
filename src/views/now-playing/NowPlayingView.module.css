@@ -476,3 +476,17 @@
   gap: 8px;
   color: var(--color-accent);
 }
+
+.topBarLabelRemote {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-accent);
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+

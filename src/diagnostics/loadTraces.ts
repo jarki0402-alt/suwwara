@@ -140,7 +140,7 @@ export function clearTraces(): void {
   commit();
 }
 
-const seconds = (ms: number | undefined): string => (ms === undefined ? '—' : `${(ms / 1000).toFixed(1)}s`);
+const seconds = (ms: number | undefined): string => (ms === undefined ? '-' : `${(ms / 1000).toFixed(1)}s`);
 
 /** Plain-text report that can be pasted straight into a chat. */
 export function formatReport(build: string): string {

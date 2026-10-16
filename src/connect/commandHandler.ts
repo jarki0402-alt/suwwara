@@ -5,6 +5,8 @@ import { useJamStore, type QueueSnapshot } from '../stores/jamStore';
 import { useQueueStore } from '../stores/queueStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { sendCommand } from './connectClient';
+import { applyResumePoint, holdNextLoad, setResumePoint } from './sessionHold';
+import { suppressFollow } from './sessionSync';
 
 export interface RemoteCommand {
   from: string;
@@ -16,6 +18,9 @@ type ToastFn = (message: string, options?: { action?: { label: string; onClick: 
 let toast: ToastFn = () => {};
 export function setConnectToast(fn: ToastFn): void {
   toast = fn;
+}
+export function showConnectToast(message: string): void {
+  toast(message);
 }
 
 const RESTART_FROM_BEGINNING_THRESHOLD_SEC = 3;
@@ -40,7 +45,7 @@ export function handleRemoteCommand({ from, type, payload }: RemoteCommand): voi
       break;
     case 'pause':
       audioEngine.pause();
-      if (data.reason === 'takeover') toast(`Dijeda — sekarang memutar di ${deviceName(from)}.`);
+      if (data.reason === 'takeover') toast(`Dijeda, sekarang memutar di ${deviceName(from)}.`);
       break;
     case 'toggle':
       audioEngine.togglePlay();
@@ -74,7 +79,13 @@ function promptToResume(): void {
       label: 'Putar',
       onClick: () => {
         void audioEngine.unlock();
-        audioEngine.play().catch(() => {});
+        audioEngine
+          .play()
+          .then(() => {
+            const songId = audioEngine.getCurrentSong()?.id;
+            if (songId) applyResumePoint(songId);
+          })
+          .catch(() => {});
       },
     },
   });
@@ -84,6 +95,9 @@ function promptToResume(): void {
 function applyTransfer({ snapshot, positionSec = 0, isPlaying = true }: { snapshot?: QueueSnapshot; positionSec?: number; isPlaying?: boolean }): void {
   if (!snapshot || snapshot.queue.length === 0) return;
   const wantedId = snapshot.queue[snapshot.order[snapshot.position]]?.id;
+  // This device plays the session now — it stops being a remote, whatever it was following.
+  suppressFollow();
+  useConnectStore.getState().control(null);
 
   const settle = () => {
     if (positionSec > 1) audioEngine.seek(positionSec);
@@ -95,6 +109,23 @@ function applyTransfer({ snapshot, positionSec = 0, isPlaying = true }: { snapsh
   if (audioEngine.getCurrentSong()?.id === wantedId) {
     useQueueStore.setState(snapshot);
     settle();
+    return;
+  }
+
+  // The song is already on screen here, held (this device was a remote for the sender): its load is deferred, so the
+  // first play runs it — and picks up at the resume point instead of the top of the song.
+  if (wantedId && useQueueStore.getState().currentSong()?.id === wantedId) {
+    useQueueStore.setState(snapshot);
+    setResumePoint(wantedId, positionSec);
+    if (isPlaying) audioEngine.play().catch(promptToResume);
+    return;
+  }
+
+  // Asked to take it over paused: show it, ready, without loading or sounding anything.
+  if (!isPlaying && wantedId) {
+    holdNextLoad(wantedId);
+    setResumePoint(wantedId, positionSec);
+    useQueueStore.setState(snapshot);
     return;
   }
 
@@ -124,5 +155,9 @@ async function handOff(toRef: string): Promise<void> {
     positionSec: audioEngine.getCurrentTime(),
     isPlaying: wasPlaying,
   });
-  if (delivered) audioEngine.pause();
+  if (!delivered) return;
+  audioEngine.pause();
+  // And become a remote for where it went, without waiting for the follow rule to notice.
+  suppressFollow();
+  useConnectStore.getState().control(toRef);
 }

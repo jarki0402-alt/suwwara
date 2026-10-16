@@ -8,7 +8,7 @@ import { SCHEMA_SQL } from './schema';
 const host = process.env.PGHOST;
 const password = process.env.PGPASSWORD;
 if (!host || !password) {
-  throw new Error('PGHOST/PGPASSWORD are not set — the backend now requires Postgres (see docker-compose.yml).');
+  throw new Error('PGHOST/PGPASSWORD are not set: the backend now requires Postgres (see docker-compose.yml).');
 }
 
 export const sql = postgres({

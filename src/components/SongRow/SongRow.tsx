@@ -58,11 +58,11 @@ export function SongRow({ song, onClick, onWarm, isActive, subtitle, trailing, t
               {album.name}
             </button>
           ) : (
-            (album?.name ?? '—')
+            (album?.name ?? '-')
           )}
         </span>
       )}
-      {table && <span className={styles.colDate}>{table.addedAt ? formatAddedDate(table.addedAt) : '—'}</span>}
+      {table && <span className={styles.colDate}>{table.addedAt ? formatAddedDate(table.addedAt) : '-'}</span>}
       {plays !== undefined && <span className={styles.plays}>{formatCount(plays)}</span>}
       {/* Rendered even when empty so a song without a duration does not shift the columns after it. */}
       <span className={styles.duration}>{duration > 0 ? formatTime(duration) : ''}</span>

@@ -291,7 +291,7 @@ class AudioEngine {
     });
     element.addEventListener('error', () => {
       if (!isActive()) return;
-      this.updateSnapshot({ status: 'error', error: 'Terjadi kesalahan saat memutar — sumber audio tidak tersedia.' });
+      this.updateSnapshot({ status: 'error', error: 'Terjadi kesalahan saat memutar: sumber audio tidak tersedia.' });
     });
     element.addEventListener('loadedmetadata', () => {
       if (!isActive()) return;

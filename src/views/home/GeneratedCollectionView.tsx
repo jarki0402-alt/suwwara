@@ -54,7 +54,7 @@ export function GeneratedCollectionView({ title, description, kind, songs, cover
             ))}
           </div>
         ) : songs.length === 0 ? (
-          <p className={styles.empty}>Belum cukup data untuk bagian ini — coba dengarkan beberapa lagu dulu.</p>
+          <p className={styles.empty}>Belum cukup data untuk bagian ini. Coba dengarkan beberapa lagu dulu.</p>
         ) : (
           songs.map((song, index) => (
             <SongRow key={song.id} song={song} onClick={() => playSongList(songs, index)} trailing={<SongRowActions song={song} />} />

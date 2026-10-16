@@ -132,7 +132,7 @@ function LyricsBody({ song, isFullscreen }: { song: Song; isFullscreen: boolean 
     );
   }
 
-  if (result?.type === 'instrumental') return <div className={styles.state}>Lagu instrumental — tidak ada lirik.</div>;
+  if (result?.type === 'instrumental') return <div className={styles.state}>Lagu instrumental, tidak ada lirik.</div>;
   if (!result || result.type === 'none') return <div className={styles.state}>Lirik belum tersedia untuk lagu ini.</div>;
 
   if (result.type === 'plain') {

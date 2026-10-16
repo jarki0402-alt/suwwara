@@ -3,7 +3,6 @@ import { ConnectSheet } from '../components/ConnectSheet/ConnectSheet';
 import { JamSheet } from '../components/JamSheet/JamSheet';
 import { JoinJamSheet } from '../components/JoinJamSheet/JoinJamSheet';
 import { ConnectBridge } from '../connect/ConnectBridge';
-import { useConnectStore } from '../connect/connectStore';
 import { useJamSync } from '../jam/useJamSync';
 import { PlaybackProvider, usePlayback } from '../playback/PlaybackContext';
 import { useBackNavigation } from '../hooks/useBackNavigation';
@@ -16,7 +15,6 @@ import styles from './AppShell.module.css';
 import { BottomNav } from './BottomNav';
 
 import { MiniPlayer } from './MiniPlayer';
-import { RemoteBar } from './RemoteBar';
 import { PaneResizers } from './PaneResizers';
 import { TopBar } from './TopBar';
 import { ViewRouter } from './ViewRouter';
@@ -44,7 +42,6 @@ function ShellBody() {
   const closeJoinJamSheet = useUiStore((state) => state.closeJoinJamSheet);
   const isNowPlayingOpen = useUiStore((state) => state.isNowPlayingOpen);
   const isConnectSheetOpen = useUiStore((state) => state.isConnectSheetOpen);
-  const isRemoteControlling = useConnectStore((state) => state.controllingRef !== null && state.devices.some((device) => device.ref === state.controllingRef));
   const currentView = useUiStore((state) => state.currentView);
   const detailDepth = useUiStore((state) => state.detailStack.length);
   const { currentSong } = usePlayback();
@@ -71,7 +68,7 @@ function ShellBody() {
   // Apple Music's dock: scrolling down folds the tab bar into one orb and drops the MiniPlayer into
   // the same row; only reaching the very top again unfolds it (or tapping an orb — see BottomNav).
   // Only worth doing when there IS a MiniPlayer to bring down.
-  const canCollapseDock = !isDesktop && currentSong !== null && !isRemoteControlling;
+  const canCollapseDock = !isDesktop && currentSong !== null;
   useEffect(() => {
     const content = contentRef.current;
     if (!content || !canCollapseDock) {
@@ -98,8 +95,8 @@ function ShellBody() {
       </main>
       <PaneResizers panelOpen={showRightPanel} />
       <ConnectBridge />
-      {/* While steering another device, its bar stands in for the local player — which stays untouched. */}
-      {isRemoteControlling ? <RemoteBar /> : <MiniPlayer />}
+      {/* Also the remote for another device of the account — it then shows and steers what plays there (PlaybackProvider). */}
+      <MiniPlayer />
       <BottomNav />
       <JamPill />
       <NowPlayingView />

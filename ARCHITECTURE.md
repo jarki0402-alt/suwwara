@@ -161,13 +161,42 @@ Profil (riwayat putar + mix Temuan Mingguan/Harian saat ini)
   → klien mengadopsi hasilnya. Hapus riwayat menyimpan clearedAt agar tak dipulihkan perangkat lain.
   Mix menunggu sinkron pertama (maks. 1,5 dtk) sebelum membuat mix baru.
 
-Tetap per perangkat: batas/retensi cache lagu, hemat data, volume, antrean berjalan.
+Tetap per perangkat: batas/retensi cache lagu, hemat data, volume. Antrean berjalan kini milik akun — lihat §5c.
 ```
 
 ## 5b. Lagu terakhir saat aplikasi dibuka
 
 Antrean disimpan; saat dibuka, lagu terakhir **ditampilkan dalam keadaan jeda**, tidak dimuat (tanpa bunyi, tanpa permintaan audio).
 `AudioEngine.deferStart` menyimpan pemuatannya; `play()` pertama — semua jalur (tombol, layar kunci, Connect, Jam) berakhir di sana — menjalankannya; memuat lagu lain membatalkannya.
+
+## 5c. Satu sesi pemutaran per akun (Connect ala Spotify)
+
+Yang "memutar" adalah akun, bukan perangkat. Satu perangkat bersuara; perangkat lain otomatis jadi remote untuknya.
+Jalur audio tidak berubah sama sekali — yang berpindah hanya data antrean dan perintah.
+
+```
+Server: tabel playback_sessions (1 baris/akun): queue (jsonb, ditulis ulang HANYA saat antrean berubah), queue_rev,
+        play_order, position, repeat/shuffle, song_id, position_sec, active_ref, updated_at (versi ms, monoton)
+  GET  /api/connect/session?have=<rev>   → sesi (tanpa queue bila rev sama)
+  PUT  /api/connect/session              → simpan + siarkan event SSE 'session' ke perangkat LAIN (kanal Connect yang sudah ada)
+                                           409 = rev tak dikenal → klien kirim ulang beserta queue
+  POST /api/connect/session/position     → posisi saat jeda / tiap 15 dtk / halaman ditutup (keepalive), tanpa menaikkan versi
+
+Klien (src/connect/sessionSync.ts):
+  queueStore berubah (bukan karena adopsi, bukan di Jam) → publish (400 ms; 40 ms bila perangkat ini remote)
+  event 'session' lebih baru → adopsi ke queueStore; bila bukan untuk perangkat ini → lagu baru "ditahan" (sessionHold:
+    tampil, tidak dimuat — sama seperti lagu terakhir saat dibuka, §5b)
+  perangkat yang memutar menerima edit remote → controller-nya memuat seperti perubahan lokal biasa, lalu mengonfirmasi (rev saja)
+  aturan ikut: perangkat lain memutar & perangkat ini tidak → connectStore.controllingRef = perangkat itu
+    (bertahan saat ia dijeda; lepas bila ia hilang atau perangkat ini mulai memutar)
+  saat dibuka: GET sesi; bila lebih baru & belum ada pilihan lokal → tampilkan jeda + titik lanjut (resume point)
+```
+
+Saat jadi remote: `PlaybackProvider` menampilkan status perangkat yang diikuti, `playhead.ts` memproyeksikan posisinya dari
+heartbeat Connect (tanpa polling), tombol putar/jeda/seek/volume dikirim sebagai perintah Connect (langsung digambar,
+`patchDevice`), sedangkan skip/ketuk lagu/ubah antrean cukup mengubah cermin antrean lokal yang lalu dibawa sesi.
+"Putar di sini" memakai `play()` dalam ketukan (syarat iOS) dan melompat ke titik lanjut; server menjeda perangkat lama
+lewat aturan satu-perangkat-bersuara yang sudah ada. Di Jam, sesi akun dibekukan (tidak dipublish/diadopsi).
 
 ## Kenapa tidak ada ffmpeg di mana pun
 

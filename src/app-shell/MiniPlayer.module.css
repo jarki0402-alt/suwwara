@@ -60,6 +60,14 @@
   display: none;
 }
 
+.infoGroup {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .main {
   flex: 1;
   display: flex;
@@ -101,6 +109,56 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* While this device is a remote: where the music actually is, in the accent colour, so it can't be mistaken for
+   this device playing. */
+.remoteLine {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.remoteLine svg {
+  flex-shrink: 0;
+}
+
+.remoteLineText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Putar di sini" — a pill of its own, not an icon: it is the one control that moves the sound, and has to read as such. */
+.hereButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 140px;
+  overflow: hidden;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 7px 12px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    max-width var(--dock-duration) var(--ease-liquid),
+    padding var(--dock-duration) var(--ease-liquid),
+    opacity 180ms ease;
+}
+
+.hereButton:active {
+  transform: scale(0.94);
 }
 
 .centerColumn {
@@ -163,6 +221,21 @@
 /* Phone-only: the pill's height scales with the screen (--mini-player-height), so the art and
    play button scale with it instead of floating small in a taller bar. The artist line is full
    text colour, not secondary grey, for the same contrast reason as BottomNav's tabs. */
+/* A phone-width pill can't spare "Putar " beside the title: the line under it already says where the music is. */
+.hereShort {
+  display: none;
+}
+
+@media (max-width: 429.98px) {
+  .hereLong {
+    display: none;
+  }
+
+  .hereShort {
+    display: inline;
+  }
+}
+
 @media (max-width: 959.98px) {
   /* Swipes on the pill are the app's (useMiniPlayerGestures), not the browser's. */
   .wrapper {
@@ -171,6 +244,21 @@
 
   .subtitle {
     color: var(--color-text-primary);
+  }
+
+  /* Two lines is all the pill holds: as a remote, "Memutar di …" takes the artist's line (Now Playing has the artist). */
+  .subtitleBesideRemote {
+    display: none;
+  }
+
+  /* As a remote the pill gives "next" up for "Putar di sini" (a swipe still skips; Now Playing has every control). */
+  .remote .nextButton,
+  .docked .hereButton {
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .art {
@@ -227,13 +315,28 @@
        slider's thumb and the expand icon visually overlapped. A plain fixed
        width sidesteps that fr-distribution behavior entirely — this column
        only ever needs to fit its own three controls, never more. */
-    grid-template-columns: 1fr minmax(0, 722px) 270px;
+    /* The left column used to be a bare 1fr beside a 722px centre: at a 1440px window that left the song ~88px
+       ("Ne…" / "Rick…"), and nothing at all once "Putar di sini" sat beside it. Now the song gets a real share
+       (and a floor), the centre takes the rest up to its 722px cap (.centerColumn), and the right stays fixed. */
+    grid-template-columns: minmax(260px, 1.3fr) minmax(280px, 2fr) 270px;
     gap: var(--space-4);
   }
 
-  .main {
+  .infoGroup {
     justify-self: start;
+    max-width: 100%;
+    gap: var(--space-3);
+  }
+
+  .main {
+    flex: 0 1 auto;
+    min-width: 0;
     max-width: 360px;
+  }
+
+  .hereButton {
+    padding: 6px 11px;
+    font-size: 0.72rem;
   }
 
   .progressTrack {
@@ -253,6 +356,7 @@
     justify-self: center;
     justify-content: center;
     width: 100%;
+    max-width: 722px;
     gap: 4px;
   }
 

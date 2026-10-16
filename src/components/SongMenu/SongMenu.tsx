@@ -51,7 +51,7 @@ export function SongMenu({ song, onRemoveFromPlaylist }: SongMenuProps) {
 
   const share = async () => {
     const url = `https://music.youtube.com/watch?v=${encodeURIComponent(song.id)}`;
-    const title = `${song.name} — ${primaryArtistNames(song)}`;
+    const title = `${song.name} · ${primaryArtistNames(song)}`;
     if (typeof navigator.share === 'function') {
       try {
         await navigator.share({ title, text: title, url });

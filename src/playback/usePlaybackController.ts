@@ -6,6 +6,9 @@ import { audioEngine } from '../audio-engine/AudioEngine';
 import { AudioCache } from '../audio-engine/AudioCache';
 import { useAudioEngine } from '../audio-engine/useAudioEngine';
 import { useToast } from '../components/Toast/ToastProvider';
+import { useConnectStore } from '../connect/connectStore';
+import { remotePlayhead, remoteSeek, remoteSetPlaying, remoteTogglePlay } from '../connect/remote';
+import { applyResumePoint, clearResumePoint, consumeHold } from '../connect/sessionHold';
 import { sendJamIntent } from '../jam/jamClient';
 import { canSyncToRoom, catchUpTarget, isLoadStillCurrent } from '../jam/jamPlaybackGuards';
 import { useMediaSession } from '../media-session/useMediaSession';
@@ -115,6 +118,9 @@ export function usePlaybackController() {
   const jamClientId = useJamStore((s) => s.clientId);
   const jamIsCreator = useJamStore((s) => s.isCreator);
   const jamPlaybackMeta = useJamStore((s) => s.playbackMeta);
+  // Non-null while this device is a remote for another (Connect): the controls below steer that device, and nothing
+  // loads or sounds here. See connect/sessionSync.ts.
+  const remoteRef = useConnectStore((s) => s.controllingRef);
 
   const engineState = useAudioEngine();
   const currentSong: Song | null = queue[order[position] ?? -1] ?? null;
@@ -172,21 +178,41 @@ export function usePlaybackController() {
     // The queue is persisted, so opening or refreshing the app finds last session's song here. It is shown, paused —
     // not loaded: no audio starts by itself and the server is not asked to resolve a song nobody chose this time. The
     // first play (see AudioEngine.deferStart) loads it; picking anything else discards it. Jam keeps its own flow.
-    if (isFirstRun && useJamStore.getState().role === 'solo') {
+    // The same applies to a song the account's session moved to on ANOTHER device (this one is its remote, or was told
+    // about it while idle — connect/sessionHold.ts): shown here, sounding there.
+    const solo = useJamStore.getState().role === 'solo';
+    const heldForSession = solo && !isFirstRun && (useConnectStore.getState().controllingRef !== null || consumeHold(currentSong.id));
+    if (solo && (isFirstRun || heldForSession)) {
       const restored = currentSong;
+      if (heldForSession) {
+        // Whatever this device still had going is no longer the session's song. Forgotten, too, so that coming back
+        // to it later loads it afresh at the right spot instead of being mistaken for "already loaded".
+        const status = audioEngine.getSnapshot().status;
+        if (status === 'playing' || status === 'loading') {
+          audioEngine.cancelPendingTransition();
+          audioEngine.pause();
+        }
+        loadedSongIdRef.current = null;
+      }
       setCurrentSongId(restored.id);
       cacheSongs([restored]);
       audioEngine.deferStart(() => {
         // From here on it is an ordinary loaded track, so the next change crossfades instead of loading from idle.
         loadedSongIdRef.current = restored.id;
-        return audioEngine.loadTrack(restored, {
-          dataSaver: useSettingsStore.getState().dataSaver || autoDataSaverTracksRemainingRef.current > 0,
-          autoplay: true,
-          fadeInSec: 0.6,
-        });
+        completedRef.current = false;
+        advancedForSongIdRef.current = null;
+        return audioEngine
+          .loadTrack(restored, {
+            dataSaver: useSettingsStore.getState().dataSaver || autoDataSaverTracksRemainingRef.current > 0,
+            autoplay: true,
+            fadeInSec: 0.6,
+          })
+          .then(() => applyResumePoint(restored.id));
       });
       return;
     }
+    // A song chosen and loaded the ordinary way starts from its top; a carry-on spot meant for a held one is stale now.
+    clearResumePoint();
 
     const wasIdle = loadedSongIdRef.current === null;
     const previouslyLoadedId = loadedSongIdRef.current;
@@ -257,7 +283,7 @@ export function usePlaybackController() {
           setPlaybackStatus({
             isPlaying: false,
             isBuffering: false,
-            error: timedOut ? 'Koneksi lambat — lagu gagal dimuat.' : 'Gagal memutar lagu ini.',
+            error: timedOut ? 'Koneksi lambat, lagu gagal dimuat.' : 'Gagal memutar lagu ini.',
           });
         });
     };
@@ -591,6 +617,8 @@ export function usePlaybackController() {
     // to avoid several devices independently topping it up with different
     // filler songs at once. Doesn't restrict anyone's actual control rights.
     if (jamRole !== 'solo' && !jamIsCreator) return;
+    // Likewise the device that plays the account's session is the one that tops it up — never its remotes.
+    if (remoteRef) return;
     if (order.length === 0) return;
     const remaining = order.length - position - 1;
     if (remaining > EXTEND_QUEUE_THRESHOLD) return;
@@ -600,7 +628,7 @@ export function usePlaybackController() {
     if (!seedSong) return;
 
     void extendQueueWithRadio(seedSong);
-  }, [order, position, queue, jamRole, jamIsCreator]);
+  }, [order, position, queue, jamRole, jamIsCreator, remoteRef]);
 
   // Jam mode: keep this device's actual play/pause state matched to the room's
   // last-known transport state (arrives via useJamSync -> jamStore.playbackMeta).
@@ -657,6 +685,7 @@ export function usePlaybackController() {
   }, [jamRole]);
 
   const handlePlay = useCallback(() => {
+    if (remoteRef) return remoteSetPlaying(true);
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'play');
       return;
@@ -664,21 +693,23 @@ export function usePlaybackController() {
     audioEngine.play().catch(() => {
       setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
     });
-  }, [setPlaybackStatus, jamRole, jamRoomId, jamClientId]);
+  }, [setPlaybackStatus, jamRole, jamRoomId, jamClientId, remoteRef]);
   const handlePause = useCallback(() => {
+    if (remoteRef) return remoteSetPlaying(false);
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'pause');
       return;
     }
     audioEngine.pause();
-  }, [jamRole, jamRoomId, jamClientId]);
+  }, [jamRole, jamRoomId, jamClientId, remoteRef]);
   const handleTogglePlay = useCallback(() => {
+    if (remoteRef) return remoteTogglePlay();
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'toggle-play');
       return;
     }
     audioEngine.togglePlay();
-  }, [jamRole, jamRoomId, jamClientId]);
+  }, [jamRole, jamRoomId, jamClientId, remoteRef]);
   const handleNext = useCallback(() => {
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'next');
@@ -686,7 +717,14 @@ export function usePlaybackController() {
     }
     next();
   }, [next, jamRole, jamRoomId, jamClientId]);
+  // Skips stay plain queue moves while this device is a remote too: the mirrored queue moves (instantly, on screen
+  // here) and the account session carries the move to the device that plays.
   const handlePrevious = useCallback(() => {
+    if (remoteRef) {
+      if (remotePlayhead() > RESTART_FROM_BEGINNING_THRESHOLD_SEC) remoteSeek(0);
+      else previous();
+      return;
+    }
     const restartInstead = audioEngine.getCurrentTime() > RESTART_FROM_BEGINNING_THRESHOLD_SEC;
     if (jamRole !== 'solo' && jamRoomId) {
       if (restartInstead) {
@@ -701,16 +739,17 @@ export function usePlaybackController() {
       return;
     }
     previous();
-  }, [previous, jamRole, jamRoomId, jamClientId]);
+  }, [previous, jamRole, jamRoomId, jamClientId, remoteRef]);
   const handleSeek = useCallback(
     (timeSec: number) => {
+      if (remoteRef) return remoteSeek(timeSec);
       if (jamRole !== 'solo' && jamRoomId) {
         void sendJamIntent(jamRoomId, jamClientId, 'seek', { positionSec: timeSec });
         return;
       }
       audioEngine.seek(timeSec);
     },
-    [jamRole, jamRoomId, jamClientId],
+    [jamRole, jamRoomId, jamClientId, remoteRef],
   );
 
   const setVolume = useSettingsStore((s) => s.setVolume);
@@ -720,11 +759,14 @@ export function usePlaybackController() {
     onNext: handleNext,
     onPrevious: handlePrevious,
     onSeekBy: (deltaSec) => {
-      const duration = audioEngine.getDuration();
-      const target = Math.max(0, audioEngine.getCurrentTime() + deltaSec);
+      const duration = remoteRef ? (currentSong?.duration ?? 0) : audioEngine.getDuration();
+      const target = Math.max(0, (remoteRef ? remotePlayhead() : audioEngine.getCurrentTime()) + deltaSec);
       handleSeek(duration > 0 ? Math.min(target, Math.max(0, duration - 1)) : target);
     },
-    onVolumeBy: (delta) => setVolume(useSettingsStore.getState().volume + delta),
+    onVolumeBy: (delta) => {
+      if (remoteRef) return;
+      setVolume(useSettingsStore.getState().volume + delta);
+    },
   });
 
   useMediaSession({

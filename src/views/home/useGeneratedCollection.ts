@@ -17,7 +17,7 @@ const STATIC_META: Partial<Record<string, { title: string; description: string; 
   },
   'daily-discovery': {
     title: 'Temuan Harian',
-    description: 'Lagu baru untukmu hari ini — beda dari Temuan Mingguan dan dari yang baru saja kamu dengarkan.',
+    description: 'Lagu baru untukmu hari ini, beda dari Temuan Mingguan dan dari yang baru saja kamu dengarkan.',
     fetch: getDailyDiscoveryMix,
   },
   'on-repeat': {

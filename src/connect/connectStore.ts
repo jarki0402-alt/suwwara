@@ -7,6 +7,9 @@ export interface RemoteState {
   durationSec: number;
   volume: number;
   canSetVolume: boolean;
+  /** Set while that device is itself a remote for another one. */
+  followingRef?: string | null;
+  inJam?: boolean;
 }
 
 export interface RemoteDevice {
@@ -22,11 +25,16 @@ interface ConnectState {
   connected: boolean;
   youRef: string | null;
   devices: RemoteDevice[];
-  /** Non-null while this device is acting as the remote control for that device. */
+  /**
+   * Non-null while this device is a remote for that one — the device the account's session is playing on. Set
+   * automatically (sessionSync's follow rule) as soon as another device plays, like Spotify showing "Playing on Laptop".
+   */
   controllingRef: string | null;
   setConnected: (connected: boolean) => void;
   setDevices: (youRef: string, devices: Omit<RemoteDevice, 'receivedAt'>[]) => void;
   control: (ref: string | null) => void;
+  /** Shows a remote's effect right away (play/pause, seek, volume) instead of waiting ~300ms for that device to report it. */
+  patchDevice: (ref: string, patch: Partial<RemoteState>) => void;
   reset: () => void;
 }
 
@@ -42,6 +50,15 @@ export const useConnectStore = create<ConnectState>((set) => ({
     set({ youRef, devices: devices.map((device) => ({ ...device, receivedAt })) });
   },
   control: (ref) => set({ controllingRef: ref }),
+  patchDevice: (ref, patch) =>
+    set((state) => ({
+      devices: state.devices.map((device) => {
+        if (device.ref !== ref || !device.state) return device;
+        // Re-anchor the projection at "now" so the playhead neither jumps back nor keeps running through a pause.
+        const positionSec = patch.positionSec ?? projectedPosition(device);
+        return { ...device, state: { ...device.state, ...patch, positionSec }, receivedAt: Date.now() };
+      }),
+    })),
   reset: () => set({ connected: false, youRef: null, devices: [], controllingRef: null }),
 }));
 
@@ -51,4 +68,15 @@ export function projectedPosition(device: RemoteDevice): number {
   if (!state) return 0;
   const elapsed = state.isPlaying ? (Date.now() - device.receivedAt) / 1000 : 0;
   return Math.min(state.positionSec + elapsed, state.durationSec > 0 ? state.durationSec : Infinity);
+}
+
+/** The device this one is a remote for, while it is online. */
+export function followedDevice(): RemoteDevice | null {
+  const { controllingRef, devices } = useConnectStore.getState();
+  if (!controllingRef) return null;
+  return devices.find((device) => device.ref === controllingRef) ?? null;
+}
+
+export function useFollowedDevice(): RemoteDevice | null {
+  return useConnectStore((state) => (state.controllingRef ? (state.devices.find((device) => device.ref === state.controllingRef) ?? null) : null));
 }

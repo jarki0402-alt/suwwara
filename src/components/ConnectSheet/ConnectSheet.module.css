@@ -1,44 +1,140 @@
+/* The shared sheet glass is see-through enough that, over Now Playing, its controls showed through the rows and
+   washed the text out. A device list is read, not glanced at — it gets an (almost) opaque surface. */
+.sheetSolid {
+  background: color-mix(in srgb, var(--color-bg-elevated) 94%, transparent);
+}
+
 .body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .note,
-.empty {
+.empty,
+.footnote {
   margin: 0;
   color: var(--color-text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
-.row,
-.device {
+.note {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  font-weight: 600;
+}
+
+.footnote {
+  font-size: 0.75rem;
+}
+
+/* Where the music is right now — the one card, in the accent tint, so it reads apart from the choices below it. */
+.current {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-soft);
+}
+
+.currentIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.currentLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-accent-strong);
+}
+
+.currentName {
+  font-weight: 700;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionLabel {
+  padding: 0 var(--space-1);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A whole row is the button (one tap moves the music) — a comfortable 56px target, no buttons-inside-a-row. */
+.row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  border: 1px solid var(--glass-border);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
   border-radius: var(--radius-md);
-  padding: var(--space-3);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
+  background: transparent;
   color: var(--color-text-primary);
   text-align: left;
-  transition: transform 160ms var(--ease-spring);
-}
-
-.row:active {
-  transform: scale(0.98);
-}
-
-.row {
   cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    transform 160ms var(--ease-spring);
 }
 
-.rowActive {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
+@media (hover: hover) {
+  .row:hover:not(:disabled) {
+    background: var(--glass-bg-strong);
+  }
+}
+
+.row:active:not(:disabled) {
+  transform: scale(0.98);
+  background: var(--glass-bg-strong);
+}
+
+.row:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.rowIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  color: var(--color-text-secondary);
 }
 
 .rowText {
@@ -46,6 +142,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .rowTitle {
@@ -64,51 +161,16 @@
   white-space: nowrap;
 }
 
-.device {
-  /* The name gets the whole width (it was squeezed to "iP…" beside three buttons); the choices sit underneath. */
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-3);
+.spinner {
+  flex-shrink: 0;
+  color: var(--color-accent);
+  animation: spin 0.9s linear infinite;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.action {
-  border: none;
-  border-radius: var(--radius-full);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-accent-soft);
-  color: var(--color-accent-strong);
-  font-weight: 700;
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.action:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.emptyBlock {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.linkAction {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-bg-elevated);
-  color: var(--color-text-primary);
-  font-weight: 700;
-  font-size: 0.82rem;
-  cursor: pointer;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Desktop: docked in the right-hand column beside Now Playing's (same width, same drag handle), above it when both

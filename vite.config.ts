@@ -69,7 +69,7 @@ export default defineConfig({
       manifest: {
         name: 'Suwwara',
         short_name: 'Suwwara',
-        description: 'Pemutar musik bebas iklan, ringan, dan smooth — untuk semua perangkat.',
+        description: 'Pemutar musik bebas iklan, ringan, dan smooth untuk semua perangkat.',
         lang: 'id',
         theme_color: '#0b0b0f',
         background_color: '#0b0b0f',

@@ -52,7 +52,7 @@ function Handle({ pane, label }: { pane: Pane; label: string }) {
       onPointerDown={startDrag}
       onKeyDown={onKeyDown}
       onDoubleClick={() => resetPaneWidth(pane)}
-      title="Seret untuk mengubah lebar — klik dua kali untuk mengembalikan"
+      title="Seret untuk mengubah lebar, klik dua kali untuk mengembalikan"
     />
   );
 }

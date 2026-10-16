@@ -41,7 +41,11 @@ export type IconName =
   | 'users'
   | 'album'
   | 'share'
-  | 'edit';
+  | 'edit'
+  | 'phone'
+  | 'laptop'
+  | 'tablet'
+  | 'speaker';
 
 interface IconProps {
   name: IconName;
@@ -382,6 +386,35 @@ function IconPaths({ name }: { name: IconName }) {
           <polyline points="9,21 3,21 3,15" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
           <line x1="21" y1="3" x2="14" y2="10" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
           <line x1="3" y1="21" x2="10" y2="14" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'phone':
+      return (
+        <>
+          <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M10.5 18.5h3" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'tablet':
+      return (
+        <>
+          <rect x="4" y="2.5" width="16" height="19" rx="2.5" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M10.5 18.5h3" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'laptop':
+      return (
+        <>
+          <rect x="4" y="4.5" width="16" height="11" rx="1.8" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M2 19.5h20" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'speaker':
+      // A speaker with sound waves — "this is where the sound comes out".
+      return (
+        <>
+          <path d="M4 9.5h3l4.5-4v13L7 14.5H4z" stroke="currentColor" fill="none" strokeWidth={2} strokeLinejoin="round" />
+          <path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" />
         </>
       );
     case 'spinner':

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { audioEngine } from '../../audio-engine/AudioEngine';
+import { playheadDuration, playheadSec } from '../../connect/playhead';
+import { followedDevice } from '../../connect/connectStore';
+import { remoteSeek } from '../../connect/remote';
 import { frameTicker } from '../../audio-engine/frameTicker';
 import { ProgressBar, type ProgressBarHandle } from '../../components/ProgressBar/ProgressBar';
 import { sendJamIntent } from '../../jam/jamClient';
@@ -37,8 +40,8 @@ export function SeekBar({ duration, horizontal = false }: { duration: number; ho
 
   useEffect(() => {
     return frameTicker.subscribe(() => {
-      const currentTime = audioEngine.getCurrentTime();
-      const effectiveDuration = audioEngine.getDuration() || duration;
+      const currentTime = playheadSec();
+      const effectiveDuration = playheadDuration() || duration;
       progressBarRef.current?.setProgress(effectiveDuration > 0 ? Math.min(currentTime / effectiveDuration, 1) : 0);
 
       if (effectiveDuration !== lastTotalRef.current) {
@@ -58,8 +61,12 @@ export function SeekBar({ duration, horizontal = false }: { duration: number; ho
   }, [duration]);
 
   const handleSeekFraction = (fraction: number) => {
-    const effectiveDuration = audioEngine.getDuration() || duration;
+    const effectiveDuration = playheadDuration() || duration;
     const positionSec = fraction * effectiveDuration;
+    if (followedDevice()) {
+      remoteSeek(positionSec);
+      return;
+    }
     const { role, roomId, clientId } = useJamStore.getState();
     if (role !== 'solo' && roomId) {
       void sendJamIntent(roomId, clientId, 'seek', { positionSec });

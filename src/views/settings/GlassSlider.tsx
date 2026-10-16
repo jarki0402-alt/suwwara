@@ -51,11 +51,11 @@ export function GlassSlider() {
       </div>
       <span className={styles.modeNote}>
         {glassMode === 'auto'
-          ? `Menyesuaikan kemampuan perangkat ini — sekarang ${TIER_NOTE[tier]}.`
+          ? `Menyesuaikan kemampuan perangkat ini. Sekarang: ${TIER_NOTE[tier]}.`
           : glassMode === 'off'
             ? 'Paling hemat baterai: kaca jadi warna solid tanpa blur.'
             : glassMode === 'lite'
-              ? 'Blur dan kilap kaca tanpa pembiasan — ringan untuk HP apa pun.'
+              ? 'Blur dan kilap kaca tanpa pembiasan, ringan untuk HP apa pun.'
               : 'Selalu dengan pembiasan, bila browser mendukung. Bisa patah-patah di HP lama.'}
       </span>
       <div className={[styles.sliderRow, tier === 'off' ? styles.sliderDisabled : ''].join(' ')}>

@@ -3,6 +3,7 @@ import { getDeviceId } from '../auth/deviceIdentity';
 import { pullLibrary } from '../sync/librarySync';
 import { handleRemoteCommand, type RemoteCommand } from './commandHandler';
 import { useConnectStore, type RemoteDevice, type RemoteState } from './connectStore';
+import { catchUpSession, receiveSession, type SessionPayload } from './sessionSync';
 
 const RECONNECT_MAX_MS = 15_000;
 // The server sends a keep-alive comment every 20s; a stream that has said nothing for this long
@@ -51,6 +52,7 @@ async function loop(): Promise<void> {
       if (!response.ok || !response.body) throw new Error(`stream ${response.status}`);
       backoffMs = 1000;
       useConnectStore.getState().setConnected(true);
+      catchUpSession();
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -98,6 +100,7 @@ function dispatch(block: string): void {
     if (event === 'devices') useConnectStore.getState().setDevices(payload.you, payload.devices as Omit<RemoteDevice, 'receivedAt'>[]);
     else if (event === 'command') handleRemoteCommand(payload as RemoteCommand);
     else if (event === 'library') void pullLibrary();
+    else if (event === 'session') receiveSession(payload as SessionPayload);
   } catch {
     // a malformed event is dropped rather than crashing the stream
   }

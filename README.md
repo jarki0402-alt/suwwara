@@ -18,8 +18,8 @@ suwwara/
 │   ├── recommendation/ mesin rekomendasi & trending berbasis histori lokal
 │   ├── lyrics/         parser LRC, sinkronisasi + koreksi waktu lirik (data dari backend /api/lyrics)
 │   ├── views/          layar: home, search, library, queue, now-playing, settings
-│   ├── app-shell/      shell aplikasi: bottom nav, mini player, RemoteBar (saat mengontrol perangkat lain)
-│   ├── connect/        kanal real-time antar-perangkat tertaut (SSE), pelapor status, penerima perintah
+│   ├── app-shell/      shell aplikasi: bottom nav, mini player (juga jadi remote saat musik diputar di perangkat lain)
+│   ├── connect/        kanal real-time antar-perangkat (SSE), sesi pemutaran per akun, remote, penerima perintah
 │   ├── diagnostics/    catatan waktu pemuatan lagu di perangkat ini (Pengaturan → Diagnostik)
 │   ├── components/     komponen reusable (sheet, toast, dll — termasuk JamSheet, JamIndicator)
 │   ├── pwa/             registrasi service worker, prompt install, estimasi storage
@@ -30,7 +30,7 @@ suwwara/
 │       ├── db/           koneksi Postgres + schema (accounts, devices, library_snapshots, audio_cache)
 │       ├── auth/         sesi/cookie, sandi scrypt, pembatas login, audit, deviceAuth
 │       ├── metrics/      pemakaian bandwidth per hari + statistik resolve (dashboard admin)
-│       ├── connect/      hub in-memory perangkat tertaut per akun (kontrol jarak jauh)
+│       ├── connect/      hub in-memory perangkat per akun (kontrol jarak jauh) + sesi pemutaran akun (Postgres)
 │       ├── library/      penggabungan library dua akun
 │       ├── jam/          state room "Jam" in-memory + reducer antrean (mirror queueStore.ts)
 │       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses) — `priorityLimiter.ts`

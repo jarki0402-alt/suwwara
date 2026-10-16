@@ -1,5 +1,5 @@
 // Inlined (not a separate .sql asset file) because the Docker build only
-// copies `dist/` (tsc output) into the runtime image — a sibling .sql file
+// copies `dist/` (tsc output) into the runtime image - a sibling .sql file
 // wouldn't survive that copy. Applied idempotently on server boot, see migrate().
 export const SCHEMA_SQL = `
 create table if not exists accounts (
@@ -10,7 +10,7 @@ create table if not exists accounts (
 -- A device is identified by the random id it generates for itself on first
 -- launch (src/auth/deviceIdentity.ts) and sends back as a bearer token.
 -- Pairing a second device just repoints its row's account_id to an existing
--- account — see server/src/pairing/pairingManager.ts.
+-- account - see server/src/pairing/pairingManager.ts.
 create table if not exists devices (
   device_id text primary key,
   account_id text not null references accounts(id) on delete cascade,
@@ -25,7 +25,7 @@ alter table devices add column if not exists kind text;
 
 -- One row per account: the whole liked-songs + playlists snapshot, mirroring
 -- the shape already used by src/stores/libraryStore.ts. Deliberately not
--- normalized into per-song/per-playlist rows — at this app's scale (a closed
+-- normalized into per-song/per-playlist rows - at this app's scale (a closed
 -- circle, a few hundred songs at most) a whole-snapshot jsonb write-through is
 -- simpler to reason about than incremental row sync, and the client already
 -- treats the whole thing as one persisted blob (Zustand \`persist\`).
@@ -129,4 +129,23 @@ create table if not exists usage_daily (
   primary key (account_id, day)
 );
 create index if not exists usage_daily_day_idx on usage_daily (day);
+
+-- The account's one playback session (Spotify Connect): the running queue and where it is, whichever device plays it.
+-- One small row per account, so a phone opened after the laptop was closed can carry on from the same spot. The queue
+-- column is only rewritten when the queue itself changes (queue_rev), never on a skip or a position save.
+-- updated_at is a server-assigned millisecond version (monotonic per account) that devices compare to drop stale news.
+create table if not exists playback_sessions (
+  account_id text primary key references accounts(id) on delete cascade,
+  queue jsonb not null default '[]',
+  queue_rev text not null default '',
+  play_order jsonb not null default '[]',
+  position integer not null default 0,
+  repeat_mode text not null default 'off',
+  shuffle boolean not null default false,
+  song_id text,
+  position_sec real not null default 0,
+  is_playing boolean not null default false,
+  active_ref text,
+  updated_at bigint not null default 0
+);
 `;

@@ -32,7 +32,7 @@ export function ThemeToggle() {
         </span>
         <span className={styles.headerText}>
           <span className={styles.title}>Tampilan</span>
-          <span className={styles.subtitle}>Pilih tema terang, gelap, atau ikuti sistem — lalu warna aplikasinya.</span>
+          <span className={styles.subtitle}>Pilih tema terang, gelap, atau ikuti sistem, lalu warna aplikasinya.</span>
         </span>
       </div>
       <div className={styles.segmented} role="radiogroup" aria-label="Tampilan">

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { bearerDeviceId, deviceRef } from '../auth/deviceRef';
 import { deviceAuth } from '../auth/deviceAuth';
-import { COMMAND_TYPES, connectDevice, sendCommand, updateDeviceState, type DeviceState } from '../connect/connectHub';
+import { COMMAND_TYPES, broadcastSession, connectDevice, sendCommand, updateDeviceState, type DeviceState } from '../connect/connectHub';
+import { loadSession, sanitizeSessionUpdate, saveSession, saveSessionPosition } from '../connect/session';
 import { sql } from '../db/client';
 import { rateLimited } from '../auth/rateLimit';
 
@@ -37,6 +38,8 @@ function toState(body: unknown): DeviceState | null {
     durationSec: Math.max(0, num(b.durationSec, 0)),
     volume: Math.min(1, Math.max(0, num(b.volume, 1))),
     canSetVolume: b.canSetVolume !== false,
+    followingRef: typeof b.followingRef === 'string' ? b.followingRef.slice(0, 40) : null,
+    inJam: b.inJam === true,
   };
 }
 
@@ -68,4 +71,72 @@ connectRouter.post('/connect/command', deviceAuth, (req, res) => {
   }
   const delivered = sendCommand(req.accountId!, deviceRef(deviceId), targetRef, type, payload ?? null);
   res.status(delivered ? 204 : 404).end();
+});
+
+// The account's playback session (see connect/session.ts). Not gated on an open stream: a lone device still saves where
+// it is, so the next device to open — even after this one is gone — can carry on from there.
+connectRouter.get('/connect/session', deviceAuth, async (req, res) => {
+  try {
+    const have = typeof req.query.have === 'string' ? req.query.have : null;
+    res.json({ session: await loadSession(req.accountId!, have) });
+  } catch {
+    res.status(503).json({ error: 'Session unavailable.' });
+  }
+});
+
+connectRouter.put('/connect/session', deviceAuth, async (req, res) => {
+  const deviceId = bearerDeviceId(req);
+  if (rateLimited(`session:${deviceId}`, 40, 10_000)) {
+    res.status(429).json({ error: 'Too many updates.' });
+    return;
+  }
+  const update = sanitizeSessionUpdate(req.body);
+  if (!update) {
+    res.status(400).json({ error: 'Invalid session.' });
+    return;
+  }
+  const ref = deviceRef(deviceId);
+  try {
+    const updatedAt = await saveSession(req.accountId!, ref, update);
+    // 409: the update named a queue revision the server doesn't hold — the device resends it with the queue.
+    if (updatedAt === null) {
+      res.status(409).json({ error: 'Queue needed.' });
+      return;
+    }
+    const { cursor, queue } = update;
+    broadcastSession(req.accountId!, ref, {
+      from: ref,
+      updatedAt,
+      queueRev: cursor.queueRev,
+      ...(queue ? { queue } : {}),
+      order: cursor.order,
+      position: cursor.position,
+      repeatMode: cursor.repeatMode,
+      shuffle: cursor.shuffle,
+      songId: cursor.songId,
+      activeRef: cursor.activeRef ?? ref,
+    });
+    res.json({ updatedAt });
+  } catch {
+    res.status(503).json({ error: 'Session unavailable.' });
+  }
+});
+
+connectRouter.post('/connect/session/position', deviceAuth, async (req, res) => {
+  const deviceId = bearerDeviceId(req);
+  if (rateLimited(`position:${deviceId}`, 20, 10_000)) {
+    res.status(429).end();
+    return;
+  }
+  const { songId, positionSec, isPlaying } = req.body ?? {};
+  if (typeof songId !== 'string' || songId.length > 40 || typeof positionSec !== 'number' || !Number.isFinite(positionSec)) {
+    res.status(400).end();
+    return;
+  }
+  try {
+    await saveSessionPosition(req.accountId!, songId, Math.max(0, positionSec), isPlaying === true);
+    res.status(204).end();
+  } catch {
+    res.status(503).end();
+  }
 });

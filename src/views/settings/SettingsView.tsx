@@ -43,7 +43,7 @@ export function SettingsView() {
           <SettingsRow
             icon="pulse"
             title="Jam"
-            subtitle={jamRole === 'jam' ? `Aktif — ${jamMemberCount} orang dengerin bareng` : 'Dengerin lagu bareng teman, real-time.'}
+            subtitle={jamRole === 'jam' ? `Aktif · ${jamMemberCount} orang dengerin bareng` : 'Dengerin lagu bareng teman, real-time.'}
             onClick={openJamSheet}
             control={<span className={styles.linkButton}>{jamRole === 'jam' ? 'Kelola' : 'Mulai'}</span>}
           />

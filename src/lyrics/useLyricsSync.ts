@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { audioEngine } from '../audio-engine/AudioEngine';
+import { playheadSec } from '../connect/playhead';
 import { frameTicker } from '../audio-engine/frameTicker';
 import type { LrcLine } from './lrcParser';
 
@@ -41,7 +41,7 @@ export function useLyricsSync(lines: LrcLine[]): number {
     if (lines.length === 0) return;
 
     return frameTicker.subscribe(() => {
-      const currentTime = audioEngine.getCurrentTime();
+      const currentTime = playheadSec();
       const previousTime = lastTimeRef.current;
       lastTimeRef.current = currentTime;
 

@@ -150,7 +150,7 @@ export async function invalidateAudio(videoId: string, quality: AudioQuality, de
     }
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error(`[audio] ${videoId} (${quality}) — failed to invalidate cache row: ${(error as Error).message}`);
+    console.error(`[audio] ${videoId} (${quality}): failed to invalidate cache row: ${(error as Error).message}`);
   }
 }
 
@@ -199,7 +199,7 @@ function startJob(videoId: string, quality: AudioQuality, priority: ResolvePrior
   const key = `${videoId}:${quality}`;
   const startedAt = Date.now();
   // eslint-disable-next-line no-console
-  console.log(`[audio] ${videoId} (${quality}) — CACHE MISS, queued for yt-dlp (priority: ${priority}, queue depth: ${limit.pendingCount}, active: ${limit.activeCount})`);
+  console.log(`[audio] ${videoId} (${quality}): CACHE MISS, queued for yt-dlp (priority: ${priority}, queue depth: ${limit.pendingCount}, active: ${limit.activeCount})`);
 
   const { promise: raw, handle } = limit.schedule(priority, () => resolveAudioUncached(videoId, quality));
   const promise = raw
@@ -212,10 +212,10 @@ function startJob(videoId: string, quality: AudioQuality, priority: ResolvePrior
         // Playback must not fail just because the durable cache write did — the
         // in-memory copy above already serves this process until it expires.
         // eslint-disable-next-line no-console
-        console.error(`[audio] ${videoId} (${quality}) — failed to persist to Postgres: ${(error as Error).message}`);
+        console.error(`[audio] ${videoId} (${quality}): failed to persist to Postgres: ${(error as Error).message}`);
       }
       // eslint-disable-next-line no-console
-      console.log(`[audio] ${videoId} (${quality}) — resolved in ${Date.now() - startedAt}ms total`);
+      console.log(`[audio] ${videoId} (${quality}): resolved in ${Date.now() - startedAt}ms total`);
       recordResolve(Date.now() - startedAt, true);
       return audio;
     })
@@ -266,7 +266,7 @@ export async function resolveAudio(
   let job = inFlight.get(key);
   if (job) {
     // eslint-disable-next-line no-console
-    console.log(`[audio] ${videoId} (${quality}) — joined in-flight resolve already running`);
+    console.log(`[audio] ${videoId} (${quality}): joined in-flight resolve already running`);
     if (priority === 'high') job.handle.promote();
   } else {
     job = startJob(videoId, quality, priority);
@@ -327,7 +327,7 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
     consecutiveFailures += 1;
     if (consecutiveFailures >= BREAKER_FAILURES) breakerOpenUntil = Date.now() + BREAKER_OPEN_MS;
     // eslint-disable-next-line no-console
-    console.error(`[audio] ${videoId} (${quality}) — yt-dlp microservice FAILED: ${(error as Error).message}`);
+    console.error(`[audio] ${videoId} (${quality}): yt-dlp microservice FAILED: ${(error as Error).message}`);
     throw new Error(`yt-dlp microservice failed to resolve audio for ${videoId}: ${(error as Error).message}`);
   }
 }

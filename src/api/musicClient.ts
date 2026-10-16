@@ -1,5 +1,6 @@
 import { notifyUnauthorized } from '../auth/authStore';
 import { MusicApiError } from './types';
+import { parseJsonWithoutEmDash } from '../utils/noEmDash';
 
 const DEFAULT_TIMEOUT_MS = 12000;
 
@@ -37,7 +38,7 @@ export async function apiGet<T>(path: string, params: Record<string, string | nu
     notifyUnauthorized(response.status);
     let message = `Music backend responded with status ${response.status}`;
     try {
-      const body = (await response.json()) as { message?: string };
+      const body = parseJsonWithoutEmDash<{ message?: string }>(await response.text());
       if (body.message) message = body.message;
     } catch {
       // response body wasn't JSON — keep the generic message
@@ -45,7 +46,7 @@ export async function apiGet<T>(path: string, params: Record<string, string | nu
     throw new MusicApiError(message);
   }
 
-  return (await response.json()) as T;
+  return parseJsonWithoutEmDash<T>(await response.text());
 }
 
 /** Builds the URL our AudioEngine's <audio> element should point at for a given song. */

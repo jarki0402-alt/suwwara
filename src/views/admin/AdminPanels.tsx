@@ -103,7 +103,7 @@ export function Overview() {
           </div>
           <Meter fraction={data.bandwidthQuota.usedBytes / Math.max(data.bandwidthQuota.quotaBytes, 1)} />
           <p className={styles.muted}>
-            Cuma jumlah audio yang lewat server ini, dihitung ulang tiap awal bulan — bukan angka resmi dari akun cloud-mu. Sesuaikan lewat env{' '}
+            Cuma jumlah audio yang lewat server ini, dihitung ulang tiap awal bulan, bukan angka resmi dari akun cloud-mu. Sesuaikan lewat env{' '}
             <code>BANDWIDTH_QUOTA_GB</code> kalau kuota sebenarnya beda.
           </p>
         </div>
@@ -152,7 +152,7 @@ export function UsagePanel() {
             <span className={styles.rowValue}>{formatBytes(row.bytes)}</span>
           </div>
         ))}
-        <p className={styles.muted}>Hanya jumlah byte yang dikirim server — bukan lagu apa yang diputar. Total sisi Cloudflare ada di dashboard Cloudflare.</p>
+        <p className={styles.muted}>Hanya jumlah byte yang dikirim server, bukan lagu apa yang diputar. Total sisi Cloudflare ada di dashboard Cloudflare.</p>
       </div>
     </>
   );
@@ -199,7 +199,7 @@ function Monitor({ title, valueLabel, fraction, history }: { title: string; valu
         <span className={levelClass}>{level}</span>
       </div>
       <span className={styles.monitorValue}>{valueLabel}</span>
-      <TrendChart data={history} formatValue={percent} ariaLabel={`${title} — riwayat`} mini />
+      <TrendChart data={history} formatValue={percent} ariaLabel={`Riwayat ${title}`} mini />
     </div>
   );
 }

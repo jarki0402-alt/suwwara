@@ -249,7 +249,7 @@ async function fetchChunkUpstream(ctx: TrackContext, index: number): Promise<Chu
       if (networkRetries < MAX_NETWORK_RETRIES_PER_FETCH) {
         networkRetries += 1;
         // eslint-disable-next-line no-console
-        console.warn(`[audio] ${ctx.cacheKey} — chunk at byte ${start} failed (${(error as Error).message}), retrying`);
+        console.warn(`[audio] ${ctx.cacheKey}: chunk at byte ${start} failed (${(error as Error).message}), retrying`);
         continue;
       }
       throw error;
@@ -273,7 +273,7 @@ async function fetchChunkUpstream(ctx: TrackContext, index: number): Promise<Chu
       // cut playback off about a minute in, or hang the response forever). Swap in a freshly
       // resolved URL and carry on from the very same byte: the client never notices.
       // eslint-disable-next-line no-console
-      console.warn(`[audio] ${ctx.cacheKey} — upstream answered ${upstream.status} for the chunk at byte ${start}${refreshes < MAX_URL_REFRESHES_PER_FETCH ? ', re-resolving' : ', giving up'}`);
+      console.warn(`[audio] ${ctx.cacheKey}: upstream answered ${upstream.status} for the chunk at byte ${start}${refreshes < MAX_URL_REFRESHES_PER_FETCH ? ', re-resolving' : ', giving up'}`);
       await upstream.body?.cancel().catch(() => {});
       if (refreshes >= MAX_URL_REFRESHES_PER_FETCH) throw new Error(`upstream answered ${upstream.status}`);
       refreshes += 1;
@@ -291,7 +291,7 @@ async function fetchChunkUpstream(ctx: TrackContext, index: number): Promise<Chu
       // once made currentTime run minutes past a track's real length. Keep the whole file
       // (capped) and slice from it instead.
       // eslint-disable-next-line no-console
-      console.warn(`[audio] ${ctx.cacheKey} — upstream ignores Range, buffering the whole file`);
+      console.warn(`[audio] ${ctx.cacheKey}: upstream ignores Range, buffering the whole file`);
       const buffer = await readBodyCapped(upstream.body, MAX_FULL_BODY_BYTES);
       setCachedBuffer(ctx.cacheKey, { buffer, mimeType: ctx.audio.mimeType, expiresAt: Date.now() + FULL_BUFFER_CACHE_TTL_MS });
       throw new UpstreamIgnoresRangeError();

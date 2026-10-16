@@ -59,7 +59,7 @@ export function UsersPanel() {
       await navigator.clipboard.writeText(text);
       showToast('Disalin.');
     } catch {
-      showToast('Gagal menyalin — salin manual.', { type: 'error' });
+      showToast('Gagal menyalin. Salin manual.', { type: 'error' });
     }
   };
 
@@ -79,7 +79,7 @@ export function UsersPanel() {
         {!makeAdmin && (legacy ?? []).length > 0 && (
           <div className={styles.selectField}>
             <span className={styles.selectLabel}>Pakai pustaka dari akun lama (opsional)</span>
-            <span className={styles.muted}>Playlist dan lagu disukai dari sebelum login — tak diklaim akun mana pun.</span>
+            <span className={styles.muted}>Playlist dan lagu disukai dari sebelum login yang belum diklaim akun mana pun.</span>
             <div className={styles.selectWrap}>
               <select className={styles.select} value={legacyId} onChange={(event) => setLegacyId(event.target.value)}>
                 <option value="">Akun baru yang kosong</option>
@@ -98,7 +98,7 @@ export function UsersPanel() {
         {secret && (
           <div className={styles.secret}>
             <span className={styles.muted}>
-              {secret.kind === 'baru' ? 'Akun dibuat' : 'Sandi direset'} — <strong>{secret.username}</strong>
+              {secret.kind === 'baru' ? 'Akun dibuat' : 'Sandi direset'}: <strong>{secret.username}</strong>
             </span>
             <span className={styles.secretValue}>{secret.password}</span>
             <button type="button" className={styles.btn} onClick={() => void copy(secret.password)}>

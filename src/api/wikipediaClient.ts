@@ -1,3 +1,5 @@
+import { parseJsonWithoutEmDash } from '../utils/noEmDash';
+
 const BASE_URL = 'https://en.wikipedia.org/api/rest_v1/page/summary';
 const FETCH_TIMEOUT_MS = 6000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -31,7 +33,7 @@ export async function getArtistSummary(artistName: string): Promise<ArtistSummar
       headers: { Accept: 'application/json' },
     });
     if (response.ok) {
-      const data = (await response.json()) as { extract?: string; type?: string; thumbnail?: { source?: string } };
+      const data = parseJsonWithoutEmDash<{ extract?: string; type?: string; thumbnail?: { source?: string } }>(await response.text());
       // "disambiguation" pages (name matches multiple unrelated things) have no
       // single useful summary — treated the same as "not found".
       if (data.extract && data.type !== 'disambiguation') {

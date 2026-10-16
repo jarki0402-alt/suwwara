@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef } from 'react';
 import { bestImageUrl, primaryArtistNames } from '../api/mappers';
 import { listLinkedDevices } from '../api/authClient';
 import { audioEngine } from '../audio-engine/AudioEngine';
+import { useAudioEngine } from '../audio-engine/useAudioEngine';
 import { describeThisDevice } from '../auth/deviceInfo';
 import { useToast } from '../components/Toast/ToastProvider';
 import { usePlayback } from '../playback/PlaybackContext';
+import { useJamStore } from '../stores/jamStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { setConnectToast } from './commandHandler';
 import { reconnectNow, sendState, startConnect, stopConnect } from './connectClient';
 import { useConnectStore } from './connectStore';
+import { startSessionSync } from './sessionSync';
 
 const HEARTBEAT_MS = 10_000;
 const DRIFT_CHECK_MS = 2_000;
@@ -24,13 +27,20 @@ const DRIFT_TOLERANCE_SEC = 1.5;
  */
 export function ConnectBridge() {
   const { showToast } = useToast();
-  const { currentSong, playbackState } = usePlayback();
+  const { currentSong } = usePlayback();
+  // This device's own engine — not usePlayback().playbackState, which shows the followed device while this one is a remote.
+  const engineState = useAudioEngine();
   const volume = useSettingsStore((state) => state.volume);
   const connected = useConnectStore((state) => state.connected);
+  const followingRef = useConnectStore((state) => state.controllingRef);
+  const inJam = useJamStore((state) => state.role !== 'solo');
 
   useEffect(() => {
     setConnectToast(showToast);
   }, [showToast]);
+
+  // The account's playback session runs for a lone device too: it is what lets the next device carry on from here.
+  useEffect(() => startSessionSync(), []);
 
   // Run the channel only when there is someone to talk to; re-check when the app comes back
   // to the foreground and once a minute (a device of the same account may have signed in or out meanwhile —
@@ -63,22 +73,26 @@ export function ConnectBridge() {
     };
   }, []);
 
-  const isPlaying = playbackState.status === 'playing' || playbackState.status === 'loading';
+  const isPlaying = !followingRef && (engineState.status === 'playing' || engineState.status === 'loading');
+  // A remote has nothing of its own to report — the song on its screen is the other device's.
+  const reportedSong = followingRef ? null : currentSong;
   const lastSent = useRef<{ positionSec: number; isPlaying: boolean; at: number } | null>(null);
 
   const report = useCallback(() => {
     const positionSec = audioEngine.getCurrentTime();
     lastSent.current = { positionSec, isPlaying, at: Date.now() };
     void sendState({
-      song: currentSong ? { id: currentSong.id, name: currentSong.name, artist: primaryArtistNames(currentSong), image: bestImageUrl(currentSong.image, '150x150') } : null,
+      song: reportedSong ? { id: reportedSong.id, name: reportedSong.name, artist: primaryArtistNames(reportedSong), image: bestImageUrl(reportedSong.image, '150x150') } : null,
       isPlaying,
       positionSec,
-      durationSec: currentSong?.duration ?? 0,
+      durationSec: reportedSong?.duration ?? 0,
       volume,
       // On iOS a web page can't change its own audio volume — the hardware buttons own it.
       canSetVolume: describeThisDevice().name !== 'iPhone' && describeThisDevice().name !== 'iPad',
+      followingRef,
+      inJam,
     });
-  }, [currentSong, isPlaying, volume]);
+  }, [reportedSong, isPlaying, volume, followingRef, inJam]);
 
   // Something the others care about changed (song, play/pause, volume): report shortly after.
   useEffect(() => {

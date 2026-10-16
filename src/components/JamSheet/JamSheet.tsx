@@ -51,7 +51,7 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
       showToast('Gabung Jam!');
       onClose();
     } else if (result.reason === 'not-found') {
-      showToast('Kode gak ditemukan — cek lagi kodenya.', { type: 'error' });
+      showToast('Kode gak ditemukan. Cek lagi kodenya.', { type: 'error' });
     } else {
       showToast('Gagal gabung Jam. Coba lagi.', { type: 'error' });
     }
@@ -63,7 +63,7 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
       const queueSnapshot = currentQueueSnapshot();
       const newRoomId = await createRoom(clientId, queueSnapshot);
       enterJam({ roomId: newRoomId, isCreator: true, queueSnapshotToRestore: queueSnapshot });
-      showToast('Jam dimulai — bagikan link-nya ke teman.');
+      showToast('Jam dimulai. Bagikan link-nya ke teman.');
     } catch {
       showToast('Gagal memulai Jam. Coba lagi.', { type: 'error' });
     } finally {
@@ -91,7 +91,7 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
     try {
       await navigator.share({
         title: 'Dengerin bareng di Suwwara',
-        text: `Gabung Jam-ku di Suwwara — kode ${roomId}`,
+        text: `Gabung Jam-ku di Suwwara, kode ${roomId}`,
         url: shareLink,
       });
     } catch (error) {
@@ -142,7 +142,7 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
         {role === 'solo' ? (
           <div className={styles.body}>
             <p className={styles.description}>
-              Dengerin lagu bareng teman secara real-time — semua orang yang gabung bisa nambah, hapus, atur ulang antrean, dan
+              Dengerin lagu bareng teman secara real-time. Semua orang yang gabung bisa nambah, hapus, atur ulang antrean, dan
               kontrol play/pause/next/back sama-sama.
             </p>
             <button type="button" className={styles.primaryButton} onClick={handleStart} disabled={busy}>
@@ -153,8 +153,8 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
               <span>atau</span>
             </div>
 
-            <p className={styles.joinLabel}>Sudah ada yang mulai Jam? Masukkan kodenya di sini — buka link share
-              biasanya cuma nyalain browser, bukan app ini.</p>
+            <p className={styles.joinLabel}>Sudah ada yang mulai Jam? Masukkan kodenya di sini, karena membuka link
+              share biasanya cuma menyalakan browser, bukan app ini.</p>
             <div className={styles.joinRow}>
               <input
                 type="text"

@@ -27,11 +27,11 @@ export function UpdateRow() {
           case 'checking':
             return 'Memeriksa versi terbaru…';
           case 'available':
-            return isPlaying ? 'Versi baru tersedia — memuat ulang menghentikan lagu sebentar.' : 'Versi baru tersedia.';
+            return isPlaying ? 'Versi baru tersedia. Memuat ulang menghentikan lagu sebentar.' : 'Versi baru tersedia.';
           case 'latest':
             return `Sudah versi terbaru${checkedAt ? ` · diperiksa ${time(checkedAt)}` : ''}`;
           case 'error':
-            return 'Belum bisa memeriksa — periksa koneksi, lalu coba lagi.';
+            return 'Belum bisa memeriksa. Periksa koneksi, lalu coba lagi.';
           case 'unsupported':
             return 'Pembaruan otomatis tidak aktif di sini (hanya di versi terpasang).';
           default:

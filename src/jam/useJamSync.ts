@@ -59,7 +59,7 @@ export function useJamSync() {
 
     const giveUpTimer = setTimeout(() => {
       if (connected) return;
-      leaveJam('Room Jam tidak ditemukan lagi — mungkin sudah berakhir.', 'error');
+      leaveJam('Room Jam tidak ditemukan lagi. Mungkin sudah berakhir.', 'error');
     }, ROOM_RECONNECT_TIMEOUT_MS);
 
     const open = () => {
@@ -135,7 +135,7 @@ export function useJamSync() {
       if (disposed) return;
       reopenAttempts += 1;
       if (reopenAttempts > JAM_MAX_REOPEN_ATTEMPTS) {
-        leaveJam('Terputus dari Jam — tidak bisa tersambung lagi.', 'error');
+        leaveJam('Terputus dari Jam, tidak bisa tersambung lagi.', 'error');
         return;
       }
       retryTimer = setTimeout(open, Math.min(JAM_REOPEN_BASE_MS * reopenAttempts, JAM_REOPEN_MAX_MS));

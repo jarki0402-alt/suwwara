@@ -176,7 +176,7 @@ function IosGuide({ device }: { device: DetectedDevice }) {
       <Steps steps={showOther ? otherBrowser : safari} />
       <p className={styles.note}>
         {showOther
-          ? 'Tidak ada "Tambah ke Layar Utama"? iOS versi lama hanya bisa memasang dari Safari — buka halaman ini di Safari.'
+          ? 'Tidak ada "Tambah ke Layar Utama"? iOS versi lama hanya bisa memasang dari Safari. Buka halaman ini di Safari.'
           : 'iPhone tidak punya tombol install otomatis untuk aplikasi web, jadi pemasangannya lewat menu Bagikan.'}
       </p>
     </section>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { Song } from '../api/types';
 import { cacheSongs } from '../api/songCache';
 import { prefetchAudioResolveOnly } from '../api/musicClient';
-import { audioEngine } from '../audio-engine/AudioEngine';
+import { audioEngine, isAndroid } from '../audio-engine/AudioEngine';
 import { AudioCache } from '../audio-engine/AudioCache';
 import { useAudioEngine } from '../audio-engine/useAudioEngine';
 import { useToast } from '../components/Toast/ToastProvider';
@@ -11,6 +11,7 @@ import { remotePlayhead, remoteSeek, remoteSetPlaying, remoteTogglePlay } from '
 import { applyResumePoint, clearResumePoint, consumeHold } from '../connect/sessionHold';
 import { sendJamIntent } from '../jam/jamClient';
 import { canSyncToRoom, catchUpTarget, isLoadStillCurrent } from '../jam/jamPlaybackGuards';
+import { reportPlayback } from '../diagnostics/playbackReports';
 import { useMediaSession } from '../media-session/useMediaSession';
 import { useHistoryStore } from '../stores/historyStore';
 import { useJamStore } from '../stores/jamStore';
@@ -82,6 +83,11 @@ const PREFETCH_SETTLE_MS = 4000;
 // The track being played is only saved for next time after this much listening — enough to say the user actually
 // wants it, late enough that the download doesn't compete with the lookahead for the backend.
 const KEEP_PLAYING_AFTER_MS = 20_000;
+// With the screen off or another app in front, a load that keeps failing is retried on this schedule (the last delay
+// repeats) instead of the music stopping for good. A phone in the background loses its connection for stretches
+// (Doze, Samsung's sleeping apps, a cell handover); skipping songs through such a stretch only burned through the
+// queue, and after three the player gave up while nobody was looking.
+const BACKGROUND_RETRY_DELAYS_MS = [5_000, 15_000, 30_000, 60_000];
 
 /**
  * Orchestration layer wiring queueStore/settingsStore to the AudioEngine and
@@ -148,6 +154,8 @@ export function usePlaybackController() {
   // Bumped every time a new track load begins. A load that was overtaken by a newer one still resolves normally, so its
   // completion handler compares against this before doing anything (seeking, reporting an error).
   const loadGenerationRef = useRef(0);
+  // Stops the background recovery loop (see startBackgroundRecovery) while one runs.
+  const recoveryRef = useRef<(() => void) | null>(null);
   const lastSongChangeAtRef = useRef(0);
   // Tracks how many upcoming songs should be forced into low quality (Data Saver)
   // after a network timeout or rebuffer to prevent consecutive failures.
@@ -165,6 +173,59 @@ export function usePlaybackController() {
     return () => clearTimeout(timeoutId);
   }, []);
 
+  const stopBackgroundRecovery = useCallback(() => recoveryRef.current?.(), []);
+  /**
+   * Keeps trying `song` while the app is in the background (BACKGROUND_RETRY_DELAYS_MS), and at once when the network
+   * or the screen comes back. Ends on success, on any other song or a user's play/pause, or once the app is in front
+   * again and that attempt fails too (the person can see the error and act then).
+   */
+  const startBackgroundRecovery = useCallback(
+    (song: Song, reason: string) => {
+      if (recoveryRef.current) return;
+      const startedAt = Date.now();
+      reportPlayback('background_retry', `${reason} · ${song.name} · gagal beruntun ${consecutiveErrorsRef.current} · ${navigator.onLine ? 'online' : 'offline'}`, true);
+      let attempt = 0;
+      let busy = false;
+      let timerId: ReturnType<typeof setTimeout> | undefined;
+      const stop = () => {
+        clearTimeout(timerId);
+        window.removeEventListener('online', tryNow);
+        document.removeEventListener('visibilitychange', tryNow);
+        if (recoveryRef.current === stop) recoveryRef.current = null;
+      };
+      const schedule = () => {
+        timerId = setTimeout(tryNow, BACKGROUND_RETRY_DELAYS_MS[Math.min(attempt, BACKGROUND_RETRY_DELAYS_MS.length - 1)]);
+        attempt += 1;
+      };
+      function tryNow() {
+        if (busy || recoveryRef.current !== stop) return;
+        if (loadedSongIdRef.current !== song.id) return stop();
+        busy = true;
+        clearTimeout(timerId);
+        const dataSaverNow = useSettingsStore.getState().dataSaver || autoDataSaverTracksRemainingRef.current > 0;
+        audioEngine
+          .loadTrack(song, { dataSaver: dataSaverNow, autoplay: true })
+          .then(() => {
+            stop();
+            reportPlayback('background_recovered', `Pulih setelah ${attempt} percobaan, ${Math.round((Date.now() - startedAt) / 1000)} dtk · ${song.name}`);
+          })
+          .catch(() => {
+            busy = false;
+            if (recoveryRef.current !== stop) return;
+            if (document.visibilityState === 'hidden') return schedule();
+            stop();
+            reportPlayback('background_failed', `Masih gagal saat app dibuka lagi, ${attempt} percobaan · ${song.name}`, true);
+            setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
+          });
+      }
+      recoveryRef.current = stop;
+      window.addEventListener('online', tryNow);
+      document.addEventListener('visibilitychange', tryNow);
+      schedule();
+    },
+    [setPlaybackStatus],
+  );
+
   useEffect(() => {
     const isFirstRun = firstLoadRunRef.current;
     firstLoadRunRef.current = false;
@@ -174,6 +235,7 @@ export function usePlaybackController() {
       return;
     }
     if (loadedSongIdRef.current === currentSong.id) return;
+    stopBackgroundRecovery();
 
     // The queue is persisted, so opening or refreshing the app finds last session's song here. It is shown, paused —
     // not loaded: no audio starts by itself and the server is not asked to resolve a song nobody chose this time. The
@@ -364,7 +426,7 @@ export function usePlaybackController() {
   // the user through the setPlaybackStatus call in the catch() above — so that's the
   // one field guaranteed to carry every failure mode, not just element-level ones.
   useEffect(() => {
-    if (!playerError || !currentSong) return;
+    if (!playerError || !currentSong || recoveryRef.current) return;
     const songToRetry = currentSong;
     // A timeout normally waits for the user's "Coba lagi" (see below). With the screen off or another app in front
     // there is nobody to tap it, and the music just stopped there for good — so in the background a timeout gets the
@@ -392,6 +454,19 @@ export function usePlaybackController() {
       return;
     }
     if (retryPendingRef.current) return;
+
+    // In the background (solo), a lost connection or a run of failures no longer ends the music: the same song keeps
+    // being retried until it plays (startBackgroundRecovery). A connection problem never skips there, every next song
+    // would hit the same wall, and a phone often can't tell it has lost its connection (onLine stays true through
+    // Doze), so a second failure in a row counts as one too: one broken track is skipped, two in a row are the network.
+    // A Jam keeps its own rules (the room decides what plays).
+    if (document.visibilityState === 'hidden' && jamRole === 'solo') {
+      const connectionProblem = !navigator.onLine || playerError.includes('Koneksi lambat');
+      if (connectionProblem || consecutiveErrorsRef.current >= 1) {
+        startBackgroundRecovery(songToRetry, playerError);
+        return;
+      }
+    }
 
     showToast(playerError, {
       type: 'error',
@@ -441,6 +516,10 @@ export function usePlaybackController() {
   //  - iOS: blob: playback is unreliable there (see AudioCache), so the spare element
   //    natively preloads the next track over the network and only the tracks after it
   //    get the cheap resolve-only warm-up.
+  //  - Android: the same native preload as iOS. The blob route waits for a whole-file fetch(), and with the screen off
+  //    or another app in front the phone throttles exactly that kind of page request (Doze, Samsung's sleeping apps):
+  //    the spare element was then never pointed at the next song, and after a few songs one never got going. The
+  //    browser's own media loader keeps working there. One download instead of two, too.
   // The *current* track is never prefetched: its own <audio> element is already
   // downloading it, and a second full download of the same file just doubled the load.
   const isPlaying = engineState.status === 'playing';
@@ -457,9 +536,9 @@ export function usePlaybackController() {
 
       // Only the next track is downloaded whole — a second full file costs the phone data and battery for a track
       // that may never play; the ones after it just get their resolve warmed (cheap, server-side).
-      AudioCache.prefetchTracks([nextUp.id], preferLow);
+      AudioCache.prefetchTracks(isAndroid ? [] : [nextUp.id], preferLow);
       for (const song of later) prefetchAudioResolveOnly(song.id, preferLow ? 'low' : 'high');
-      if (AudioCache.isSupported) {
+      if (AudioCache.isSupported && !isAndroid) {
         // The blob download below waits its turn in a one-at-a-time queue; warming the resolve right away means the
         // track is at worst a network-URL start (cache hit on the backend), never a cold yt-dlp run.
         prefetchAudioResolveOnly(nextUp.id, preferLow ? 'low' : 'high');
@@ -497,6 +576,7 @@ export function usePlaybackController() {
     if (engineState.status === 'playing') {
       consecutiveErrorsRef.current = 0;
       retriedSongIdRef.current = null;
+      stopBackgroundRecovery();
     }
     // The engine's own current song, not just the selected one: on a tap the selection changes a render before the
     // engine does, while the OLD track is still 'playing' — that used to mark the new song as "already played", so a
@@ -504,7 +584,7 @@ export function usePlaybackController() {
     if (engineState.status === 'playing' && currentSong && audioEngine.getCurrentSong()?.id === currentSong.id) {
       hasPlayedSongIdRef.current = currentSong.id;
     }
-  }, [engineState.status, engineState.error, currentSong, setPlaybackStatus]);
+  }, [engineState.status, engineState.error, currentSong, setPlaybackStatus, stopBackgroundRecovery]);
 
   // Mid-song rebuffer on a bad connection: status flips back to 'loading' (the
   // <audio> element's native 'waiting' event, see AudioEngine.bindElementEvents)
@@ -525,12 +605,14 @@ export function usePlaybackController() {
       qualityDroppedSongIdRef.current = currentSong.id;
       autoDataSaverTracksRemainingRef.current = 2; // start probation for upcoming tracks
       audioEngine.reloadAtLowerQuality().catch(() => {
-        // Best-effort recovery — if it fails, the existing stall/error watchdogs
-        // above still apply exactly as if this attempt had never happened.
+        // Reported like any failed load (quiet retry, then move on). Swallowing it left the track stopped for good:
+        // the stall watchdog only runs while the status says 'playing', which a failed reload never gets back to.
+        if (loadedSongIdRef.current !== currentSong.id) return;
+        setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
       });
     }, REBUFFER_QUALITY_DROP_MS);
     return () => clearTimeout(timeoutId);
-  }, [engineState.status, currentSong, dataSaver]);
+  }, [engineState.status, currentSong, dataSaver, setPlaybackStatus]);
 
   useEffect(() => {
     if (engineState.status !== 'playing' || !currentSong) return;
@@ -606,6 +688,12 @@ export function usePlaybackController() {
 
   useEffect(() => {
     if (engineState.status !== 'ended' || !currentSong) return;
+    // The engine's status right now, not this render's: when the next track was already waiting in the spare element,
+    // the song-load effect above swaps to it synchronously in this same commit, so the engine already holds the NEW
+    // song while engineState here still says the old one ended. Read stale, that advanced a second time and skipped
+    // the song that had just started (then loaded the one after it from the network, the fragile path with the
+    // screen off).
+    if (audioEngine.getSnapshot().status !== 'ended') return;
     if (audioEngine.getCurrentSong()?.id !== currentSong.id) return;
     runCompletionAdvance(currentSong);
   }, [engineState.status, currentSong, runCompletionAdvance]);
@@ -688,6 +776,7 @@ export function usePlaybackController() {
   }, [jamRole]);
 
   const handlePlay = useCallback(() => {
+    stopBackgroundRecovery();
     if (remoteRef) return remoteSetPlaying(true);
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'play');
@@ -696,23 +785,25 @@ export function usePlaybackController() {
     audioEngine.play().catch(() => {
       setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
     });
-  }, [setPlaybackStatus, jamRole, jamRoomId, jamClientId, remoteRef]);
+  }, [setPlaybackStatus, jamRole, jamRoomId, jamClientId, remoteRef, stopBackgroundRecovery]);
   const handlePause = useCallback(() => {
+    stopBackgroundRecovery();
     if (remoteRef) return remoteSetPlaying(false);
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'pause');
       return;
     }
     audioEngine.pause();
-  }, [jamRole, jamRoomId, jamClientId, remoteRef]);
+  }, [jamRole, jamRoomId, jamClientId, remoteRef, stopBackgroundRecovery]);
   const handleTogglePlay = useCallback(() => {
+    stopBackgroundRecovery();
     if (remoteRef) return remoteTogglePlay();
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'toggle-play');
       return;
     }
     audioEngine.togglePlay();
-  }, [jamRole, jamRoomId, jamClientId, remoteRef]);
+  }, [jamRole, jamRoomId, jamClientId, remoteRef, stopBackgroundRecovery]);
   const handleNext = useCallback(() => {
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'next');

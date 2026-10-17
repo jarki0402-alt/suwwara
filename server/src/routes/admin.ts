@@ -1,6 +1,7 @@
 import { readFile, statfs } from 'node:fs/promises';
 import os from 'node:os';
 import { Router } from 'express';
+import { clearPlaybackReports, listPlaybackReports } from '../diagnostics/playbackReports';
 import { audit } from '../auth/audit';
 import { loginLimiter } from '../auth/loginLimiter';
 import { generatePassword, hashPassword } from '../auth/password';
@@ -237,6 +238,17 @@ adminRouter.get('/admin/audit', async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 300);
   const rows = await sql`select id, at, event, username, ip, detail from audit_log order by id desc limit ${limit}`;
   res.json({ events: rows, locked: loginLimiter.lockedNow() });
+});
+
+// ---- playback reports (diagnostics/playbackReports.ts) -----------------------------------------
+
+adminRouter.get('/admin/playback-reports', (_req, res) => {
+  res.json({ reports: listPlaybackReports() });
+});
+
+adminRouter.delete('/admin/playback-reports', (_req, res) => {
+  clearPlaybackReports();
+  res.status(204).end();
 });
 
 adminRouter.post('/admin/locks/unlock', (req, res) => {

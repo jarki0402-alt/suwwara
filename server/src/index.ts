@@ -9,6 +9,7 @@ import { pruneLyricsCache } from './youtube/lyrics';
 import { startResolveWarmer } from './youtube/resolveWarmer';
 import { artistRouter } from './routes/artist';
 import { connectRouter } from './routes/connect';
+import { diagnosticsRouter } from './routes/diagnostics';
 import { audioRouter } from './routes/audio';
 import { authRouter } from './routes/auth';
 import { browseRouter } from './routes/browse';
@@ -54,6 +55,7 @@ app.use('/api', artistRouter);
 // linkRouter applies deviceAuth per route (not router-wide), so it is safe ahead of authRouter/libraryRouter.
 app.use('/api', linkRouter);
 app.use('/api', connectRouter);
+app.use('/api', diagnosticsRouter);
 // Like the routers above, profile (and admin) must sit BEFORE authRouter/libraryRouter, whose router-wide deviceAuth would
 // otherwise answer 401 for them.
 app.use('/api', profileRouter);

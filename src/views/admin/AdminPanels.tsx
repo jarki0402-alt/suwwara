@@ -358,3 +358,50 @@ export function SecurityPanel() {
     </>
   );
 }
+
+const REPORT_LABELS: Record<string, string> = {
+  system_pause: 'Dijeda oleh sistem',
+  background_retry: 'Gagal di background, terus dicoba',
+  background_recovered: 'Pulih di background',
+  background_failed: 'Masih gagal saat app dibuka',
+};
+
+/** Playback trouble the devices reported themselves (screen off, another app in front). Kept in the server's memory only. */
+export function PlaybackPanel() {
+  const { data, error, reload } = useAdminData(adminApi.playbackReports, REFRESH_MS);
+  const reports = data ?? [];
+  return (
+    <>
+      {error && <p className={styles.error}>{error}</p>}
+      <div className={styles.card}>
+        <h2 className={styles.cardTitle}>Laporan pemutaran</h2>
+        <p className={styles.muted}>
+          Dikirim otomatis oleh perangkat saat musik terganggu ketika layar mati atau app lain di depan. Disimpan di memori server (200 terbaru), hilang saat
+          server dimulai ulang.
+        </p>
+        {reports.length === 0 && <p className={styles.muted}>Belum ada laporan.</p>}
+        {reports.length > 0 && (
+          <div className={styles.events}>
+            {reports.map((report) => (
+              <div key={`${report.at}-${report.username}-${report.event}`} className={styles.event}>
+                <span className={report.event === 'background_recovered' ? undefined : styles.eventBad}>
+                  {REPORT_LABELS[report.event] ?? report.event} · {report.username}
+                </span>
+                <span className={styles.rowValue}>{timeAgo(new Date(report.at).toISOString())}</span>
+                <details className={styles.eventMeta}>
+                  <summary>{report.detail.split('\n')[0]}</summary>
+                  <pre className={styles.reportDetail}>{`${report.device}\n${report.detail}`}</pre>
+                </details>
+              </div>
+            ))}
+          </div>
+        )}
+        {reports.length > 0 && (
+          <button type="button" className={styles.btn} onClick={() => void adminApi.clearPlaybackReports().then(reload)}>
+            Bersihkan
+          </button>
+        )}
+      </div>
+    </>
+  );
+}

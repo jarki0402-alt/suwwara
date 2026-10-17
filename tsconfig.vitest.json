@@ -8,7 +8,8 @@
     ]
   },
   "include": [
-    "tests"
+    "tests",
+    "src/vite-env.d.ts"
   ],
   "exclude": [
     "tests/server"

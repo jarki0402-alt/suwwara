@@ -4,17 +4,18 @@ import { signOut, useAuthStore } from '../../auth/authStore';
 import { Icon, type IconName } from '../../components/Icon/Icon';
 import { PasswordForm } from '../settings/PasswordForm';
 import { deviceLabel, timeAgo } from '../../utils/deviceLabel';
-import { Overview, SecurityPanel, SystemPanel, UsagePanel } from './AdminPanels';
+import { Overview, PlaybackPanel, SecurityPanel, SystemPanel, UsagePanel } from './AdminPanels';
 import styles from './AdminConsole.module.css';
 import panelStyles from './AdminView.module.css';
 import { UsersPanel } from './UsersPanel';
 
-type Tab = 'ringkasan' | 'pengguna' | 'pemakaian' | 'sistem' | 'keamanan' | 'akun';
+type Tab = 'ringkasan' | 'pengguna' | 'pemakaian' | 'sistem' | 'pemutaran' | 'keamanan' | 'akun';
 const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: 'ringkasan', label: 'Ringkasan', icon: 'home' },
   { id: 'pengguna', label: 'Pengguna', icon: 'users' },
   { id: 'pemakaian', label: 'Pemakaian', icon: 'pulse' },
   { id: 'sistem', label: 'Sistem', icon: 'database' },
+  { id: 'pemutaran', label: 'Pemutaran', icon: 'speaker' },
   { id: 'keamanan', label: 'Keamanan', icon: 'queue' },
   { id: 'akun', label: 'Akun', icon: 'artist' },
 ];
@@ -126,6 +127,7 @@ export default function AdminConsole() {
           {tab === 'pengguna' && <UsersPanel />}
           {tab === 'pemakaian' && <UsagePanel />}
           {tab === 'sistem' && <SystemPanel />}
+          {tab === 'pemutaran' && <PlaybackPanel />}
           {tab === 'keamanan' && <SecurityPanel />}
           {tab === 'akun' && <AccountPanel />}
         </div>

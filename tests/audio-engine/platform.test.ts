@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { usesPlainMediaElements } from '../../src/audio-engine/platform';
+import { isAndroidDevice, usesPlainMediaElements } from '../../src/audio-engine/platform';
 
 const UA = {
   androidPhone: 'Mozilla/5.0 (Linux; Android 14; SM-A155F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36',
@@ -33,5 +33,23 @@ describe('usesPlainMediaElements', () => {
     expect(usesPlainMediaElements(UA.windows, 'Win32', 10)).toBe(false);
     expect(usesPlainMediaElements(UA.androidTabletDesktopMode, 'Linux x86_64', 0)).toBe(false);
     expect(usesPlainMediaElements(UA.chromebook, 'Linux x86_64', 10)).toBe(false);
+  });
+});
+
+describe('isAndroidDevice', () => {
+  // The Android-only background fixes (native preload, early hand-over, system-pause resume) must reach phones and
+  // tablets in either user-agent mode, and never iOS or desktops, whose paths are left as they were.
+  it('is true for Android phones and tablets, desktop-site mode included', () => {
+    expect(isAndroidDevice(UA.androidPhone, 5)).toBe(true);
+    expect(isAndroidDevice(UA.androidTablet, 10)).toBe(true);
+    expect(isAndroidDevice(UA.androidTabletDesktopMode, 10)).toBe(true);
+  });
+
+  it('is false for iOS, desktops and Chromebooks', () => {
+    expect(isAndroidDevice(UA.iPhone, 5)).toBe(false);
+    expect(isAndroidDevice(UA.mac, 5)).toBe(false);
+    expect(isAndroidDevice(UA.windows, 10)).toBe(false);
+    expect(isAndroidDevice(UA.androidTabletDesktopMode, 0)).toBe(false);
+    expect(isAndroidDevice(UA.chromebook, 10)).toBe(false);
   });
 });

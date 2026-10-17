@@ -574,3 +574,11 @@
   border-color: var(--color-accent);
   color: var(--color-on-accent, #fff);
 }
+
+.reportDetail {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

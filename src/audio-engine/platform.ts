@@ -13,8 +13,12 @@
  */
 export function usesPlainMediaElements(userAgent: string, platform: string, maxTouchPoints: number): boolean {
   const iOS = /iPad|iPhone|iPod/.test(userAgent) || (platform === 'MacIntel' && maxTouchPoints > 1);
-  const android = /Android/i.test(userAgent) || (maxTouchPoints > 0 && /Linux/i.test(userAgent) && !/CrOS/.test(userAgent));
-  return iOS || android;
+  return iOS || isAndroidDevice(userAgent, maxTouchPoints);
+}
+
+/** Android phones and tablets, including a tablet's desktop-site user agent (see above). */
+export function isAndroidDevice(userAgent: string, maxTouchPoints: number): boolean {
+  return /Android/i.test(userAgent) || (maxTouchPoints > 0 && /Linux/i.test(userAgent) && !/CrOS/.test(userAgent));
 }
 
 export function isPageHidden(): boolean {

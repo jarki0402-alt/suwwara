@@ -66,6 +66,15 @@ export interface AuditLog {
   locked: Array<{ key: string; retryAfterSec: number }>;
 }
 
+/** A device's own note that playback went wrong in the background (server/src/diagnostics/playbackReports.ts). */
+export interface PlaybackReport {
+  at: number;
+  username: string;
+  event: string;
+  device: string;
+  detail: string;
+}
+
 export class AdminError extends Error {}
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -96,4 +105,6 @@ export const adminApi = {
   signOutAll: (id: string) => call<void>(`/users/${id}/sign-out`, { method: 'POST' }),
   remove: (id: string) => call<void>(`/users/${id}`, { method: 'DELETE' }),
   unlock: (key: string) => call<void>('/locks/unlock', { method: 'POST', body: JSON.stringify({ key }) }),
+  playbackReports: () => call<{ reports: PlaybackReport[] }>('/playback-reports').then((r) => r.reports),
+  clearPlaybackReports: () => call<void>('/playback-reports', { method: 'DELETE' }),
 };

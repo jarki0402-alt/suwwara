@@ -7,7 +7,8 @@ import { AudioCache } from './AudioCache';
 import { scheduleFadeIn, scheduleFadeOut, scheduleFadeTo, setGainImmediate } from './crossfade';
 import type { AudioEngineListener, LoadTrackOptions, PlaybackState } from './types';
 import { AudioEngineError } from './types';
-import { isPageHidden, usesPlainMediaElements } from './platform';
+import { reportPlayback } from '../diagnostics/playbackReports';
+import { isAndroidDevice, isPageHidden, usesPlainMediaElements } from './platform';
 
 /**
  * A locally stored blob: URL to play `songId` from instead of hitting the network — a deliberate offline
@@ -28,6 +29,18 @@ async function localUrlFor(songId: string, dataSaver: boolean): Promise<string |
 const isIOS = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 // iOS and Android (tablets included) play straight through <audio>, never through Web Audio — see platform.ts.
 const playsPlainElements = typeof navigator !== 'undefined' && usesPlainMediaElements(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
+export const isAndroid = typeof navigator !== 'undefined' && isAndroidDevice(navigator.userAgent, navigator.maxTouchPoints);
+
+// Android only: how close to its end a track hands over to the next one already waiting in the spare element. Without
+// the Web Audio crossfade the old track used to finish first and only then was the next one started, a moment of
+// silence on every change. In the background that silence is exactly when Chrome and the phone (Samsung's sleeping
+// apps, Doze) throttle the page hardest, and a few songs in the next start never happened. Starting it while the old
+// one is still sounding keeps the page audible straight through. Slightly more than the ~250ms between 'timeupdate's.
+const EARLY_HANDOFF_SEC = 0.3;
+// Android only: a pause nobody in the app asked for, this close to the page going to the background, is the system
+// stopping the music as the user left the app (seen on a Galaxy phone: Home, and the song stopped at once). Asked to
+// play again once. Narrow on purpose: a headphone unplug or a call minutes later must stay paused.
+const SYSTEM_PAUSE_WINDOW_MS = 2000;
 
 // Deliberately longer than the backend's own worst case (a 25s yt-dlp resolve timeout,
 // see server/src/youtube/stream.ts): giving up on the client before the server does
@@ -56,9 +69,17 @@ const HAVE_FUTURE_DATA = 3;
  * In the foreground nothing changes (the usual canplay-then-play path). A refusal here is harmless: playWhenReady()
  * asks again once the element is ready.
  */
-function startWhileHidden(element: HTMLMediaElement): void {
-  if (!isPageHidden()) return;
-  element.play().catch(() => {});
+function startWhileHidden(element: HTMLMediaElement, isCurrent: () => boolean): () => void {
+  // Also when the page goes to the background DURING the wait (a song tapped, then straight to the home screen): it
+  // was visible when the source was set, so nothing asked for play() yet, and the load would sit parked until the
+  // 30s timeout. Listens only while the caller waits; the returned function stops it.
+  const start = () => {
+    if (isPageHidden() && element.paused && isCurrent()) element.play().catch(() => {});
+  };
+  start();
+  if (typeof document === 'undefined') return () => {};
+  document.addEventListener('visibilitychange', start);
+  return () => document.removeEventListener('visibilitychange', start);
 }
 
 function waitForEvent(target: HTMLMediaElement, event: 'canplay', timeoutMs: number): Promise<void> {
@@ -166,6 +187,13 @@ class AudioEngine {
   private snapshot: PlaybackState = { status: 'idle', duration: 0, error: null };
   private lifecycleRecoveryBound = false;
   private elementsPrimed = false;
+  /** Elements this engine itself just paused, so the 'pause' event that follows isn't mistaken for the system's. */
+  private ownPauses = new WeakSet<HTMLMediaElement>();
+  /** Android: when the page last went to the background, and the last pause nobody in the app asked for. */
+  private hiddenAt = 0;
+  private systemPause: { element: HTMLMediaElement; at: number } | null = null;
+  /** Android: the element that already handed over to the next track early (EARLY_HANDOFF_SEC), so it does so once. */
+  private handedOff: HTMLMediaElement | null = null;
 
   static getInstance(): AudioEngine {
     if (!AudioEngine.instance) AudioEngine.instance = new AudioEngine();
@@ -229,8 +257,60 @@ class AudioEngine {
     this.bindElementEvents(0, chainA.element);
     this.bindElementEvents(1, chainB.element);
     if (context) this.bindLifecycleRecovery(context);
+    if (isAndroid) this.bindBackgroundRecovery();
 
     return { context, elements: this.elements, gains: this.gains };
+  }
+
+  private pauseElement(element: HTMLMediaElement): void {
+    if (!element.paused) this.ownPauses.add(element);
+    element.pause();
+  }
+
+  /** Android: see SYSTEM_PAUSE_WINDOW_MS. Either order counts, the pause can land just before or just after the page hides. */
+  private bindBackgroundRecovery(): void {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange', () => {
+      if (!isPageHidden()) return;
+      this.hiddenAt = Date.now();
+      this.resumeAfterSystemPause();
+    });
+  }
+
+  private resumeAfterSystemPause(): void {
+    const pause = this.systemPause;
+    if (!pause || !isPageHidden() || Math.abs(pause.at - this.hiddenAt) > SYSTEM_PAUSE_WINDOW_MS) return;
+    // Once per pause: if the system stops it again, it means it.
+    this.systemPause = null;
+    if (!this.elements || pause.element !== this.elements[this.activeIndex] || !pause.element.paused || pause.element.ended) return;
+    const gapMs = pause.at - this.hiddenAt;
+    const when = gapMs >= 0 ? `${gapMs} ms setelah` : `${-gapMs} ms sebelum`;
+    const title = this.currentSong?.name ?? '';
+    pause.element
+      .play()
+      .then(() => reportPlayback('system_pause', `Dijeda sistem ${when} app ke background, dilanjutkan otomatis: berhasil · ${title}`))
+      .catch((error: unknown) =>
+        reportPlayback('system_pause', `Dijeda sistem ${when} app ke background, dilanjutkan otomatis: ditolak (${error instanceof Error ? error.name : 'unknown'}) · ${title}`),
+      );
+  }
+
+  /** Android: see EARLY_HANDOFF_SEC. Reports the track as ended while it still sounds, once the next one is ready to go. */
+  private handOffEarly(element: HTMLAudioElement): void {
+    const song = this.currentSong;
+    if (!song || !this.elements) return;
+    const end = Math.min(song.duration > 0 ? song.duration : Infinity, Number.isFinite(element.duration) && element.duration > 0 ? element.duration : Infinity);
+    if (!Number.isFinite(end)) return;
+    if (element.currentTime < end - EARLY_HANDOFF_SEC - 1) {
+      if (this.handedOff === element) this.handedOff = null; // played again or sought back: may hand over again
+      return;
+    }
+    if (this.handedOff === element || this.snapshot.status !== 'playing' || element.currentTime < end - EARLY_HANDOFF_SEC) return;
+    // Only with the next track already sitting ready in the spare element: otherwise the swap would wait on the
+    // network anyway, and cutting the old track short would just move the silence earlier.
+    const spare = this.elements[this.activeIndex === 0 ? 1 : 0];
+    if (!this.preloaded || !spare.src || spare.error || (spare.readyState < HAVE_FUTURE_DATA && !spare.src.startsWith('blob:'))) return;
+    this.handedOff = element;
+    this.updateSnapshot({ status: 'ended' });
   }
 
   /**
@@ -289,8 +369,21 @@ class AudioEngine {
       this.updateSnapshot({ status: 'playing', error: null });
     });
     element.addEventListener('pause', () => {
+      const ownPause = this.ownPauses.delete(element);
       if (!isActive()) return;
+      const wasPlaying = this.snapshot.status === 'playing';
       if (this.snapshot.status !== 'ended') this.updateSnapshot({ status: 'paused' });
+      if (isAndroid && !ownPause && wasPlaying && !element.ended) {
+        this.systemPause = { element, at: Date.now() };
+        this.resumeAfterSystemPause();
+        // Still pending while hidden: long after leaving the app, so left paused (a call, an unplug), but worth knowing.
+        if (this.systemPause && isPageHidden()) {
+          reportPlayback('system_pause', `Dijeda sistem ${Math.round((Date.now() - this.hiddenAt) / 1000)} dtk setelah app ke background, dibiarkan · ${this.currentSong?.name ?? ''}`);
+        }
+      }
+    });
+    element.addEventListener('timeupdate', () => {
+      if (isAndroid && isActive()) this.handOffEarly(element);
     });
     element.addEventListener('ended', () => {
       if (!isActive()) return;
@@ -382,7 +475,7 @@ class AudioEngine {
       // this call was only to register user-activation on the element, not to
       // actually play anything.
     }
-    inactiveElement.pause();
+    this.pauseElement(inactiveElement);
     inactiveElement.currentTime = 0;
   }
 
@@ -454,7 +547,7 @@ class AudioEngine {
       this.preloadedUrl = null;
       this.preloaded = null;
       // We swapped elements. Stop the old one.
-      elements[oldActiveIndex].pause();
+      this.pauseElement(elements[oldActiveIndex]);
       const oldSrc = elements[oldActiveIndex].src;
       elements[oldActiveIndex].removeAttribute('src');
       elements[oldActiveIndex].load();
@@ -469,8 +562,12 @@ class AudioEngine {
         newElement.volume = this.volume;
       }
 
-      if (options.autoplay !== false) startWhileHidden(newElement);
-      await this.waitWithBlobFallback(newElement, networkUrl, requestId);
+      const stopStarting = options.autoplay !== false ? startWhileHidden(newElement, () => requestId === this.playRequestId) : () => {};
+      try {
+        await this.waitWithBlobFallback(newElement, networkUrl, requestId);
+      } finally {
+        stopStarting();
+      }
       if (requestId !== this.playRequestId) return;
       this.updateSnapshot({ duration: song.duration || newElement.duration });
       
@@ -561,10 +658,15 @@ class AudioEngine {
 
     const oldSrc = element.src;
     if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
-    await this.loadElementWithFallback(element, url, networkUrl, requestId);
+    // Passing wasPlaying lets a reload in the background start the element straight away (startWhileHidden); without
+    // it the reloaded element sat paused, parked by the browser, until the timeout, and the music just stopped. The
+    // #t= fragment makes that early start begin at the old spot instead of replaying the song's opening. Never on a
+    // blob: URL, whose revokeObjectURL() later must see the exact URL it was created as.
+    const startAt = resumeAt > 1 && !url.startsWith('blob:') ? `#t=${resumeAt.toFixed(1)}` : '';
+    await this.loadElementWithFallback(element, url + startAt, networkUrl, requestId, wasPlaying);
     if (requestId !== this.playRequestId) return; // superseded by a real track change meanwhile
 
-    element.currentTime = resumeAt;
+    if (element.currentTime < resumeAt - 1) element.currentTime = resumeAt;
     if (wasPlaying) {
       await element.play();
       if (requestId !== this.playRequestId) return;
@@ -609,7 +711,7 @@ class AudioEngine {
     // is already stopped, or the page is hidden — timers are throttled in the
     // background, and a lock-screen pause has to take effect at once.
     if (!gain || !context || element.paused || (typeof document !== 'undefined' && document.hidden)) {
-      element.pause();
+      this.pauseElement(element);
       return;
     }
     scheduleFadeOut(gain, context, PAUSE_FADE_SEC);
@@ -617,7 +719,7 @@ class AudioEngine {
     this.updateSnapshot({ status: 'paused' });
     this.pauseTimeoutId = setTimeout(() => {
       this.pauseTimeoutId = null;
-      element.pause();
+      this.pauseElement(element);
     }, PAUSE_FADE_SEC * 1000 + 10);
   }
 
@@ -806,8 +908,12 @@ class AudioEngine {
   private async loadElementWithFallback(element: HTMLAudioElement, url: string, networkUrl: string, requestId: number, autoplay = false): Promise<void> {
     element.src = url;
     element.load();
-    if (autoplay) startWhileHidden(element);
-    await this.waitWithBlobFallback(element, networkUrl, requestId);
+    const stopStarting = autoplay ? startWhileHidden(element, () => requestId === this.playRequestId) : () => {};
+    try {
+      await this.waitWithBlobFallback(element, networkUrl, requestId);
+    } finally {
+      stopStarting();
+    }
   }
 
   private cancelPendingCrossfade(): void {
@@ -830,7 +936,7 @@ class AudioEngine {
     if (this.elements) {
       const inactiveIndex = this.activeIndex === 0 ? 1 : 0;
       const inactiveElement = this.elements[inactiveIndex];
-      inactiveElement.pause();
+      this.pauseElement(inactiveElement);
       const oldSrc = inactiveElement.src;
       inactiveElement.removeAttribute('src');
       inactiveElement.load();
@@ -926,7 +1032,7 @@ class AudioEngine {
         // Superseded the instant play() resolved — undo before it's audible, and
         // don't touch activeIndex/gain/fade scheduling, all of which the winning
         // request now owns.
-        incomingElement.pause();
+        this.pauseElement(incomingElement);
         return;
       }
     } catch {
@@ -938,7 +1044,7 @@ class AudioEngine {
       // playing at full volume underneath whatever loadTrack() below starts next, the
       // exact "dua lagu kedengeran bareng pas skip" overlap bug.
       if (outgoingGain && context) setGainImmediate(outgoingGain, context, 0);
-      elements[outgoingIndex].pause();
+      this.pauseElement(elements[outgoingIndex]);
       this.activeIndex = incomingIndex;
       this.currentSong = song;
       await this.loadTrack(song, { dataSaver, autoplay: true, fadeInSec: 0.3 });
@@ -962,7 +1068,7 @@ class AudioEngine {
       // Only clear if the element hasn't been repurposed for a new preload
       if (!this.preloadedUrl || !outgoingElement.src.endsWith(this.preloadedUrl)) {
         const oldSrc = outgoingElement.src;
-        outgoingElement.pause();
+        this.pauseElement(outgoingElement);
         outgoingElement.removeAttribute('src');
         outgoingElement.load();
         if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);

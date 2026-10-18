@@ -516,10 +516,12 @@ export function usePlaybackController() {
   //  - iOS: blob: playback is unreliable there (see AudioCache), so the spare element
   //    natively preloads the next track over the network and only the tracks after it
   //    get the cheap resolve-only warm-up.
-  //  - Android: the same native preload as iOS. The blob route waits for a whole-file fetch(), and with the screen off
-  //    or another app in front the phone throttles exactly that kind of page request (Doze, Samsung's sleeping apps):
-  //    the spare element was then never pointed at the next song, and after a few songs one never got going. The
-  //    browser's own media loader keeps working there. One download instead of two, too.
+  //  - Android in the background: the same native preload as iOS. The blob route waits for a whole-file fetch(), and
+  //    with the screen off or another app in front the phone throttles exactly that kind of page request (Doze,
+  //    Samsung's sleeping apps): the spare element was then never pointed at the next song, and after a few songs one
+  //    never got going. The browser's own media loader keeps working there. In front, Android keeps the blob route: a
+  //    tap on next then starts with zero network, which a native preload (only partly buffered, then parked by the
+  //    browser) can't match. Going to the background before the blob is ready starts the native preload on the spot.
   // The *current* track is never prefetched: its own <audio> element is already
   // downloading it, and a second full download of the same file just doubled the load.
   const isPlaying = engineState.status === 'playing';
@@ -528,6 +530,7 @@ export function usePlaybackController() {
   }, [currentSong?.id]);
   useEffect(() => {
     if (!currentSong || !isPlaying) return;
+    let stopWatchingHidden = () => {};
     const timeoutId = setTimeout(() => {
       const preferLow = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
       const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id);
@@ -536,18 +539,33 @@ export function usePlaybackController() {
 
       // Only the next track is downloaded whole — a second full file costs the phone data and battery for a track
       // that may never play; the ones after it just get their resolve warmed (cheap, server-side).
-      AudioCache.prefetchTracks(isAndroid ? [] : [nextUp.id], preferLow);
+      const nativeOnly = isAndroid && document.visibilityState === 'hidden';
+      AudioCache.prefetchTracks(nativeOnly ? [] : [nextUp.id], preferLow);
       for (const song of later) prefetchAudioResolveOnly(song.id, preferLow ? 'low' : 'high');
-      if (AudioCache.isSupported && !isAndroid) {
+      if (AudioCache.isSupported && !nativeOnly) {
         // The blob download below waits its turn in a one-at-a-time queue; warming the resolve right away means the
         // track is at worst a network-URL start (cache hit on the backend), never a cold yt-dlp run.
         prefetchAudioResolveOnly(nextUp.id, preferLow ? 'low' : 'high');
-        void AudioCache.prefetchAndCache(nextUp.id, preferLow).then(() => audioEngine.preloadNextTrack(nextUp, preferLow));
+        let blobReady = false;
+        void AudioCache.prefetchAndCache(nextUp.id, preferLow).then(() => {
+          blobReady = true;
+          return audioEngine.preloadNextTrack(nextUp, preferLow);
+        });
+        if (isAndroid) {
+          const onHidden = () => {
+            if (document.visibilityState === 'hidden' && !blobReady) void audioEngine.preloadNextTrack(nextUp, preferLow);
+          };
+          document.addEventListener('visibilitychange', onHidden);
+          stopWatchingHidden = () => document.removeEventListener('visibilitychange', onHidden);
+        }
       } else {
         void audioEngine.preloadNextTrack(nextUp, preferLow);
       }
     }, PREFETCH_SETTLE_MS);
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      stopWatchingHidden();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.id, isPlaying, order, position, repeatMode, dataSaver]);
 

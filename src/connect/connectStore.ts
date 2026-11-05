@@ -10,6 +10,8 @@ export interface RemoteState {
   /** Set while that device is itself a remote for another one. */
   followingRef?: string | null;
   inJam?: boolean;
+  /** See AudioEngine.markPlayIntent: how long ago this device was last asked to play. */
+  playIntentAgeMs?: number | null;
 }
 
 export interface RemoteDevice {

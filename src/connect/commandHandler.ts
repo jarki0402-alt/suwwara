@@ -7,6 +7,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { sendCommand } from './connectClient';
 import { applyResumePoint, holdNextLoad, setResumePoint } from './sessionHold';
 import { suppressFollow } from './sessionSync';
+import { reportPlayback } from '../diagnostics/playbackReports';
 
 export interface RemoteCommand {
   from: string;
@@ -45,7 +46,10 @@ export function handleRemoteCommand({ from, type, payload }: RemoteCommand): voi
       break;
     case 'pause':
       audioEngine.pause();
-      if (data.reason === 'takeover') toast(`Dijeda, sekarang memutar di ${deviceName(from)}.`);
+      if (data.reason === 'takeover') {
+        toast(`Dijeda, sekarang memutar di ${deviceName(from)}.`);
+        if (document.visibilityState === 'hidden') reportPlayback('takeover_pause', `Dijeda karena ${deviceName(from)} mulai memutar, saat app di background · ${audioEngine.getCurrentSong()?.name ?? ''}`);
+      }
       break;
     case 'toggle':
       audioEngine.togglePlay();
@@ -95,6 +99,8 @@ function promptToResume(): void {
 function applyTransfer({ snapshot, positionSec = 0, isPlaying = true }: { snapshot?: QueueSnapshot; positionSec?: number; isPlaying?: boolean }): void {
   if (!snapshot || snapshot.queue.length === 0) return;
   const wantedId = snapshot.queue[snapshot.order[snapshot.position]]?.id;
+  // Asked to play here by a person on the other device: the newest ask, so no stale report can take it back over.
+  audioEngine.markPlayIntent();
   // This device plays the session now — it stops being a remote, whatever it was following.
   suppressFollow();
   useConnectStore.getState().control(null);

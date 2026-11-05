@@ -25,7 +25,22 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
-## Perubahan terbaru · 2026-10-17 (Android: musik tetap jalan di background, lanjutan)
+## Perubahan terbaru · 2026-11-05 (Android/tablet: musik tidak lagi berhenti diam-diam setelah beberapa lagu)
+
+Laporan: HP Android berhenti saat app ditinggal; tablet dengan layar mati berhenti setelah sekitar 5 lagu. Analisis kode menemukan penyebab di luar mesin audio, di sesi Connect "satu sesi per akun".
+
+- **Bug 1, perangkat yang sedang memutar berubah jadi remote** (`connect/sessionSync.ts`): `engineBusy()` hanya menghitung `playing`/`loading`. Di setiap pergantian lagu status sempat `ended` (Android sengaja melaporkannya 0,3 dtk lebih awal), lalu aturan follow menganggap perangkat diam dan menjadikannya remote dari perangkat lain yang laporannya basi (mis. HP yang dibekukan Android saat masih memutar). Lagu berikutnya lalu ditahan (`deferStart`), bukan dimuat: musik berhenti tanpa error. Sekarang `ended` dihitung sibuk selama 15 dtk (`BETWEEN_SONGS_GRACE_MS`).
+- **Bug 2, takeover dari laporan basi** (`server/src/connect/connectHub.ts`): server mem-pause perangkat lain setiap ada perangkat yang berubah ke `isPlaying` (termasuk `loading`, retry background, stream yang tersambung ulang). Sekarang **permintaan play terbaru yang menang**: klien mengirim `playIntentAgeMs` (umur, jadi jam perangkat tidak perlu sama), dicatat saat ketuk lagu (`unlock()`), `play()`, dan transfer; lagu berikutnya otomatis dan retry tidak dihitung. Perangkat dengan permintaan lebih lama yang melapor "playing" justru dia yang di-pause. Build lama tanpa field ini tetap dengan perilaku lama.
+- **Bug 3, hold bocor** (`usePlaybackController.ts`): `consumeHold()` terlewati saat perangkat sedang remote, lalu menahan lagu yang sama jauh kemudian. Sekarang selalu dikonsumsi.
+- **Bug 4, ketuk lagu yang sedang tampil tidak berbuat apa-apa** (`playSongList.ts`, `playSongRadio.ts`): lagu terakhir sesi akun tampil paused saat app dibuka; mengetuk lagu yang sama di daftar tidak memicu load karena id tidak berubah. Sekarang langsung diputar (solo saja, bukan Jam/remote).
+- **Android background: buffer lagu berikutnya dipanaskan** (`AudioEngine.warmSpareWhileHidden`): Chrome menahan preload elemen yang tidak diputar, jadi handover awal tidak pernah terjadi dan ada jeda senyap saat ganti lagu (momen ponsel paling mungkin membekukan halaman). 20 dtk sebelum lagu habis, elemen cadangan diputar sebentar dalam keadaan muted, lalu kembali ke 0:00. Sekali per lagu, hanya Android + halaman tersembunyi.
+- **Android: lagu lama dibiarkan selesai sampai lagu baru benar-benar bunyi** saat handover awal (sebelumnya di-pause duluan). iOS/desktop tidak berubah.
+- **Resolve lagu berikutnya selalu dipanaskan di background Android** (sebelumnya hanya lagu sesudahnya), jadi pergantian lagu tidak menunggu yt-dlp dingin.
+- **Update PWA**: kembali ke app setelah 30 menit lebih dan tidak sedang memutar, versi yang menunggu langsung dipasang (sebelumnya hanya saat tidak ada lagu termuat, yang hampir tidak pernah terjadi, jadi HP bisa tertinggal versi lama).
+- **Laporan baru di tab Pemutaran**: `became_remote`, `session_hold`, `takeover_pause` (hanya saat app di background), untuk membuktikan di perangkat asli.
+- **Diverifikasi**: build, lint, 188/188 test (baru: 3 test takeover di `connectHub.test.ts`), Docker. Playwright UA Pixel 7 dengan halaman "hidden": 3 pergantian lagu berturut-turut, jeda senyap 0 ms, tanpa laporan palsu; dengan preload "ditahan" (readyState 1 sampai diputar): pemanasan muted terjadi sekali per lagu, kembali ke 0:00 tanpa mute tersisa, jeda tetap 0 ms. Mode depan Pixel 7 dan desktop: ketuk lagu, next, jeda, putar, dan ketuk lagu yang sedang ditahan semuanya bunyi. Perilaku Doze/Samsung asli tetap perlu dicek di perangkat.
+
+## Perubahan · 2026-10-17 (Android: musik tetap jalan di background, lanjutan)
 
 Setelah fix 2026-10-16 ter-deploy (diperiksa: VPS di `1ccfd1a`, `version.json` 06:59 UTC, HP memakai versi itu), laporan masih sama: Galaxy A15 berhenti saat itu juga begitu ditekan Home; tablet Samsung tetap jalan saat keluar app, tapi dengan layar mati berhenti setelah sekitar 5 lagu. Pengguna adalah pelanggan, jadi tidak bisa dimintai log.
 

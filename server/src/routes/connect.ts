@@ -40,6 +40,8 @@ function toState(body: unknown): DeviceState | null {
     canSetVolume: b.canSetVolume !== false,
     followingRef: typeof b.followingRef === 'string' ? b.followingRef.slice(0, 40) : null,
     inJam: b.inJam === true,
+    // Capped at 30 days: older than that is "long ago" all the same, and a huge number can't skew the comparison.
+    playIntentAgeMs: typeof b.playIntentAgeMs === 'number' && Number.isFinite(b.playIntentAgeMs) ? Math.min(Math.max(0, b.playIntentAgeMs), 30 * 86_400_000) : null,
   };
 }
 

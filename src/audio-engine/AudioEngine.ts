@@ -41,6 +41,10 @@ const EARLY_HANDOFF_SEC = 0.3;
 // stopping the music as the user left the app (seen on a Galaxy phone: Home, and the song stopped at once). Asked to
 // play again once. Narrow on purpose: a headphone unplug or a call minutes later must stay paused.
 const SYSTEM_PAUSE_WINDOW_MS = 2000;
+// Android, page hidden: how long before the end the spare element is nudged into actually buffering the next track (see
+// warmSpareWhileHidden). Long enough for a slow resolve on the 1-vCPU server, short enough not to fetch a song early
+// that a skip would throw away.
+const WARM_SPARE_BEFORE_END_SEC = 20;
 
 // Deliberately longer than the backend's own worst case (a 25s yt-dlp resolve timeout,
 // see server/src/youtube/stream.ts): giving up on the client before the server does
@@ -194,6 +198,10 @@ class AudioEngine {
   private systemPause: { element: HTMLMediaElement; at: number } | null = null;
   /** Android: the element that already handed over to the next track early (EARLY_HANDOFF_SEC), so it does so once. */
   private handedOff: HTMLMediaElement | null = null;
+  /** Android: the spare src already nudged by warmSpareWhileHidden, so each preload is nudged once. */
+  private warmedSpareSrc = '';
+  /** When someone last asked this device to play (a tap on a song, play, a transfer); 0 = never. See markPlayIntent. */
+  private playIntentAt = 0;
 
   static getInstance(): AudioEngine {
     if (!AudioEngine.instance) AudioEngine.instance = new AudioEngine();
@@ -294,6 +302,38 @@ class AudioEngine {
       );
   }
 
+  /**
+   * Android, page hidden. Chrome parks a preloaded element that isn't playing, so the next track sat half-loaded and the
+   * early handover below (which needs it ready) never happened: the old song ran out, the new one only then started
+   * loading, and in that silence the phone could freeze the page for good ("a few songs, then it stops"). Playing the
+   * spare for a moment, muted, makes Chrome treat it as wanted and fill its buffer; it then goes back to 0:00, paused.
+   * Muted, so nothing is ever heard; a muted play() needs no tap.
+   */
+  private warmSpareWhileHidden(element: HTMLAudioElement): void {
+    if (!this.elements || !this.preloaded || !isPageHidden() || this.snapshot.status !== 'playing') return;
+    const spare = this.elements[this.activeIndex === 0 ? 1 : 0];
+    if (!spare.src || spare.src === this.warmedSpareSrc || spare.src.startsWith('blob:') || spare.error || !spare.paused) return;
+    if (spare.readyState >= HAVE_FUTURE_DATA) return;
+    const end = Number.isFinite(element.duration) && element.duration > 0 ? element.duration : (this.currentSong?.duration ?? 0);
+    const remaining = end - element.currentTime;
+    if (!(end > 0) || remaining > WARM_SPARE_BEFORE_END_SEC || remaining < 1) return;
+    this.warmedSpareSrc = spare.src;
+    spare.muted = true;
+    spare
+      .play()
+      .then(() => {
+        // Already handed over meanwhile: it is the current song now, so it just keeps playing, audibly.
+        if (this.elements?.[this.activeIndex] !== spare) {
+          this.pauseElement(spare);
+          spare.currentTime = 0;
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        spare.muted = false;
+      });
+  }
+
   /** Android: see EARLY_HANDOFF_SEC. Reports the track as ended while it still sounds, once the next one is ready to go. */
   private handOffEarly(element: HTMLAudioElement): void {
     const song = this.currentSong;
@@ -383,7 +423,10 @@ class AudioEngine {
       }
     });
     element.addEventListener('timeupdate', () => {
-      if (isAndroid && isActive()) this.handOffEarly(element);
+      if (isAndroid && isActive()) {
+        this.warmSpareWhileHidden(element);
+        this.handOffEarly(element);
+      }
     });
     element.addEventListener('ended', () => {
       if (!isActive()) return;
@@ -461,6 +504,7 @@ class AudioEngine {
    * pick (see playSongRadio/playSongList).
    */
   async unlock(): Promise<void> {
+    this.markPlayIntent();
     const { context, elements } = this.ensureGraph();
     if (context && context.state === 'suspended') {
       await context.resume();
@@ -477,6 +521,20 @@ class AudioEngine {
     }
     this.pauseElement(inactiveElement);
     inactiveElement.currentTime = 0;
+  }
+
+  /**
+   * Someone asked THIS device to play (unlock() on every song tap, play(), a transfer from another device). Reported to
+   * the account's other devices as an age (see ConnectBridge), so the server can tell a new start from a phone that
+   * merely woke up still "playing" from long ago. Automatic starts (the next song, a retry) deliberately don't count.
+   */
+  markPlayIntent(): void {
+    this.playIntentAt = Date.now();
+  }
+
+  /** Milliseconds since markPlayIntent(), or null if nobody ever asked this device to play. */
+  getPlayIntentAgeMs(): number | null {
+    return this.playIntentAt > 0 ? Math.max(0, Date.now() - this.playIntentAt) : null;
   }
 
   /** See `deferredStart`. */
@@ -546,14 +604,24 @@ class AudioEngine {
       this.activeIndex = inactiveIndex;
       this.preloadedUrl = null;
       this.preloaded = null;
-      // We swapped elements. Stop the old one.
-      this.pauseElement(elements[oldActiveIndex]);
-      const oldSrc = elements[oldActiveIndex].src;
-      elements[oldActiveIndex].removeAttribute('src');
-      elements[oldActiveIndex].load();
-      if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
+      const oldElement = elements[oldActiveIndex];
+      let oldReleased = false;
+      const releaseOld = () => {
+        if (oldReleased) return;
+        oldReleased = true;
+        this.pauseElement(oldElement);
+        const oldSrc = oldElement.src;
+        oldElement.removeAttribute('src');
+        oldElement.load();
+        if (oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
+      };
+      // Android, early handover (EARLY_HANDOFF_SEC): the old track is still sounding its last fraction of a second. It is
+      // let finish until the new one is actually playing, so the page is never silent in between, the moment a phone
+      // in the background is most likely to freeze it. Elsewhere the old one stops at once, as before.
+      if (!(isAndroid && !oldElement.paused && !oldElement.ended)) releaseOld();
       // Use the newly active one
       const newElement = elements[this.activeIndex];
+      newElement.muted = false; // in case a warm-up (warmSpareWhileHidden) was still under way
       const newGain = gains[this.activeIndex];
       beginTrace(song, dataSaver ? 'low' : 'high', newElement, true);
       if (newGain && context) {
@@ -562,27 +630,31 @@ class AudioEngine {
         newElement.volume = this.volume;
       }
 
-      const stopStarting = options.autoplay !== false ? startWhileHidden(newElement, () => requestId === this.playRequestId) : () => {};
       try {
-        await this.waitWithBlobFallback(newElement, networkUrl, requestId);
-      } finally {
-        stopStarting();
-      }
-      if (requestId !== this.playRequestId) return;
-      this.updateSnapshot({ duration: song.duration || newElement.duration });
-      
-      if (options.autoplay !== false) {
-        await this.playWhenReady(newElement, requestId);
-        if (requestId !== this.playRequestId) return;
-        if (options.fadeInSec && newGain && context) {
-          scheduleFadeIn(newGain, context, this.volume, options.fadeInSec);
-        } else if (newGain && context) {
-          setGainImmediate(newGain, context, this.volume);
-        } else {
-          newElement.volume = this.volume;
+        const stopStarting = options.autoplay !== false ? startWhileHidden(newElement, () => requestId === this.playRequestId) : () => {};
+        try {
+          await this.waitWithBlobFallback(newElement, networkUrl, requestId);
+        } finally {
+          stopStarting();
         }
-      } else {
-        this.updateSnapshot({ status: 'paused' });
+        if (requestId !== this.playRequestId) return;
+        this.updateSnapshot({ duration: song.duration || newElement.duration });
+
+        if (options.autoplay !== false) {
+          await this.playWhenReady(newElement, requestId);
+          if (requestId !== this.playRequestId) return;
+          if (options.fadeInSec && newGain && context) {
+            scheduleFadeIn(newGain, context, this.volume, options.fadeInSec);
+          } else if (newGain && context) {
+            setGainImmediate(newGain, context, this.volume);
+          } else {
+            newElement.volume = this.volume;
+          }
+        } else {
+          this.updateSnapshot({ status: 'paused' });
+        }
+      } finally {
+        releaseOld();
       }
       return;
     }
@@ -679,6 +751,7 @@ class AudioEngine {
   }
 
   async play(): Promise<void> {
+    this.markPlayIntent();
     if (this.deferredStart) {
       const start = this.deferredStart;
       this.deferredStart = null;

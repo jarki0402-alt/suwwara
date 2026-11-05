@@ -243,13 +243,20 @@ export function usePlaybackController() {
     // The same applies to a song the account's session moved to on ANOTHER device (this one is its remote, or was told
     // about it while idle — connect/sessionHold.ts): shown here, sounding there.
     const solo = useJamStore.getState().role === 'solo';
-    const heldForSession = solo && !isFirstRun && (useConnectStore.getState().controllingRef !== null || consumeHold(currentSong.id));
+    // Consumed whatever decides the hold below: left behind (it used to be skipped while this device was a remote), it
+    // held the same song again much later, when the queue came round to it here.
+    const putOnHold = solo && !isFirstRun && consumeHold(currentSong.id);
+    const heldForSession = solo && !isFirstRun && (useConnectStore.getState().controllingRef !== null || putOnHold);
     if (solo && (isFirstRun || heldForSession)) {
       const restored = currentSong;
       if (heldForSession) {
         // Whatever this device still had going is no longer the session's song. Forgotten, too, so that coming back
         // to it later loads it afresh at the right spot instead of being mistaken for "already loaded".
         const status = audioEngine.getSnapshot().status;
+        // Never meant to happen to the device that is playing; worth knowing about when it does where nobody sees it.
+        if (document.visibilityState === 'hidden' && status !== 'idle' && status !== 'paused') {
+          reportPlayback('session_hold', `Lagu berikutnya ditahan sesi akun saat app di background (status ${status}) · ${currentSong.name}`);
+        }
         if (status === 'playing' || status === 'loading') {
           audioEngine.cancelPendingTransition();
           audioEngine.pause();
@@ -542,6 +549,9 @@ export function usePlaybackController() {
       const nativeOnly = isAndroid && document.visibilityState === 'hidden';
       AudioCache.prefetchTracks(nativeOnly ? [] : [nextUp.id], preferLow);
       for (const song of later) prefetchAudioResolveOnly(song.id, preferLow ? 'low' : 'high');
+      // The native preload below only resolves the track once Chrome actually lets the element load, which it often
+      // doesn't in the background: warmed here, the change of song never waits on a cold yt-dlp run.
+      if (nativeOnly) prefetchAudioResolveOnly(nextUp.id, preferLow ? 'low' : 'high');
       if (AudioCache.isSupported && !nativeOnly) {
         // The blob download below waits its turn in a one-at-a-time queue; warming the resolve right away means the
         // track is at worst a network-URL start (cache hit on the backend), never a cold yt-dlp run.

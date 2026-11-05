@@ -25,6 +25,14 @@ export interface DeviceState {
   followingRef: string | null;
   /** In a Jam, the device is out of the account's session; the others show that instead of offering to move playback there. */
   inJam: boolean;
+  /**
+   * How long ago (ms, on the device's own clock) someone last asked THIS device to play: a tap on a song, play, a
+   * transfer. Null from a device that never did, absent from an older build. Sent as an age, not a time, so the
+   * devices' clocks never have to agree.
+   */
+  playIntentAgeMs?: number | null;
+  /** Server clock: when that ask happened (filled in here, never trusted from the client). */
+  startedAt?: number;
 }
 
 interface Connection {
@@ -92,20 +100,47 @@ export function connectDevice(accountId: string, ref: string, name: string, kind
   };
 }
 
-/** Records what a device is playing. One device plays at a time (as in Spotify): when this one
- * starts, every other device that was playing is told to pause. */
+// Two reports of the same ask land a little apart (each age is measured when its request leaves); anything closer than
+// this is the same ask, not a new one.
+const SAME_INTENT_MS = 2000;
+
+/**
+ * Records what a device is playing. One device plays at a time (as in Spotify), and the device asked to play most
+ * recently is the one that keeps playing: every other playing device that was asked earlier is told to pause.
+ *
+ * Decided by when the ask happened, not by who reported "playing" last. A phone frozen by Android while it played wakes
+ * up minutes later (Doze, a reconnecting stream, a background retry still "loading") and reports playing again: judged
+ * by the report alone that looked like a new start, and the tablet the person was actually listening to got paused.
+ * Its ask is the old one, so now it is that phone that gets told to stop.
+ */
 export function updateDeviceState(accountId: string, ref: string, state: DeviceState): boolean {
   const hub = hubs.get(accountId);
   const connection = hub?.get(ref);
   if (!hub || !connection) return false;
 
-  const startedPlaying = state.isPlaying && !connection.state?.isPlaying;
+  const previous = connection.state;
+  if (state.isPlaying) {
+    const now = Date.now();
+    const asked = typeof state.playIntentAgeMs === 'number' ? now - state.playIntentAgeMs : null;
+    const sameAsk = previous?.isPlaying === true && previous.startedAt !== undefined && (asked === null || Math.abs(asked - previous.startedAt) <= SAME_INTENT_MS);
+    // An older build sends no age: its start counts from the moment it began reporting playing, as before.
+    state.startedAt = sameAsk ? previous.startedAt : (asked ?? now);
+  }
   connection.state = state;
-  if (startedPlaying) {
+
+  if (state.isPlaying && !state.inJam && state.startedAt !== undefined) {
+    const mine = state.startedAt;
     for (const other of hub.values()) {
-      if (other.ref === ref || !other.state?.isPlaying) continue;
-      other.state = { ...other.state, isPlaying: false };
-      write(other, 'command', { from: ref, type: 'pause', payload: { reason: 'takeover' } });
+      if (other.ref === ref || !other.state?.isPlaying || other.state.inJam) continue;
+      if ((other.state.startedAt ?? 0) <= mine) {
+        other.state = { ...other.state, isPlaying: false };
+        write(other, 'command', { from: ref, type: 'pause', payload: { reason: 'takeover' } });
+      } else {
+        // Someone was asked to play after this device: this one is the stale report.
+        connection.state = { ...state, isPlaying: false };
+        write(connection, 'command', { from: other.ref, type: 'pause', payload: { reason: 'takeover' } });
+        break;
+      }
     }
   }
   broadcastDevices(accountId);

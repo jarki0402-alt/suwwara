@@ -11,6 +11,8 @@ type ShowToastFn = (message: string, options?: { action?: ToastAction }) => void
 
 // How often a long-lived session re-checks for a new version, on top of every resume.
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+// Away this long with nothing playing, coming back to the app may take a waiting update on the spot (see the resume check).
+const RESUME_APPLY_AFTER_MS = 30 * 60 * 1000;
 
 let registration: ServiceWorkerRegistration | null = null;
 let applyWaitingUpdate: ((reload?: boolean) => Promise<void>) | null = null;
@@ -200,8 +202,25 @@ export function initServiceWorker(showToast: ShowToastFn): void {
           if (newer && useUpdateStore.getState().status !== 'checking') useUpdateStore.getState().set('available');
         });
       };
+      let hiddenAt = 0;
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') check();
+        if (document.visibilityState === 'hidden') {
+          hiddenAt = Date.now();
+          return;
+        }
+        // A phone keeps the installed app alive for days and the last song is always shown, so "nothing loaded" (the
+        // only time an update applied by itself) almost never happened: phones ran builds weeks old, without the
+        // playback fixes. Coming back after a long while with nothing playing is a fresh start to the person anyway
+        // (like a native app relaunched by the system), so a waiting version is taken then. Never while music plays or
+        // loads, and canAutoApply still caps it to one try per window.
+        const awayLong = hiddenAt > 0 && Date.now() - hiddenAt >= RESUME_APPLY_AFTER_MS;
+        hiddenAt = 0;
+        const { isPlaying, isBuffering } = usePlayerStore.getState();
+        if (awayLong && !isPlaying && !isBuffering && useUpdateStore.getState().status === 'available' && swRegistration.waiting && canAutoApply()) {
+          applyUpdate(true);
+          return;
+        }
+        check();
       });
       setInterval(check, UPDATE_CHECK_INTERVAL_MS);
     },

@@ -6,6 +6,7 @@ import { useJamStore } from '../stores/jamStore';
 import { useQueueStore, type RepeatMode } from '../stores/queueStore';
 import { projectedPosition, useConnectStore, type RemoteDevice } from './connectStore';
 import { holdNextLoad, peekResumePoint, setResumePoint } from './sessionHold';
+import { reportPlayback } from '../diagnostics/playbackReports';
 
 /**
  * One playback session per account (Spotify Connect). The running queue lives on the server; every device mirrors it
@@ -34,6 +35,11 @@ const FOLLOW_GRACE_MS = 3_000;
 // A remote whose mirror shows a different song than the device it follows reports, for longer than a report takes to
 // land, missed an update (a dropped stream): fetch the session again.
 const MISMATCH_REFRESH_MS = 1_500;
+// A song that just ended is the moment the next one starts (Android reports 'ended' on purpose a beat early). For that
+// moment the device still counts as playing: judged idle there, it became a remote of whatever another device last
+// reported, and the next song was then held instead of loaded, so the music stopped silently a few songs in. Past this
+// the queue really has run out and the device is idle like any other.
+const BETWEEN_SONGS_GRACE_MS = 15_000;
 
 export interface SessionPayload {
   from?: string;
@@ -70,9 +76,11 @@ let lastFollowed: RemoteDevice | null = null;
 
 const authHeaders = () => ({ Authorization: `Bearer ${getDeviceId()}` });
 const isSolo = () => useJamStore.getState().role === 'solo';
+let endedAt = 0;
 const engineBusy = () => {
   const status = audioEngine.getSnapshot().status;
-  return status === 'playing' || status === 'loading';
+  if (status === 'playing' || status === 'loading') return true;
+  return status === 'ended' && Date.now() - endedAt < BETWEEN_SONGS_GRACE_MS;
 };
 const newRev = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
@@ -128,6 +136,7 @@ export function startSessionSync(): () => void {
       // Starting to play makes this device the one the session plays on — say so, even when the queue itself is the
       // one restored from last time (nothing else would publish it, and the other devices would have nothing to show).
       if (state.status === 'playing' && previousStatus !== 'playing' && isSolo() && !useConnectStore.getState().controllingRef) schedulePublish();
+      if (state.status === 'ended' && previousStatus !== 'ended') endedAt = Date.now();
       previousStatus = state.status;
       if (state.status === 'playing') {
         positionTimer ??= setInterval(() => savePosition(false), POSITION_SAVE_MS);
@@ -354,6 +363,9 @@ export function evaluateFollow(): void {
     }
     const playingElsewhere = devices.find((device) => device.ref !== youRef && device.state?.isPlaying && !device.state.followingRef && !device.state.inJam);
     if (playingElsewhere && playingElsewhere.ref !== controllingRef) {
+      if (document.visibilityState === 'hidden' && audioEngine.getCurrentSong()) {
+        reportPlayback('became_remote', `Jadi remote untuk ${playingElsewhere.name} saat app di background (status ${audioEngine.getSnapshot().status}) · ${audioEngine.getCurrentSong()?.name ?? ''}`);
+      }
       control(playingElsewhere.ref);
       return;
     }

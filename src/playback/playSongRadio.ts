@@ -4,6 +4,7 @@ import { audioEngine } from '../audio-engine/AudioEngine';
 import { addToQueue, canAutoExtendQueue, setQueue } from '../jam/jamQueueActions';
 import { loadHistory, recentlyPlayedIds } from '../recommendation/historyLog';
 import { useQueueStore } from '../stores/queueStore';
+import { isCurrentSong, startIfUnchanged } from './playSongList';
 
 const PRIMARY_LOOKUP = 25;
 const TOPUP_LOOKUP = 20;
@@ -125,7 +126,9 @@ export async function extendQueueWithRadio(seedSong: Song, guard?: () => boolean
  */
 export function playSongRadio(song: Song): void {
   void audioEngine.unlock();
+  const wasCurrent = isCurrentSong(song.id);
   setQueue([song], 0);
+  startIfUnchanged(wasCurrent);
 
   // The user may have already moved on (clicked something else) while this was
   // loading — don't append stale suggestions onto an unrelated queue.

@@ -63,6 +63,44 @@ describe('connectHub', () => {
     expect(commandsIn(phone.writes)).toHaveLength(1);
   });
 
+  it('keeps the device asked to play most recently when a stale one wakes up still "playing"', () => {
+    const id = newAccount();
+    const phone = fakeResponse();
+    const tablet = fakeResponse();
+    connectDevice(id, 'phone', 'Android', 'phone', phone.res);
+    connectDevice(id, 'tablet', 'Tablet', 'tablet', tablet.res);
+
+    updateDeviceState(id, 'phone', { ...playing('a'), playIntentAgeMs: 0 });
+    updateDeviceState(id, 'tablet', { ...playing('b'), playIntentAgeMs: 0 }); // tapped on the tablet: phone told to pause
+    expect(commandsIn(phone.writes)).toHaveLength(1);
+
+    // The phone, frozen meanwhile, wakes and reports playing again: its ask is ten minutes old.
+    updateDeviceState(id, 'phone', { ...playing('a'), playIntentAgeMs: 600_000 });
+    expect(commandsIn(tablet.writes)).toEqual([]);
+    expect(commandsIn(phone.writes)).toHaveLength(2);
+  });
+
+  it('treats a reconnect that lost its state as the same old ask, not a new start', () => {
+    const id = newAccount();
+    const tablet = fakeResponse();
+    connectDevice(id, 'tablet', 'Tablet', 'tablet', tablet.res);
+    updateDeviceState(id, 'tablet', { ...playing('b'), playIntentAgeMs: 5_000 });
+    // A phone whose stream dropped and reopened (state gone) and that was last asked to play an hour ago.
+    connectDevice(id, 'phone', 'Android', 'phone', fakeResponse().res);
+    updateDeviceState(id, 'phone', { ...playing('a'), playIntentAgeMs: 3_600_000 });
+    expect(commandsIn(tablet.writes)).toEqual([]);
+  });
+
+  it('pauses the older device when someone really does start on another one', () => {
+    const id = newAccount();
+    const tablet = fakeResponse();
+    connectDevice(id, 'tablet', 'Tablet', 'tablet', tablet.res);
+    connectDevice(id, 'phone', 'Android', 'phone', fakeResponse().res);
+    updateDeviceState(id, 'tablet', { ...playing('b'), playIntentAgeMs: 60_000 });
+    updateDeviceState(id, 'phone', { ...playing('a'), playIntentAgeMs: 10 });
+    expect(commandsIn(tablet.writes)).toEqual([{ from: 'phone', type: 'pause', payload: { reason: 'takeover' } }]);
+  });
+
   it('replaces a device that reconnects and caps how many streams one account can hold', () => {
     const id = newAccount();
     const first = fakeResponse();

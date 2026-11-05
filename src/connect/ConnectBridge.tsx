@@ -91,6 +91,7 @@ export function ConnectBridge() {
       canSetVolume: describeThisDevice().name !== 'iPhone' && describeThisDevice().name !== 'iPad',
       followingRef,
       inJam,
+      playIntentAgeMs: audioEngine.getPlayIntentAgeMs(),
     });
   }, [reportedSong, isPlaying, volume, followingRef, inJam]);
 

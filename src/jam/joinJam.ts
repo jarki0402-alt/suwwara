@@ -1,5 +1,5 @@
 import { useJamStore } from '../stores/jamStore';
-import { joinRoom } from './jamClient';
+import { isRoomGone, joinRoom } from './jamClient';
 import { currentQueueSnapshot } from './queueSnapshot';
 
 export type JoinJamResult = { ok: true } | { ok: false; reason: 'not-found' | 'error' };
@@ -15,7 +15,9 @@ export async function joinJamRoom(roomId: string): Promise<JoinJamResult> {
     if (!snapshot) return { ok: false, reason: 'not-found' };
     useJamStore.getState().enterJam({ roomId, isCreator: false, queueSnapshotToRestore: currentQueueSnapshot() });
     return { ok: true };
-  } catch {
-    return { ok: false, reason: 'error' };
+  } catch (error) {
+    // The server answers a wrong code with 404, which used to land here as a generic failure ("Gagal gabung, coba
+    // lagi") instead of telling the person the code itself is wrong.
+    return { ok: false, reason: isRoomGone(error) ? 'not-found' : 'error' };
   }
 }

@@ -1,4 +1,5 @@
 import { sql } from '../db/client';
+import { onShutdown } from '../shutdown';
 
 /**
  * Audio bandwidth per account per day, for the admin dashboard. Counted in memory and written in one batch a minute —
@@ -60,8 +61,4 @@ export async function pruneUsage(): Promise<void> {
 
 setInterval(() => void flushUsage(), FLUSH_INTERVAL_MS).unref();
 setInterval(() => void pruneUsage(), 24 * 60 * 60 * 1000).unref();
-for (const signal of ['SIGTERM', 'SIGINT'] as const) {
-  process.once(signal, () => {
-    void flushUsage().finally(() => process.exit(0));
-  });
-}
+onShutdown(flushUsage);

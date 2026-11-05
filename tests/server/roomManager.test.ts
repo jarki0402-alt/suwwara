@@ -4,7 +4,21 @@
 //   npx tsc --noEmit --strict --module esnext --moduleResolution bundler --target es2022 \
 //     --skipLibCheck --types node,vitest/globals tests/server/*.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applyIntent, createRoom, getSnapshot } from '../../server/src/jam/roomManager';
+import type { Response } from 'express';
+import {
+  addMember,
+  applyIntent,
+  closeRoom,
+  createRoom,
+  getSnapshot,
+  isMember,
+  joinRoom,
+  removeConnection,
+  removeMember,
+  restoreRoom,
+  takeDirtyRooms,
+  takeRemovedRoomIds,
+} from '../../server/src/jam/roomManager';
 import type { RoomQueueState } from '../../server/src/jam/types';
 
 const queue = (ids: string[], overrides: Partial<RoomQueueState> = {}): RoomQueueState => ({
@@ -101,5 +115,79 @@ describe('jam play-next intent', () => {
     const snapshot = getSnapshot(roomId);
     expect(snapshot?.order.map((index) => snapshot.queue[index].id)).toEqual(['a', 'x', 'b', 'c']);
     expect(snapshot?.position).toBe(0);
+  });
+});
+
+describe('jam membership survives reconnects', () => {
+  const stream = () => {
+    let ended = false;
+    const res = { write: () => true, end: () => void (ended = true) } as unknown as Response;
+    return { res, isEnded: () => ended };
+  };
+
+  it('keeps a device in the room when its old stream closes after the new one opened', () => {
+    const roomId = createRoom('host', queue(['a']));
+    const first = stream();
+    const second = stream();
+    addMember(roomId, 'guest', first.res);
+    addMember(roomId, 'guest', second.res); // reconnected before the server noticed the first one was dead
+    removeConnection(roomId, 'guest', first.res); // the late close of the dead stream
+
+    expect(getSnapshot(roomId)!.memberCount).toBe(1);
+    expect(isMember(roomId, 'guest')).toBe(true);
+  });
+
+  it('still accepts actions from a device that is between streams', () => {
+    const roomId = createRoom('host', queue(['a', 'b']));
+    const only = stream();
+    addMember(roomId, 'guest', only.res);
+    removeConnection(roomId, 'guest', only.res); // phone asleep, stream gone
+
+    expect(getSnapshot(roomId)!.memberCount).toBe(0);
+    expect(isMember(roomId, 'guest')).toBe(true);
+  });
+
+  it('lets a device act right after joining, before its stream is open', () => {
+    const roomId = createRoom('host', queue(['a']));
+    expect(isMember(roomId, 'guest')).toBe(false);
+    expect(joinRoom(roomId, 'guest')).toBe(true);
+    expect(isMember(roomId, 'guest')).toBe(true);
+  });
+
+  it('takes a device out only when it presses Keluar', () => {
+    const roomId = createRoom('host', queue(['a']));
+    addMember(roomId, 'guest', stream().res);
+    removeMember(roomId, 'guest');
+    expect(isMember(roomId, 'guest')).toBe(false);
+  });
+
+  it('caps how many streams one device can hold, ending the oldest', () => {
+    const roomId = createRoom('host', queue(['a']));
+    const streams = Array.from({ length: 5 }, () => stream());
+    streams.forEach((item) => addMember(roomId, 'guest', item.res));
+    expect(streams.filter((item) => item.isEnded())).toHaveLength(2);
+    expect(getSnapshot(roomId)!.memberCount).toBe(1);
+  });
+});
+
+describe('jam rooms survive a restart', () => {
+  it('hands changed rooms to the store and brings a stored room back', () => {
+    takeDirtyRooms(); // drop marks from earlier tests
+    const roomId = createRoom('host', queue(['a', 'b']));
+    joinRoom(roomId, 'guest');
+    applyIntent(roomId, { type: 'next' });
+
+    const stored = takeDirtyRooms().find((room) => room.roomId === roomId)!;
+    expect(stored.queueState.position).toBe(1);
+    expect(stored.participants).toEqual(['host', 'guest']);
+    expect(takeDirtyRooms()).toEqual([]); // cleared on read
+
+    closeRoom(roomId, 'test');
+    expect(takeRemovedRoomIds()).toContain(roomId);
+    expect(getSnapshot(roomId)).toBeNull();
+
+    restoreRoom(stored); // the server came back
+    expect(getSnapshot(roomId)!.position).toBe(1);
+    expect(isMember(roomId, 'guest')).toBe(true);
   });
 });

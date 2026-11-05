@@ -25,7 +25,18 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
-## Perubahan terbaru · 2026-11-05 (Android/tablet: musik tidak lagi berhenti diam-diam setelah beberapa lagu)
+## Perubahan terbaru · 2026-11-06 (Jam: tidak lagi keluar sendiri)
+
+Gejala: sedang dengar bareng, tiba-tiba salah satu (atau semua) orang terlempar dari Jam. Ada empat penyebab, semuanya diperbaiki tanpa mengubah cara kerja sinkron lagu:
+
+- **Server menghapus anggota yang baru tersambung ulang** ([roomManager.ts](server/src/jam/roomManager.ts), [routes/jam.ts](server/src/routes/jam.ts)): HP yang sinyalnya putus sebentar membuka stream baru sebelum server sadar stream lamanya mati; `close` stream lama yang telat lalu menghapus entri perangkat itu, stream baru ikut hilang. Room terlihat kosong (lalu dihapus GC) dan aksi perangkat itu ditolak 403 tanpa terlihat (next/pause/akhir lagu tidak sampai). Sekarang anggota menyimpan *set* stream (maks 3 per perangkat), `close` hanya menghapus stream-nya sendiri, dan izin aksi berdasarkan daftar peserta (sejak join sampai tekan "Keluar"), bukan stream yang sedang terbuka.
+- **Aplikasi menyerah sendiri** ([useJamSync.ts](src/jam/useJamSync.ts)): dulu keluar setelah ~25 detik tanpa state pertama atau 8 kali gagal sambung (~1 menit), padahal Android dengan layar mati sering tanpa jaringan lebih lama. Sekarang keluar otomatis **hanya** kalau server menjawab 404 (room benar-benar tidak ada, `isRoomGone` di [jamClient.ts](src/jam/jamClient.ts)); selain itu terus mencoba (2s, 4s, ... lalu tiap 15s) dan langsung mencoba lagi saat app dibuka kembali atau jaringan kembali (`visibilitychange`, `online`). Server kini mengirim event `ping` tiap 20 detik; stream yang diam > 50 detik dianggap mati dan dibuka ulang (dulu Jam bisa terlihat tersambung padahal tidak menerima apa pun setelah HP bangun).
+- **Room hanya di memori** ([roomStore.ts](server/src/jam/roomStore.ts), tabel `jam_rooms` di [schema.ts](server/src/db/schema.ts)): restart/deploy/OOM di VM 1GB dulu mengakhiri semua Jam. Sekarang room ditulis ke Postgres per batch tiap 2 detik (hanya yang berubah) dan dipulihkan saat boot sebelum server menerima koneksi. Penanganan SIGTERM disatukan di [shutdown.ts](server/src/shutdown.ts) supaya flush usage & Jam sama-sama selesai sebelum proses keluar.
+- **Room kosong dihapus setelah 5 menit**: kalau semua HP layar mati, room hilang. Sekarang 3 jam, dengan batas keras 200 room (yang dikorbankan selalu room kosong paling lama) dan 50 peserta per room.
+- Bonus: "Akhiri Jam untuk Semua" (tepat di bawah "Keluar") kini butuh ketukan kedua, karena satu salah ketuk mengeluarkan semua orang. Salah kode saat gabung kini bilang "Kode gak ditemukan", bukan "Gagal gabung".
+- Verifikasi: 194/194 tes (6 tes baru di [roomManager.test.ts](tests/server/roomManager.test.ts)); curl ke Docker (aksi sebelum stream, ping, room bertahan setelah `docker compose restart backend`); Playwright 2 perangkat: guest offline 100 detik dengan stream putus tetap di Jam lalu tersambung lagi < 2 detik; setelah restart backend kedua perangkat kembali tersambung tanpa toast "berakhir".
+
+## Perubahan · 2026-11-05 (Android/tablet: musik tidak lagi berhenti diam-diam setelah beberapa lagu)
 
 Laporan: HP Android berhenti saat app ditinggal; tablet dengan layar mati berhenti setelah sekitar 5 lagu. Analisis kode menemukan penyebab di luar mesin audio, di sesi Connect "satu sesi per akun".
 

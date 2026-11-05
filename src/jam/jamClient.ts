@@ -44,6 +44,24 @@ export type JamIntentType =
   | 'advance-on-ended'
   | 'heartbeat';
 
+/** A request the server answered with an error status (as opposed to one that never got an answer). */
+export class JamRequestError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/**
+ * Whether an error means the room is definitely gone. The ONLY reason the app may take someone out of a Jam on its own:
+ * a timeout, a dropped connection or a proxy error while the backend restarts all mean "not reachable right now", and
+ * treating those as "ended" is what used to throw people out of a Jam that was still running.
+ */
+export function isRoomGone(error: unknown): boolean {
+  return error instanceof JamRequestError && error.status === 404;
+}
+
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
@@ -53,7 +71,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) {
     notifyUnauthorized(res.status);
     const message = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(typeof message?.error === 'string' ? message.error : `HTTP ${res.status}`);
+    throw new JamRequestError(typeof message?.error === 'string' ? message.error : `HTTP ${res.status}`, res.status);
   }
   return res.json() as Promise<T>;
 }
@@ -93,6 +111,8 @@ export interface JamStreamHandlers {
   onTransport: (payload: JamTransportPayload) => void;
   onPresence: (payload: { memberCount: number }) => void;
   onRoomClosed: (payload: { reason: string }) => void;
+  /** The server's keepalive (every 20s): proof the stream is still alive, see useJamSync. */
+  onPing: () => void;
 }
 
 /** Opens the room's SSE stream. `EventSource` reconnects on its own after a
@@ -116,6 +136,7 @@ export function openJamStream(roomId: string, clientId: string, handlers: JamStr
   listen('transport', handlers.onTransport);
   listen('presence', handlers.onPresence);
   listen('room-closed', handlers.onRoomClosed);
+  listen('ping', handlers.onPing);
 
   return source;
 }

@@ -13,6 +13,7 @@ import { JamAvatars } from '../JamIndicator/JamIndicator';
 import styles from './JamSheet.module.css';
 
 const ROOM_CODE_LENGTH = 6;
+const END_CONFIRM_MS = 4000;
 
 interface JamSheetProps {
   isOpen: boolean;
@@ -32,6 +33,10 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
   const { showToast } = useToast();
   const [busy, setBusy] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  // "Akhiri Jam untuk Semua" sits right under "Keluar" and takes everyone else out with it, with no way back. One
+  // mistaken tap was enough to end a Jam for the whole room (which, to them, looked like being thrown out), so it now
+  // asks for a second tap.
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   if (!isOpen) return null;
 
@@ -118,6 +123,12 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
 
   const handleEndForEveryone = async () => {
     if (!roomId) return;
+    if (!confirmEnd) {
+      setConfirmEnd(true);
+      window.setTimeout(() => setConfirmEnd(false), END_CONFIRM_MS);
+      return;
+    }
+    setConfirmEnd(false);
     setBusy(true);
     try {
       await endRoom(roomId, clientId);
@@ -200,7 +211,7 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
               Keluar
             </button>
             <button type="button" className={styles.dangerButton} onClick={handleEndForEveryone} disabled={busy}>
-              Akhiri Jam untuk Semua
+              {confirmEnd ? 'Ketuk lagi untuk mengakhiri' : 'Akhiri Jam untuk Semua'}
             </button>
           </div>
         )}

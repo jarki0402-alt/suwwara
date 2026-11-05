@@ -2,28 +2,23 @@ import { useEffect } from 'react';
 import { useToast } from '../components/Toast/ToastProvider';
 import { useJamStore } from '../stores/jamStore';
 import { useQueueStore } from '../stores/queueStore';
-import { joinRoom, openJamStream } from './jamClient';
+import { isRoomGone, joinRoom, openJamStream } from './jamClient';
 
-// role/roomId are persisted (see jamStore.ts) specifically so a PWA tab that
-// gets reloaded by the OS while backgrounded (e.g. switching away to actually
-// share the Jam link) reconnects to the same room on its own once reopened,
-// instead of silently falling out of the Jam with no indication. If the room
-// no longer exists by then (ended, or garbage-collected — see roomManager.ts)
-// the very first `room-state` never arrives; this is how long to wait before
-// giving up and falling back to solo. Deliberately generous (not a liveness
-// check, just an eventual-giveup safety net): a real network path — mobile
-// data, a reverse proxy/tunnel (e.g. Cloudflare Tunnel) in front of the
-// backend, a phone waking its browser back up from being backgrounded — can
-// easily take several seconds just to re-establish the connection, well
-// before the room itself is even reachable. An 8s value tested fine over
-// localhost but was measured to fire falsely (kicking a device out of a Jam
-// that was still very much alive) over exactly that kind of real path.
-const ROOM_RECONNECT_TIMEOUT_MS = 25000;
-// After the browser gives up on the stream (see stream.onerror below): how many times to reopen it, and how long to
-// wait — 2s, 4s, 6s … up to 10s — so a backend restart of up to about a minute is ridden out.
-const JAM_MAX_REOPEN_ATTEMPTS = 8;
+// role/roomId are persisted (see jamStore.ts) so a PWA the OS reloaded in the background reconnects to the same room on
+// its own. The app leaves a Jam by itself ONLY when the server says the room is gone (404, see isRoomGone): it used to
+// also give up after ~25s without a first state, or after 8 failed reopens (about a minute), and a phone with its screen
+// off is routinely without network for longer than that. People came back to find themselves out of a Jam that was
+// still running for everyone else. Now a device that cannot reach the room just keeps saying "Menyambung ulang" and
+// keeps trying; "Keluar" is always there if someone really wants out.
+const ROOM_CHECK_AFTER_MS = 25_000;
+// Reopen delays after the browser gives up on the stream: 2s, 4s, 6s ... then every 15s for as long as it takes.
 const JAM_REOPEN_BASE_MS = 2000;
-const JAM_REOPEN_MAX_MS = 10_000;
+const JAM_REOPEN_MAX_MS = 15_000;
+// The server pings every 20s. Silence for longer than two pings means the stream is dead even if the browser still
+// calls it open: typical after a phone wakes on a network that dropped the connection while it slept. Without this the
+// Jam looked live while no queue change or play/pause arrived.
+const STREAM_SILENT_MS = 50_000;
+const STREAM_WATCH_MS = 15_000;
 
 /**
  * Mounted once (in AppShell). While solo, this is a no-op. While a Jam is
@@ -47,6 +42,12 @@ export function useJamSync() {
     let source: EventSource | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let reopenAttempts = 0;
+    let lastHeardAt = Date.now();
+    // Only judge silence once a ping has been seen, so a backend that does not send them yet never causes reopen loops.
+    let pingSeen = false;
+    const heard = () => {
+      lastHeardAt = Date.now();
+    };
 
     const leaveJam = (message: string, type?: 'error') => {
       disposed = true;
@@ -57,17 +58,33 @@ export function useJamSync() {
       showToast(message, type ? { type } : undefined);
     };
 
-    const giveUpTimer = setTimeout(() => {
-      if (connected) return;
-      leaveJam('Room Jam tidak ditemukan lagi. Mungkin sudah berakhir.', 'error');
-    }, ROOM_RECONNECT_TIMEOUT_MS);
+    /** Asks the server whether the room exists. Leaves only on a definite "gone"; resolves true while it may be alive. */
+    const roomMayBeAlive = () =>
+      joinRoom(roomId, clientId).then(
+        () => true,
+        (error: unknown) => {
+          if (disposed) return false;
+          if (isRoomGone(error)) {
+            leaveJam('Jam sudah berakhir atau room-nya sudah tidak ada.', 'error');
+            return false;
+          }
+          return true;
+        },
+      );
+
+    const checkTimer = setTimeout(() => {
+      if (!connected && !disposed) void roomMayBeAlive();
+    }, ROOM_CHECK_AFTER_MS);
 
     const open = () => {
+      if (disposed) return;
+      source?.close();
+      heard();
       const stream = openJamStream(roomId, clientId, {
         onRoomState: (snapshot) => {
+          heard();
           connected = true;
           reopenAttempts = 0;
-          clearTimeout(giveUpTimer);
           useJamStore.getState().setConnection('live');
           useQueueStore.setState({
             queue: snapshot.queue,
@@ -84,6 +101,7 @@ export function useJamSync() {
           useJamStore.getState().setMemberCount(snapshot.memberCount);
         },
         onQueue: (payload) => {
+          heard();
           useQueueStore.setState({
             queue: payload.queue,
             order: payload.order,
@@ -93,59 +111,84 @@ export function useJamSync() {
           });
         },
         onTransport: (payload) => {
+          heard();
           useJamStore.getState().setPlaybackMeta({ ...payload, lastUpdatedAtMs: Date.now() });
         },
         onPresence: (payload) => {
+          heard();
           useJamStore.getState().setMemberCount(payload.memberCount);
+        },
+        onPing: () => {
+          heard();
+          pingSeen = true;
         },
         onRoomClosed: () => {
           disposed = true;
           clearTimeout(retryTimer);
           const snapshot = useJamStore.getState().exitJam();
           if (snapshot) useQueueStore.setState(snapshot);
-          showToast('Jam sudah berakhir.');
+          showToast('Jam sudah diakhiri.');
         },
       });
       source = stream;
 
       // A network drop leaves the stream CONNECTING and the browser retries by itself; the UI just says so (the
       // room-state that follows a successful reconnect flips it back to live). An HTTP error answer (a proxy 502 while
-      // the backend restarts, a 404 for a room that is gone) CLOSES the stream for good — the browser never retries
-      // that, which used to leave the Jam looking active while nothing synced.
+      // the backend restarts, a 404 for a room that is gone) CLOSES the stream for good and the browser never retries
+      // that, so it is reopened here, after asking the server whether there is still a room to reopen.
       stream.onerror = () => {
-        if (disposed) return;
+        if (disposed || stream !== source) return;
         useJamStore.getState().setConnection('reconnecting');
         if (stream.readyState !== EventSource.CLOSED) return;
         stream.close();
-        // Ask the server whether the room still exists: a definite "not found" means it is gone (the backend
-        // restarted, or the host ended it) and there is nothing to wait for; anything else (backend still down, a
-        // proxy error) is transient, so try again.
-        void joinRoom(roomId, clientId).then(
-          () => scheduleReopen(),
-          (error: unknown) => {
-            if (disposed) return;
-            if (error instanceof Error && /not found/i.test(error.message)) leaveJam('Jam sudah berakhir atau room-nya sudah tidak ada.', 'error');
-            else scheduleReopen();
-          },
-        );
+        void roomMayBeAlive().then((alive) => {
+          if (alive) scheduleReopen();
+        });
       };
     };
 
     const scheduleReopen = () => {
       if (disposed) return;
+      clearTimeout(retryTimer);
       reopenAttempts += 1;
-      if (reopenAttempts > JAM_MAX_REOPEN_ATTEMPTS) {
-        leaveJam('Terputus dari Jam, tidak bisa tersambung lagi.', 'error');
-        return;
-      }
       retryTimer = setTimeout(open, Math.min(JAM_REOPEN_BASE_MS * reopenAttempts, JAM_REOPEN_MAX_MS));
     };
+
+    /** Skip the backoff: the moment there is a reason to think the room is reachable again, try at once. */
+    const reopenNow = () => {
+      if (disposed) return;
+      clearTimeout(retryTimer);
+      reopenAttempts = 0;
+      useJamStore.getState().setConnection('reconnecting');
+      open();
+    };
+
+    const streamLooksDead = () =>
+      !source || source.readyState === EventSource.CLOSED || (pingSeen && Date.now() - lastHeardAt > STREAM_SILENT_MS);
+
+    const watch = setInterval(() => {
+      if (!disposed && streamLooksDead()) reopenNow();
+    }, STREAM_WATCH_MS);
+
+    // Coming back to the app or getting network back are the moments a dropped Jam should heal, not up to 15s later.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && (streamLooksDead() || useJamStore.getState().connection !== 'live')) reopenNow();
+    };
+    const onOnline = () => {
+      if (streamLooksDead() || useJamStore.getState().connection !== 'live') reopenNow();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+
     open();
 
     return () => {
       disposed = true;
-      clearTimeout(giveUpTimer);
+      clearTimeout(checkTimer);
       clearTimeout(retryTimer);
+      clearInterval(watch);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
       source?.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

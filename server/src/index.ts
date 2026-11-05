@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import { migrate } from './db/client';
+import { loadJamRooms } from './jam/roomStore';
 import { pruneAuthTables } from './auth/audit';
 import { requireSession } from './auth/sessions';
 import { bootstrapAdmin } from './auth/users';
@@ -69,6 +70,8 @@ app.get('/', (_req, res) => {
 
 async function start(): Promise<void> {
   await migrate();
+  // Before listening: a device reconnecting the moment the server is back must find its room, not a 404 that ends it.
+  await loadJamRooms();
   await bootstrapAdmin();
   void pruneAuthTables();
   void pruneLyricsCache();

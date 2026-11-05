@@ -6,6 +6,8 @@ import {
   createRoom,
   getSnapshot,
   isMember,
+  joinRoom,
+  removeConnection,
   removeMember,
   roomExists,
 } from '../jam/roomManager';
@@ -48,7 +50,7 @@ jamRouter.post('/jam/:roomId/join', (req, res) => {
     res.status(400).json({ error: 'clientId is required.' });
     return;
   }
-  if (!roomExists(roomId)) {
+  if (!joinRoom(roomId, clientId)) {
     res.status(404).json({ error: 'Room not found.' });
     return;
   }
@@ -113,12 +115,15 @@ jamRouter.get('/jam/:roomId/stream', (req, res) => {
   const snapshot = addMember(roomId, clientId, res);
   if (snapshot) res.write(`event: room-state\ndata: ${JSON.stringify(snapshot)}\n\n`);
 
-  // Keeps the connection from being idle-timed-out by any intermediary proxy
-  // (nginx, Koyeb's own edge, etc.) — a comment line, not a real event.
-  const keepAlive = setInterval(() => res.write(':\n\n'), KEEPALIVE_MS);
+  // Keeps the connection from being idle-timed-out by any intermediary proxy (nginx, Cloudflare, ...). A named event
+  // rather than a `:` comment line because the browser hides comments from the page: the client needs to SEE these to
+  // notice a stream that went silently dead (a phone back from sleep on a connection the network already dropped) and
+  // reopen it, instead of sitting "connected" while nothing syncs. Older clients have no listener for it and ignore it.
+  const keepAlive = setInterval(() => res.write('event: ping\ndata: {}\n\n'), KEEPALIVE_MS);
 
   req.on('close', () => {
     clearInterval(keepAlive);
-    removeMember(roomId, clientId);
+    // Only THIS stream: the device may already have opened a newer one (see Room.members in roomManager.ts).
+    removeConnection(roomId, clientId, res);
   });
 });

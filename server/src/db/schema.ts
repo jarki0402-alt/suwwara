@@ -148,4 +148,17 @@ create table if not exists playback_sessions (
   active_ref text,
   updated_at bigint not null default 0
 );
+
+-- Open Jam rooms, so a backend restart (a deploy, or the 1GB VM killing the process for memory) no longer throws every
+-- listener out with "Jam sudah berakhir". Live streams are not stored: devices reconnect on their own. Written in batches
+-- from memory every few seconds (jam/roomStore.ts); rows idle past the room TTL are deleted on boot and by the room GC.
+create table if not exists jam_rooms (
+  room_id text primary key,
+  creator_client_id text not null,
+  queue_state jsonb not null,
+  transport_state jsonb not null,
+  participants jsonb not null default '[]',
+  last_auto_advance_at bigint not null default 0,
+  last_activity_at bigint not null
+);
 `;

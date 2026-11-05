@@ -1,5 +1,5 @@
 import type { KeyboardEvent, PointerEvent } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { currentPaneWidth, resetPaneWidth, savePaneWidths, setPaneWidth, type Pane } from './paneWidths';
 import styles from './PaneResizers.module.css';
 
@@ -7,9 +7,16 @@ const KEYBOARD_STEP_PX = 16;
 
 function Handle({ pane, label }: { pane: Pane; label: string }) {
   const frame = useRef<number | null>(null);
+  // Ends the drag in progress, if any. The page-wide resize cursor (the is-resizing class) used to be removed only by a
+  // pointerup on the handle, which does not always come: the button released outside the window, the window losing
+  // focus mid-drag, the panel (and so its handle) closing mid-drag. The cursor then stayed "col-resize" for good.
+  const endDrag = useRef<(() => void) | null>(null);
+  useEffect(() => () => endDrag.current?.(), []);
 
   const startDrag = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
     event.preventDefault();
+    endDrag.current?.();
     const handle = event.currentTarget;
     handle.setPointerCapture(event.pointerId);
     document.documentElement.classList.add('is-resizing');
@@ -22,15 +29,27 @@ function Handle({ pane, label }: { pane: Pane; label: string }) {
       });
     };
     const onUp = () => {
+      if (endDrag.current !== onUp) return;
+      endDrag.current = null;
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      frame.current = null;
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
       handle.removeEventListener('pointercancel', onUp);
+      handle.removeEventListener('lostpointercapture', onUp);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('blur', onUp);
       document.documentElement.classList.remove('is-resizing');
       savePaneWidths();
     };
+    endDrag.current = onUp;
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onUp);
     handle.addEventListener('pointercancel', onUp);
+    // Any of these also means the drag is over.
+    handle.addEventListener('lostpointercapture', onUp);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('blur', onUp);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

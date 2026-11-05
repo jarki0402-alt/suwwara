@@ -66,7 +66,12 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
     setBusy(true);
     try {
       const queueSnapshot = currentQueueSnapshot();
-      const newRoomId = await createRoom(clientId, queueSnapshot);
+      // The room starts where this device is, playing or not, so starting a Jam never stops the music.
+      const status = audioEngine.getSnapshot().status;
+      const newRoomId = await createRoom(clientId, queueSnapshot, {
+        isPlaying: status === 'playing' || status === 'loading',
+        positionSec: audioEngine.getCurrentTime(),
+      });
       enterJam({ roomId: newRoomId, isCreator: true, queueSnapshotToRestore: queueSnapshot });
       showToast('Jam dimulai. Bagikan link-nya ke teman.');
     } catch {

@@ -156,7 +156,15 @@ function generateRoomId(): string {
   return code;
 }
 
-export function createRoom(creatorClientId: string, initialQueue: RoomQueueState): string {
+/**
+ * `initialTransport` is the host's own playback at the moment of starting: a room used to always start paused at 0:00,
+ * so starting a Jam while music played stopped the music for the host, who then had to press play again.
+ */
+export function createRoom(
+  creatorClientId: string,
+  initialQueue: RoomQueueState,
+  initialTransport?: { isPlaying: boolean; positionSec: number },
+): string {
   if (rooms.size >= MAX_ROOMS) evictOldestEmptyRoom();
   const roomId = generateRoomId();
   const now = Date.now();
@@ -164,7 +172,11 @@ export function createRoom(creatorClientId: string, initialQueue: RoomQueueState
     roomId,
     creatorClientId,
     queueState: initialQueue,
-    transportState: { isPlaying: false, positionSec: 0, lastUpdatedAtMs: now },
+    transportState: {
+      isPlaying: initialTransport?.isPlaying ?? false,
+      positionSec: Math.max(0, initialTransport?.positionSec ?? 0),
+      lastUpdatedAtMs: now,
+    },
     lastAutoAdvanceAt: 0,
     members: new Map(),
     participants: new Set([creatorClientId]),

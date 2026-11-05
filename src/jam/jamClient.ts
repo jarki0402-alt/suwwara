@@ -76,8 +76,12 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function createRoom(clientId: string, initialQueue: JamQueuePayload): Promise<string> {
-  const result = await postJson<{ roomId: string }>('/api/jam/create', { clientId, initialQueue });
+export async function createRoom(
+  clientId: string,
+  initialQueue: JamQueuePayload,
+  initialTransport?: { isPlaying: boolean; positionSec: number },
+): Promise<string> {
+  const result = await postJson<{ roomId: string }>('/api/jam/create', { clientId, initialQueue, initialTransport });
   return result.roomId;
 }
 

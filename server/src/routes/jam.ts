@@ -24,7 +24,7 @@ function isValidQueueState(value: unknown): value is RoomQueueState {
 }
 
 jamRouter.post('/jam/create', (req, res) => {
-  const { clientId, initialQueue } = req.body ?? {};
+  const { clientId, initialQueue, initialTransport } = req.body ?? {};
   if (typeof clientId !== 'string' || !clientId) {
     res.status(400).json({ error: 'clientId is required.' });
     return;
@@ -39,7 +39,12 @@ jamRouter.post('/jam/create', (req, res) => {
       }
     : { queue: [], order: [], position: 0, repeatMode: 'off', shuffle: false };
 
-  const roomId = createRoom(clientId, queueState);
+  // Optional (older clients do not send it): the host's playback when starting, so the music does not stop.
+  const transport =
+    initialTransport && typeof initialTransport.isPlaying === 'boolean' && Number.isFinite(initialTransport.positionSec)
+      ? { isPlaying: initialTransport.isPlaying, positionSec: Math.min(Math.max(Number(initialTransport.positionSec), 0), 24 * 60 * 60) }
+      : undefined;
+  const roomId = createRoom(clientId, queueState, transport);
   res.json({ roomId });
 });
 

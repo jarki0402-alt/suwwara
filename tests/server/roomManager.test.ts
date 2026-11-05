@@ -191,3 +191,16 @@ describe('jam rooms survive a restart', () => {
     expect(isMember(roomId, 'guest')).toBe(true);
   });
 });
+
+describe('jam room start', () => {
+  it('starts from the host playback instead of always paused at 0:00', () => {
+    const roomId = createRoom('host', queue(['a']), { isPlaying: true, positionSec: 42 });
+    const snapshot = getSnapshot(roomId)!;
+    expect(snapshot.isPlaying).toBe(true);
+    expect(snapshot.positionSec).toBeGreaterThanOrEqual(42);
+  });
+
+  it('still starts paused when an older client sends no playback', () => {
+    expect(getSnapshot(createRoom('host', queue(['a'])))!.isPlaying).toBe(false);
+  });
+});

@@ -19,8 +19,11 @@
          the default colours. Reads the same persisted settings the app does; any failure just leaves the defaults. -->
     <script>
       try {
-        var s = JSON.parse(localStorage.getItem('suwwara-settings') || '{}').state || {};
+        var saved = JSON.parse(localStorage.getItem('suwwara-settings') || '{}');
+        var s = saved.state || {};
         var r = document.documentElement;
+        // Mirrors settingsStore's v2 migration, so a device not yet migrated does not flash its old palette first.
+        if (!(saved.version >= 2)) s.palette = 'bara';
         if (s.palette) r.dataset.palette = s.palette;
         if (s.theme === 'light' || s.theme === 'dark') r.dataset.theme = s.theme;
       } catch (e) {}

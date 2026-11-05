@@ -20,6 +20,7 @@ import { isDocumentFullscreen, leaveFullscreen, onDocumentFullscreenChange } fro
 import { QueueView } from '../queue/QueueView';
 import { ArtistInfo } from './ArtistInfo';
 import { FullscreenControls } from './FullscreenControls';
+import { FullscreenStage, JamCard, UpNextList } from './FullscreenStage';
 import { LyricsPanel } from './LyricsPanel';
 import styles from './NowPlayingView.module.css';
 import { PlayerControls } from './PlayerControls';
@@ -32,6 +33,7 @@ export function NowPlayingView() {
   const isQueueOpen = useUiStore((state) => state.isQueueOpen);
   const isFullscreen = useUiStore((state) => state.isNowPlayingFullscreen);
   const closeNowPlaying = useUiStore((state) => state.closeNowPlaying);
+  const openJamSheet = useUiStore((state) => state.openJamSheet);
   const closeFullscreenLyrics = useUiStore((state) => state.closeFullscreenLyrics);
   const isDesktop = useIsDesktop();
   const jam = useJamStatus();
@@ -120,6 +122,10 @@ export function NowPlayingView() {
       <div className={styles.sheet}>
         {ambientUrl && <img src={ambientUrl} alt="" aria-hidden="true" className={styles.ambientBackdrop} />}
         <div className={styles.ambientScrim} aria-hidden="true" />
+        {isFullscreen && isDesktop ? (
+          <FullscreenStage song={currentSong} chromeHidden={chromeHidden} onMinimize={closeFullscreenLyrics} />
+        ) : (
+        <>
         <div className={[styles.topBar, chromeHidden ? styles.chromeHidden : ''].join(' ')}>
           <button
             ref={backRipple.ref}
@@ -188,6 +194,16 @@ export function NowPlayingView() {
         {/* Not shown while viewing lyrics/fullscreen — a same-artist bio
             reads oddly wedged between lyric lines, and fullscreen is meant to
             be lyrics-focused with nothing else competing for attention. */}
+        {/* Docked panel (2026-11 redesign): what plays next and the Jam card, like the design's "Sedang diputar" panel. */}
+        {!showLyrics && !isFullscreen && isDesktop && (
+          <div className={styles.dockedExtras}>
+            <div className={styles.upNextBox}>
+              <span className={styles.upNextHeading}>Berikutnya</span>
+              <UpNextList limit={3} compact />
+            </div>
+            <JamCard />
+          </div>
+        )}
         {!showLyrics && !isFullscreen && isDesktop && <ArtistInfo artistName={primaryArtistNames(currentSong)} />}
 
         {isFullscreen ? (
@@ -243,6 +259,15 @@ export function NowPlayingView() {
                   <Icon name="devices" size={24} />
                   {hasOtherDevices && <span className={styles.deviceDot} aria-hidden="true" />}
                 </button>
+                {/* Listening together is one tap from the song itself (2026-11 redesign), not only from Beranda. */}
+                <button
+                  type="button"
+                  className={[styles.bottomIconButton, jam.active ? styles.bottomIconButtonActive : ''].join(' ')}
+                  onClick={openJamSheet}
+                  aria-label={jam.active ? 'Kelola Jam' : 'Dengar bareng (Jam)'}
+                >
+                  <Icon name="users" size={24} />
+                </button>
               </div>
               {showVolume && (
                 <div className={styles.volumeRow}>
@@ -261,6 +286,8 @@ export function NowPlayingView() {
               )}
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>

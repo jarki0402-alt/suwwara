@@ -210,6 +210,12 @@
   padding: 0;
 }
 
+.phoneOnly {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .desktopOnly {
   display: none;
 }
@@ -292,8 +298,9 @@
        fixed 32px (not radius-full/stadium): at this bar's 82px height a true stadium radius
        needs ~41px of side clearance before content, more than this bar's own padding gives,
        and would crowd the leftmost song info / rightmost expand button into the curve. */
-    left: calc(var(--sidebar-width) + var(--pill-gap));
-    right: var(--pill-gap);
+    /* Lined up under the page panel and the right panel (2026-11 redesign). */
+    left: var(--sidebar-width);
+    right: var(--panel-gap);
     bottom: var(--pill-gap);
     transform: none;
     transition: none;
@@ -342,6 +349,10 @@
   .progressTrack {
     /* Superseded by .desktopSeekBar in the center column, which is
        interactive (drag-to-seek) instead of this compact read-only line. */
+    display: none;
+  }
+
+  .phoneOnly {
     display: none;
   }
 

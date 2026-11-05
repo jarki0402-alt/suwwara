@@ -13,12 +13,22 @@ import styles from './BottomNav.module.css';
 import { LiquidGlassLensDefs } from './LiquidGlassLens';
 import { useLiquidPill } from './useLiquidPill';
 
-const TABS: { view: ViewName; label: string; icon: IconName }[] = [
+interface Tab {
+  /** A menu to show, or 'jam': the Jam tab opens the Jam sheet over whatever is showing instead of changing menu. */
+  view: ViewName | 'jam';
+  label: string;
+  icon: IconName;
+}
+
+// 2026-11 redesign: the phone dock carries Jam in place of Pengaturan (now the avatar on Beranda, with the update dot),
+// so listening together is one tap from anywhere. The desktop sidebar has room for both.
+const PHONE_TABS: Tab[] = [
   { view: 'home', label: 'Beranda', icon: 'home' },
   { view: 'search', label: 'Cari', icon: 'search' },
   { view: 'library', label: 'Koleksi', icon: 'library' },
-  { view: 'settings', label: 'Pengaturan', icon: 'settings' },
+  { view: 'jam', label: 'Jam', icon: 'users' },
 ];
+const DESKTOP_TABS: Tab[] = [...PHONE_TABS, { view: 'settings', label: 'Pengaturan', icon: 'settings' }];
 
 // No bubble ripple on the tabs: the lifted glass pill (useLiquidPill) already answers the press, as in Apple's tab bar,
 // and inside the rectangular tab the clipped ripple flashed as a coloured box.
@@ -28,7 +38,7 @@ function TabButton({
   hasUpdate,
   onSelect,
 }: {
-  tab: (typeof TABS)[number];
+  tab: Tab;
   isActive: boolean;
   hasUpdate: boolean;
   onSelect: () => void;
@@ -54,16 +64,19 @@ export function BottomNav() {
   const createPlaylist = useLibraryStore((state) => state.createPlaylist);
   const [isCreating, setIsCreating] = useState(false);
   const hasUpdate = useUpdateStore((state) => state.status === 'available');
-  const activeIndex = selectedPlaylistId ? -1 : TABS.findIndex((tab) => tab.view === currentView);
+  const openJamSheet = useUiStore((state) => state.openJamSheet);
   const isDesktop = useIsDesktop();
+  const TABS = isDesktop ? DESKTOP_TABS : PHONE_TABS;
+  const activeIndex = selectedPlaylistId ? -1 : TABS.findIndex((tab) => tab.view === currentView);
+  const select = (tab: Tab) => (tab.view === 'jam' ? openJamSheet() : setView(tab.view));
   const isCollapsed = useUiStore((state) => state.isDockCollapsed) && !isDesktop;
   const setDockCollapsed = useUiStore((state) => state.setDockCollapsed);
   // The folded orb stands for "the tabs": the current one, or Koleksi while a playlist (which lives
   // there) is open. Search already has its own orb on the right, so it isn't repeated here.
   const orbTab = activeIndex < 0 ? TABS[2] : TABS[activeIndex].view === 'search' ? TABS[0] : TABS[activeIndex];
-  const unfoldTo = (view: ViewName) => {
+  const unfoldTo = (tab: Tab) => {
     setDockCollapsed(false);
-    setView(view);
+    select(tab);
   };
 
   const navRef = useRef<HTMLElement>(null);
@@ -87,7 +100,7 @@ export function BottomNav() {
     enabled: !isDesktop && !isCollapsed,
     lens,
     lensClassName: styles.lensOn,
-    onSelect: (index) => setView(TABS[index].view),
+    onSelect: (index) => select(TABS[index]),
   });
 
   return (
@@ -111,7 +124,7 @@ export function BottomNav() {
       <button
         type="button"
         className={styles.compactTab}
-        onClick={() => unfoldTo(orbTab.view)}
+        onClick={() => unfoldTo(orbTab)}
         {...navGlass}
         tabIndex={isCollapsed ? 0 : -1}
         aria-hidden={!isCollapsed}
@@ -123,7 +136,7 @@ export function BottomNav() {
         Suwwara<span className={styles.brandDot}>.</span>
       </span>
       {TABS.map((tab, index) => (
-        <TabButton key={tab.view} tab={tab} isActive={index === activeIndex} hasUpdate={hasUpdate} onSelect={() => setView(tab.view)} />
+        <TabButton key={tab.view} tab={tab} isActive={index === activeIndex} hasUpdate={hasUpdate} onSelect={() => select(tab)} />
       ))}
 
       {/* Desktop: "you are in a Jam", under the menu (hidden on phones, which get JamPill in the corner). */}
@@ -193,7 +206,7 @@ export function BottomNav() {
       type="button"
       ref={searchOrbRef}
       className={[styles.searchOrb, 'liquid-glass', isCollapsed ? styles.searchOrbShown : ''].join(' ')}
-      onClick={() => unfoldTo('search')}
+      onClick={() => unfoldTo(PHONE_TABS[1])}
       {...searchOrbGlass}
       tabIndex={isCollapsed ? 0 : -1}
       aria-hidden={!isCollapsed}

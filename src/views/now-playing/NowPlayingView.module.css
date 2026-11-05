@@ -138,8 +138,12 @@
      what was wanted, a Spotify-style side panel was. */
   .overlay {
     left: auto;
-    top: var(--titlebar-height);
+    top: calc(var(--titlebar-height) + var(--panel-gap));
+    right: var(--panel-gap);
     width: var(--now-playing-panel-width);
+    /* A floating rounded panel beside the page (2026-11 redesign). */
+    border-radius: var(--panel-radius);
+    overflow: hidden;
     /* Stops above the desktop MiniPlayer bar (82px tall + its own --pill-gap
        detachment from the bottom edge, MiniPlayer.module.css) instead of inheriting the
        base rule's bottom:0 — otherwise this panel's higher z-index (--z-sheet) would sit on
@@ -148,13 +152,14 @@
     bottom: calc(82px + var(--pill-gap));
     background: none;
     animation: slideInFromRight 380ms var(--ease-spring);
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: -24px 0 48px rgba(0, 0, 0, 0.35), inset 1px 0 0 rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
   }
 
-  /* Extended background patch for the empty space behind MiniPlayer, applied ONLY when docked */
+  /* Docked: ends above the player bar like the page beside it (it used to run on behind the bar to the window's
+     bottom edge, with a fade over that part). */
   .overlay:not(.overlayFullscreen) {
-    bottom: 0;
+    bottom: calc(82px + var(--pill-gap) + var(--panel-gap));
     z-index: 5;
   }
 
@@ -172,10 +177,11 @@
   }
 
   .overlay:not(.overlayFullscreen) .sheet {
-    padding: var(--space-5) var(--space-5) calc(82px + var(--pill-gap) + var(--space-5));
+    padding: var(--space-5);
   }
 
   .overlay:not(.overlayFullscreen) .sheet::after {
+    display: none;
     content: '';
     position: absolute;
     bottom: 0;
@@ -273,6 +279,19 @@
   padding: var(--space-2);
   cursor: pointer;
   transition: background-color var(--transition-glass), transform 160ms var(--ease-spring);
+}
+
+/* 2026-11 redesign: the two top-bar buttons are small glass capsules over the album-art backdrop (the sheet is always
+   dark, so a white frost). Only on full glass; lite/off keep the plain icon. 44px: a comfortable touch target. */
+:root[data-glass='full'] .topBar .iconButton {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(180%);
 }
 
 .iconButton:active {
@@ -491,3 +510,55 @@
   text-overflow: ellipsis;
 }
 
+
+/* Docked panel extras (2026-11 redesign): "Berikutnya" and the Jam card under the song. */
+.dockedExtras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.upNextBox {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-2) var(--space-2);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.upNextHeading {
+  padding: 0 var(--space-2) var(--space-1);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+/* Docked panel with "Berikutnya" and the Jam card under the song (2026-11 redesign): the art keeps its square shape
+   and the panel scrolls, instead of the art being squeezed into a cropped strip to make everything fit. The panel
+   itself scrolls and the sheet grows with its content, so the blurred art backdrop (absolute inside the sheet) covers
+   the whole length instead of scrolling away with the first screen. Only while the art shows (:has): lyrics replace
+   it and must keep their own fixed-height scroller, or their follow-the-song auto-scroll has nothing to scroll. */
+@media (min-width: 960px) {
+  .overlay:not(.overlayFullscreen):has(.artSection > .art) {
+    overflow-y: auto;
+  }
+
+  .overlay:not(.overlayFullscreen):has(.artSection > .art) .sheet {
+    height: auto;
+    min-height: 100%;
+    /* Still hidden: it clips the oversized backdrop to the sheet; with height:auto it no longer scrolls itself. */
+    overflow: hidden;
+  }
+
+  .overlay:not(.overlayFullscreen) .artSection:has(> .art) {
+    flex: none;
+  }
+
+  .overlay:not(.overlayFullscreen) .artSection > .art {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+  }
+}

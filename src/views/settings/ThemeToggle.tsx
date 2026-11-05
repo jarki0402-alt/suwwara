@@ -10,6 +10,7 @@ const OPTIONS: { value: ThemePreference; label: string }[] = [
 
 // Swatch = the palette's own light accent on its own paper, so the choice reads the same in either theme.
 const PALETTE_OPTIONS: { value: PaletteId; label: string; accent: string; paper: string }[] = [
+  { value: 'bara', label: 'Bara', accent: '#ff8a4c', paper: '#101114' },
   { value: 'simple', label: 'Simple', accent: '#e2462a', paper: '#ffffff' },
   { value: 'hutan', label: 'Hutan', accent: '#1e7a4f', paper: '#fbfaf7' },
   { value: 'kobalt', label: 'Kobalt', accent: '#2f5bd3', paper: '#ffffff' },

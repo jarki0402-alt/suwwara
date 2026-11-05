@@ -1,0 +1,377 @@
+/* Desktop fullscreen stage (2026-11 redesign). Lives inside Now Playing's .sheet, which already paints the blurred
+   album-art backdrop and switches the colour tokens to light-on-dark, so everything here can use the usual tokens. */
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-2) clamp(var(--space-4), 3vw, var(--space-7)) var(--space-4);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  transition: opacity var(--transition-glass);
+}
+
+.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Small glass capsules over the art backdrop, like the docked panel's buttons. */
+.chip {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 0 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--press-spring), background var(--transition-fast);
+}
+
+.chip:active {
+  transform: scale(0.96);
+}
+
+.chipAccent {
+  color: var(--color-accent-on-dark);
+}
+
+.source {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.columns {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: clamp(var(--space-5), 4vw, 72px);
+  align-items: stretch;
+  justify-content: center;
+}
+
+.songColumn {
+  flex: 0 1 min(520px, 44vh + 120px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+/* Square art that never pushes the controls off a short window. */
+.art {
+  width: 100%;
+  max-width: min(520px, 56vh);
+  aspect-ratio: 1;
+  align-self: center;
+  border-radius: 24px;
+  object-fit: cover;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.metaText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: clamp(1.6rem, 2.4vw, 2.3rem);
+  font-weight: 700;
+  line-height: 1.1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.artist {
+  font-size: 1.05rem;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.metaActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sideColumn {
+  flex: 0 1 560px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tabs {
+  align-self: flex-start;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+}
+
+.tab {
+  height: 36px;
+  padding: 0 18px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: #f4f2ee;
+  color: #111114;
+  font-weight: 600;
+}
+
+/* The glass panel the tab's content scrolls in. */
+.panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.4), 0 16px 40px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(var(--blur-md)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%);
+}
+
+.panelHeading {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+/* Up next: shared with the docked panel (compact). */
+.upNext {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upNextRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+@media (hover: hover) {
+  .upNextRow:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.upNextArt {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.upNextCompact {
+  padding: 6px;
+}
+
+.upNextCompact .upNextArt {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.upNextText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upNextTitle,
+.upNextArtist {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.upNextTitle {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.upNextArtist {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.upNextTime {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  padding: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+/* Jam card. */
+.jamCard {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: 14px 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  text-align: left;
+}
+
+.jamCardStart {
+  cursor: pointer;
+  transition: transform var(--press-spring);
+}
+
+.jamCardStart:active {
+  transform: scale(0.98);
+}
+
+.jamIcon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-accent-on-dark);
+}
+
+.jamText {
+  flex: 1 1 180px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.jamTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.jamSub {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: #5fd3b4;
+}
+
+.liveDotWarn {
+  background: #f2c14e;
+}
+
+.jamActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.jamPrimary,
+.jamSecondary {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jamPrimary {
+  border: none;
+  background: #f4f2ee;
+  color: #111114;
+}
+
+.jamSecondary {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: var(--color-text-primary);
+}

@@ -7,6 +7,7 @@ import { enterFullscreen } from '../utils/documentFullscreen';
 import { playHere, remoteSetVolume } from '../connect/remote';
 import { frameTicker } from '../audio-engine/frameTicker';
 import { Icon } from '../components/Icon/Icon';
+import { LikeButton } from '../components/LikeButton/LikeButton';
 import { LazyImage } from '../components/Image/LazyImage';
 import { ProgressBar, type ProgressBarHandle } from '../components/ProgressBar/ProgressBar';
 import { useBubbleRipple } from '../hooks/useBubbleRipple';
@@ -155,6 +156,10 @@ export function MiniPlayer() {
           >
             <Icon name="previous" size={20} />
           </button>
+          {/* Phone (2026-11 redesign): save the song without opening Now Playing. Desktop has it in the panel. */}
+          <span className={styles.phoneOnly}>
+            <LikeButton song={currentSong} size={22} />
+          </span>
           <button
             ref={playRipple.ref}
             type="button"

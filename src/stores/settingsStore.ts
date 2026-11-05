@@ -8,7 +8,7 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 export type GlassTier = 'full' | 'lite' | 'off';
 export type GlassMode = 'auto' | GlassTier;
 /** "Warna" in Pengaturan → Tampilan; each id is a [data-palette] block in theme.css. */
-export const PALETTES = ['simple', 'hutan', 'kobalt', 'mentari', 'monokrom', 'senja'] as const;
+export const PALETTES = ['bara', 'simple', 'hutan', 'kobalt', 'mentari', 'monokrom', 'senja'] as const;
 export type PaletteId = (typeof PALETTES)[number];
 
 // Two failures in a row (not "ever") is enough to call blob: audio unreliable on this device and stop
@@ -87,7 +87,7 @@ export const useSettingsStore = create<SettingsState>()(
       glassTint: 0.5,
       glassMode: 'auto',
       glassAutoTier: null,
-      palette: 'simple',
+      palette: 'bara',
       openInFullscreen: false,
       setDataSaver: (value) => set({ dataSaver: value }),
       setVolume: (value) => set({ volume: Math.min(Math.max(value, 0), 1) }),
@@ -103,9 +103,20 @@ export const useSettingsStore = create<SettingsState>()(
       setGlassTint: (value) => set({ glassTint: Math.min(Math.max(value, 0), 1) }),
       setGlassMode: (value) => set(value === 'auto' ? { glassMode: value, glassAutoTier: null } : { glassMode: value }),
       setGlassAutoTier: (value) => set({ glassAutoTier: value }),
-      setPalette: (value) => set({ palette: PALETTES.includes(value) ? value : 'simple' }),
+      setPalette: (value) => set({ palette: PALETTES.includes(value) ? value : 'bara' }),
       setOpenInFullscreen: (value) => set({ openInFullscreen: value }),
     }),
-    { name: 'suwwara-settings' },
+    {
+      name: 'suwwara-settings',
+      // v2 (2026-11 redesign): every device moves to the new Bara look once, whatever palette it had, so the redesign
+      // is actually seen (v1 only moved the old default, and people on a palette they once tried kept the old look).
+      // The choice stays theirs: any palette picked from now on is kept.
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<SettingsState>;
+        if (version < 2) state.palette = 'bara';
+        return state as SettingsState;
+      },
+    },
   ),
 );

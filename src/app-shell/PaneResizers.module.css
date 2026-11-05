@@ -16,11 +16,11 @@
 
   /* Centred on the seam it controls. */
   .sidebarHandle {
-    left: calc(var(--sidebar-width) - 4px);
+    left: calc(var(--sidebar-width) - var(--panel-gap) / 2 - 4px);
   }
 
   .panelHandle {
-    right: calc(var(--now-playing-panel-width) - 4px);
+    right: calc(var(--now-playing-panel-width) + var(--panel-gap) * 1.5 - 4px);
   }
 
   /* A hairline that appears only when you reach for it. */

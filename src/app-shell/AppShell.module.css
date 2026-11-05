@@ -3,6 +3,29 @@
   display: flex;
   flex-direction: column;
   position: relative;
+  /* Own stacking context so .ambient's z-index:-1 lands above the page colour but under everything else. */
+  isolation: isolate;
+}
+
+/* Desktop only (2026-11 redesign): a fixed, faint glow of the palette's accent behind the app, so the glass sidebar and
+   player have colour to frost instead of reading as flat grey. Radial gradients, not blurred shapes: painted once,
+   no filter pass, and it never moves, so the glass over it costs nothing per frame. Off with Efek Kaca off. */
+.ambient {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  :root:not([data-glass='off']) .ambient {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(42% 55% at 8% 92%, rgba(var(--color-accent-rgb), 0.16), transparent 70%),
+      radial-gradient(38% 50% at 92% 6%, rgba(var(--color-accent-rgb), 0.1), transparent 70%),
+      radial-gradient(30% 40% at 55% 45%, rgba(120, 110, 220, 0.06), transparent 70%);
+  }
 }
 
 .content {
@@ -12,6 +35,12 @@
      footprint (two pills + the three gaps between/around them) plus a little breathing
      room so the last row of content never sits flush against the floating MiniPlayer. */
   padding-bottom: calc(var(--dock-bottom) + var(--bottom-nav-height) + var(--dock-gap) + var(--mini-player-height) + var(--space-4));
+}
+
+/* Nothing played yet, so no player is showing: the page runs to the bottom instead of keeping an empty band where the
+   player would be (the dock alone on a phone, the panel to the window's bottom gap on desktop). */
+.contentNoPlayer {
+  padding-bottom: calc(var(--dock-bottom) + var(--bottom-nav-height) + var(--space-4));
 }
 
 @media (min-width: 960px) {
@@ -24,22 +53,45 @@
        item (.shell is flex-direction:column), and a flex item with auto margins
        on the cross axis shrinks to fit its content instead of stretching, which
        silently collapsed every view down to its narrowest child's width. */
-    width: 100%;
-    max-width: calc(1400px + var(--sidebar-width));
-    padding-top: var(--titlebar-height);
-    margin: 0 auto;
-    padding-left: var(--sidebar-width);
-    /* MiniPlayer's real desktop height is 82px (its own CSS override), floating with its own
-       --pill-gap detachment from the bottom edge now too. */
-    padding-bottom: calc(82px + var(--pill-gap) + var(--space-4));
+    /* 2026-11 redesign: the page is its own rounded panel, floating between the sidebar and (when open) the right
+       panel, ending above the player bar, so it scrolls inside its own rounded box. The 1400px reading width now caps
+       the panel's children instead (below), so a very wide window still centres the content. */
+    width: auto;
+    max-width: none;
+    margin: calc(var(--titlebar-height) + var(--panel-gap)) var(--panel-gap) calc(82px + var(--pill-gap) + var(--panel-gap))
+      var(--sidebar-width);
+    padding: 0 0 var(--space-5);
+    border-radius: var(--panel-radius);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-sidebar);
+    /* The 1400px reading width, kept by padding the panel on very wide windows (the children keep their own margins). */
+    --right-space: var(--panel-gap);
+    padding-inline: max(0px, calc((100vw - var(--sidebar-width) - var(--right-space) - 1400px) / 2));
     /* No transition on padding: animating it re-laid out the whole page on every frame (the stutter when
        the right panel opened). The change is one cross-faded step now — see utils/viewTransition.ts. */
   }
 
   /* Reserves room for the docked Now Playing panel (NowPlayingView.module.css)
      so it sits beside the main content instead of overlapping it. */
+  .contentNoPlayer {
+    margin-bottom: var(--panel-gap);
+    padding-bottom: var(--space-5);
+  }
+
   .contentWithPanel {
-    padding-right: var(--now-playing-panel-width);
+    --right-space: calc(var(--now-playing-panel-width) + 2 * var(--panel-gap));
+    /* The panel sits one gap in from the window edge, so the page stops one gap before it: two gaps in all. */
+    margin-right: calc(var(--now-playing-panel-width) + 2 * var(--panel-gap));
+  }
+
+  /* Frosted over the fixed accent glow (.ambient), the only thing behind the panel, so scrolling the page inside it
+     never makes the browser redo the blur. */
+  :root[data-glass='full'] .content {
+    background: rgba(var(--glass-tint), min(0.92, calc(0.5 * var(--glass-alpha-factor, 1))));
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-sheen);
+    backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+    -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
   }
 }
 

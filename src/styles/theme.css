@@ -16,6 +16,17 @@
  * contrast: a honey yellow that reads on near-black is unreadable on white, so Mentari's light accent is darker.
  */
 :root,
+:root[data-palette='bara'] {
+  /* The default since the 2026-11 redesign: a warm near-black with one sunset-orange accent. The light accent is a
+     deeper burnt orange, since the dark one is far below 4.5:1 on paper. */
+  --pl-bg: #fffaf6; --pl-elevated: #f3ece6; --pl-sidebar: #faf4ef; --pl-glass: 255, 250, 246;
+  --pl-text: #17130f; --pl-text-2: #6e655d; --pl-text-3: #9a9188;
+  --pl-accent: #b84a12; --pl-accent-rgb: 184, 74, 18; --pl-accent-strong: #963b0c; --pl-on-accent: #ffffff;
+  --pd-bg: #101114; --pd-elevated: #1f2026; --pd-sidebar: #15161b; --pd-glass: 30, 31, 38;
+  --pd-text: #f4f2ee; --pd-text-2: #a7a5ae; --pd-text-3: #8a8893;
+  --pd-accent: #ff8a4c; --pd-accent-rgb: 255, 138, 76; --pd-accent-strong: #ffa676; --pd-on-accent: #101114;
+}
+
 :root[data-palette='simple'] {
   --pl-bg: #ffffff; --pl-elevated: #f2f2f4; --pl-sidebar: #f7f7f8; --pl-glass: 255, 255, 255;
   --pl-text: #111113; --pl-text-2: #6b6b72; --pl-text-3: #9a9aa2;

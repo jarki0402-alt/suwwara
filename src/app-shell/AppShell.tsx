@@ -59,6 +59,17 @@ function ShellBody() {
   // The Perangkat (Connect) panel docks in the same right-hand column, so the page reserves the same room for it.
   const showRightPanel = showNowPlayingPanel || isConnectSheetOpen;
 
+  // 2026-11 redesign: on a wide desktop window the right column shows what is playing from the start (the "Sedang
+  // diputar" panel), as soon as there is a song. Once per session only: closing it is respected until the next launch.
+  const openNowPlaying = useUiStore((state) => state.openNowPlaying);
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedRef.current || !isDesktop || !currentSong || isNowPlayingOpen) return;
+    if (!window.matchMedia('(min-width: 1280px)').matches) return;
+    autoOpenedRef.current = true;
+    openNowPlaying();
+  }, [isDesktop, currentSong, isNowPlayingOpen, openNowPlaying]);
+
   // <main> is the one scroll container shared by every menu, so without this a menu
   // opened after scrolling deep into another one starts from that same offset — the
   // fresh view then appears already scrolled past its own header.
@@ -90,8 +101,13 @@ function ShellBody() {
 
   return (
     <div className={styles.shell}>
+      {/* The soft accent glow the desktop's glass sidebar and player sit on (CSS only, see .ambient). */}
+      <div className={styles.ambient} aria-hidden="true" />
       <div className={styles.titlebar} aria-hidden="true" />
-      <main ref={contentRef} className={[styles.content, showRightPanel ? styles.contentWithPanel : ''].join(' ')}>
+      <main
+        ref={contentRef}
+        className={[styles.content, showRightPanel ? styles.contentWithPanel : '', currentSong ? '' : styles.contentNoPlayer].join(' ')}
+      >
         <TopBar />
         {currentView === 'home' && detailDepth === 0 && <InstallBanner />}
         <ViewRouter />

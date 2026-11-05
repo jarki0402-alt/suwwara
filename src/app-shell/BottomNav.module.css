@@ -259,20 +259,20 @@
 
 @media (min-width: 960px) {
   .nav {
-    top: 0;
+    /* A floating rounded panel (2026-11 redesign), like the page and the right panel beside it. */
+    top: calc(var(--titlebar-height) + var(--panel-gap));
     right: auto;
-    bottom: 0;
-    left: 0;
-    width: var(--sidebar-width);
-    height: 100%;
+    bottom: var(--panel-gap);
+    left: var(--panel-gap);
+    width: calc(var(--sidebar-width) - 2 * var(--panel-gap));
+    height: auto;
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
     gap: var(--space-1);
-    padding: calc(var(--space-6) + env(safe-area-inset-top) + var(--titlebar-height)) var(--space-3) var(--space-4);
-    border-radius: 0;
-    border-top: none;
-    border-right: 1px solid var(--color-border);
+    padding: calc(var(--space-5) + env(safe-area-inset-top)) var(--space-3) var(--space-4);
+    border-radius: var(--panel-radius);
+    border: 1px solid var(--color-border);
     /* A tall panel sitting behind scrolling content all day reads better solid than
        glassy at this size — kept from the original design (see TopBar's own note on the
        search dropdown for the same call). Full glass treatment stays on the floating
@@ -287,6 +287,16 @@
        touch-capable desktop/tablet. */
     touch-action: auto;
     transition: none;
+  }
+
+  /* With glass on, the sidebar is frosted over the fixed accent glow (AppShell .ambient). Only that static layer is
+     behind it, never scrolling content, so the backdrop pass is not redone while the page scrolls. */
+  :root[data-glass='full'] .nav {
+    border-color: var(--glass-border);
+    background: rgba(var(--glass-tint), min(0.92, calc(0.5 * var(--glass-alpha-factor, 1))));
+    backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+    -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+    box-shadow: var(--glass-sheen);
   }
 
   .compactTab,

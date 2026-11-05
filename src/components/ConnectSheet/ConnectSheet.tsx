@@ -151,7 +151,10 @@ export function ConnectSheet() {
     const bar = document.querySelector<HTMLElement>('[data-player-bar]');
     if (!panel) return;
     const apply = () => {
-      panel.style.bottom = `${bar?.offsetHeight ?? 0}px`;
+      // Measured from the bar's top edge, plus the floating-panel gap (2026-11 redesign), so the panel never runs
+      // under the bar wherever the bar sits.
+      const gap = 8;
+      panel.style.bottom = bar ? `${Math.max(0, window.innerHeight - bar.getBoundingClientRect().top) + gap}px` : `${gap}px`;
     };
     apply();
     if (!bar || typeof ResizeObserver === 'undefined') return;

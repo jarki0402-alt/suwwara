@@ -177,10 +177,11 @@
    are open. Its bottom edge is set from the player bar's height (ConnectSheet.tsx). */
 .panel {
   position: fixed;
-  top: var(--titlebar-height);
-  right: 0;
-  bottom: calc(82px + var(--pill-gap));
+  top: calc(var(--titlebar-height) + var(--panel-gap));
+  right: var(--panel-gap);
+  bottom: calc(82px + var(--pill-gap) + var(--panel-gap));
   width: var(--now-playing-panel-width);
+  border-radius: var(--panel-radius);
   /* One above Now Playing's panel (--z-sheet) so it covers it while open. */
   z-index: calc(var(--z-sheet) + 1);
   display: flex;
@@ -189,8 +190,8 @@
   padding: var(--space-4);
   overflow-y: auto;
   background: var(--color-bg);
-  border-left: 1px solid var(--color-border);
-  box-shadow: -24px 0 48px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
   animation: panelIn 380ms var(--ease-spring);
 }
 

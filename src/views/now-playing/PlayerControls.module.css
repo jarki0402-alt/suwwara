@@ -69,15 +69,16 @@
   width: 64px;
   height: 64px;
   border-radius: var(--radius-full);
-  /* The Now Playing sheet is always dark, whatever the app theme: a white button, dark icon. */
-  background: #ffffff;
+  /* The Now Playing sheet is always dark, whatever the app theme, so the palette's dark-mode accent (2026-11 redesign;
+     was plain white) with a dark icon: every palette's dark accent is light enough for that. */
+  background: var(--color-accent-on-dark);
   color: #111114;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.45);
   transition: transform 160ms var(--ease-spring);
 }
 

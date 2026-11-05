@@ -1,5 +1,6 @@
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { useEffect, useRef } from 'react';
+import { useUiStore } from '../stores/uiStore';
 import { currentPaneWidth, resetPaneWidth, savePaneWidths, setPaneWidth, type Pane } from './paneWidths';
 import styles from './PaneResizers.module.css';
 
@@ -78,6 +79,10 @@ function Handle({ pane, label }: { pane: Pane; label: string }) {
 
 /** The draggable dividers between the sidebar / main column / Now Playing panel (desktop only). */
 export function PaneResizers({ panelOpen }: { panelOpen: boolean }) {
+  // Fullscreen Now Playing covers the whole window: there are no panes to resize, and the handles showed through as
+  // thin vertical lines across the stage.
+  const isFullscreen = useUiStore((state) => state.isNowPlayingFullscreen);
+  if (isFullscreen) return null;
   return (
     <>
       <Handle pane="sidebar" label="Ubah lebar sidebar" />

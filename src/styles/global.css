@@ -1,16 +1,5 @@
 /* Figtree, self-hosted rather than from Google Fonts: it must work offline in the installed PWA, and one variable file
    per script covers every weight (~20KB for Latin; the -ext file only loads if a page uses those letters). */
-/* Display face for page and section titles (2026-11 redesign): Figtree stays for everything else. Latin only and
-   precached by the service worker like Figtree; one variable file covers the 600-800 weights used. */
-@font-face {
-  font-family: 'Bricolage Grotesque';
-  font-style: normal;
-  font-weight: 600 800;
-  font-display: swap;
-  src: url('/fonts/bricolage-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
 @font-face {
   font-family: 'Figtree';
   font-style: normal;
@@ -114,13 +103,6 @@ h2,
 h3,
 p {
   margin: 0;
-}
-
-/* Page and section titles carry the display face (see the @font-face above); body copy, rows and controls stay Figtree. */
-h1,
-h2 {
-  font-family: var(--font-display);
-  letter-spacing: -0.015em;
 }
 
 /* Chrome draws a scroll container's scrollbar over its rounded corners instead of clipping it, so on the rounded

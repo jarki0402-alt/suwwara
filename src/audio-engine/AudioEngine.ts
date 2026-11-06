@@ -9,6 +9,7 @@ import type { AudioEngineListener, LoadTrackOptions, PlaybackState } from './typ
 import { AudioEngineError } from './types';
 import { reportPlayback } from '../diagnostics/playbackReports';
 import { isAndroidDevice, isPageHidden, usesPlainMediaElements } from './platform';
+import { msg } from '../i18n/i18n';
 
 /**
  * A locally stored blob: URL to play `songId` from instead of hitting the network — a deliberate offline
@@ -443,7 +444,7 @@ class AudioEngine {
     });
     element.addEventListener('error', () => {
       if (!isActive()) return;
-      this.updateSnapshot({ status: 'error', error: 'Terjadi kesalahan saat memutar: sumber audio tidak tersedia.' });
+      this.updateSnapshot({ status: 'error', error: msg('Terjadi kesalahan saat memutar: sumber audio tidak tersedia.') });
     });
     element.addEventListener('loadedmetadata', () => {
       if (!isActive()) return;
@@ -816,7 +817,7 @@ class AudioEngine {
       // loadTrack/crossfadeTo failure path already uses gets it the same
       // "Gagal memutar lagu ini." toast + retry button instead.
       this.play().catch(() => {
-        this.updateSnapshot({ status: 'error', error: 'Gagal memutar lagu ini.' });
+        this.updateSnapshot({ status: 'error', error: msg('Gagal memutar lagu ini.') });
       });
     } else {
       this.pause();

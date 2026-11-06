@@ -6,6 +6,7 @@ import { sendCommand } from './connectClient';
 import { followedDevice, projectedPosition, useConnectStore } from './connectStore';
 import { applyResumePoint, peekResumePoint, setResumePoint } from './sessionHold';
 import { suppressFollow } from './sessionSync';
+import { t } from '../i18n/i18n';
 
 /**
  * What this device's controls do while it is a remote for another device. Transport goes out as a Connect command and
@@ -22,7 +23,7 @@ function send(type: string, payload?: unknown): void {
   const device = followedDevice();
   if (!device) return;
   void sendCommand(device.ref, type, payload).then((delivered) => {
-    if (!delivered) showConnectToast(`${device.name} tidak terhubung.`);
+    if (!delivered) showConnectToast(t('{name} tidak terhubung.', { name: device.name }));
   });
 }
 
@@ -83,7 +84,7 @@ export function playHere(): void {
     .play()
     // Only does anything when the song was already loaded here (no deferred load consumed the resume point).
     .then(() => applyResumePoint(song.id))
-    .catch(() => showConnectToast('Gagal memutar di perangkat ini.'));
+    .catch(() => showConnectToast(t('Gagal memutar di perangkat ini.')));
 }
 
 /** Moves the account's playback to `targetRef` (another device), from wherever it is now. False if it can't be reached. */

@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { bestImageUrl, isVideoFrame } from '../../api/mappers';
 import type { Song } from '../../api/types';
 import { Icon } from '../../components/Icon/Icon';
+import { msg, useT } from '../../i18n/i18n';
 import { playSongList } from '../../playback/playSongList';
 import { getTimeMix } from '../../recommendation/smartMixes';
 import { useUiStore } from '../../stores/uiStore';
@@ -52,16 +53,17 @@ export function MixCover({ card, size = 'card' }: { card: MixCard; size?: 'card'
 }
 
 const FILTERS: { id: MixFilter; label: string }[] = [
-  { id: 'all', label: 'Untukmu' },
-  { id: 'chill', label: 'Santai' },
-  { id: 'focus', label: 'Fokus' },
-  { id: 'new', label: 'Baru' },
+  { id: 'all', label: msg('Untukmu') },
+  { id: 'chill', label: msg('Santai') },
+  { id: 'focus', label: msg('Fokus') },
+  { id: 'new', label: msg('Baru') },
 ];
 
 /** The mood chips (phone, under the greeting). They narrow the "Dibuat untukmu" shelf below. */
 export function MixFilterChips({ value, onChange }: { value: MixFilter; onChange: (value: MixFilter) => void }) {
+  const t = useT();
   return (
-    <div className={styles.chips} role="tablist" aria-label="Saring mix">
+    <div className={styles.chips} role="tablist" aria-label={t('Saring mix')}>
       {FILTERS.map((filter) => (
         <button
           key={filter.id}
@@ -71,7 +73,7 @@ export function MixFilterChips({ value, onChange }: { value: MixFilter; onChange
           className={[styles.chip, value === filter.id ? styles.chipActive : ''].join(' ')}
           onClick={() => onChange(filter.id)}
         >
-          {filter.label}
+          {t(filter.label)}
         </button>
       ))}
     </div>
@@ -84,6 +86,7 @@ export function MixFilterChips({ value, onChange }: { value: MixFilter; onChange
  * until they are there the button opens the mix instead.
  */
 export function TimeMixHero({ card }: { card: MixCard }) {
+  const t = useT();
   const openCollection = useUiStore((state) => state.openCollection);
   const [songs, setSongs] = useState<Song[]>([]);
   useEffect(() => {
@@ -104,12 +107,12 @@ export function TimeMixHero({ card }: { card: MixCard }) {
       <button type="button" className={styles.heroMain} onClick={() => openCollection(card.id)}>
         <MixCover card={card} size="hero" />
         <span className={styles.heroText}>
-          <span className={styles.heroEyebrow}>Dibuat untukmu</span>
+          <span className={styles.heroEyebrow}>{t('Dibuat untukmu')}</span>
           <span className={styles.heroTitle}>{card.title}</span>
           <span className={styles.heroSub}>{card.subtitle}</span>
         </span>
       </button>
-      <button type="button" className={styles.heroPlay} onClick={play} aria-label={`Putar ${card.title}`}>
+      <button type="button" className={styles.heroPlay} onClick={play} aria-label={t('Putar {name}', { name: card.title })}>
         <Icon name="play" size={22} />
       </button>
     </section>
@@ -118,12 +121,13 @@ export function TimeMixHero({ card }: { card: MixCard }) {
 
 /** "Dibuat untukmu": every mix as a card with its drawn cover. A sideways row on a phone, a wrapping grid on desktop. */
 export function MixShelf({ cards }: { cards: MixCard[] }) {
+  const t = useT();
   const openCollection = useUiStore((state) => state.openCollection);
   useRequestMixArtwork(cards.map((card) => card.id));
   if (cards.length === 0) return null;
   return (
     <section className={styles.shelf}>
-      <h2 className={styles.heading}>Dibuat untukmu</h2>
+      <h2 className={styles.heading}>{t('Dibuat untukmu')}</h2>
       <div className={styles.row}>
         {cards.map((card) => (
           <button key={card.id} type="button" className={styles.card} onClick={() => openCollection(card.id)}>

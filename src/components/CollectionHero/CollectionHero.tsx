@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { bestImageUrl } from '../../api/mappers';
 import type { ImageVariant, Song } from '../../api/types';
+import { useT } from '../../i18n/i18n';
 import { playSongList } from '../../playback/playSongList';
 import { collectionMeta } from '../../utils/collectionMeta';
 import { shuffledCopy } from '../../utils/shuffle';
@@ -39,6 +40,7 @@ interface CollectionHeroProps {
  * gradient with an icon, never a bare page.
  */
 export function CollectionHero({ kind, title, onTitleClick, description, songs, images, fallbackIcon, iconCover, onBack, isLoading, extraActions }: CollectionHeroProps) {
+  const t = useT();
   const backdrop = images.length > 0 ? bestImageUrl(images, '150x150') : '';
   const showArt = images.length > 0 && !iconCover;
 
@@ -48,7 +50,7 @@ export function CollectionHero({ kind, title, onTitleClick, description, songs, 
         {backdrop && <img className={styles.backdrop} src={backdrop} alt="" aria-hidden="true" decoding="async" referrerPolicy="no-referrer" />}
         <span className={styles.tint} aria-hidden="true" />
         {onBack && (
-          <button type="button" className={styles.backButton} onClick={onBack} aria-label="Kembali">
+          <button type="button" className={styles.backButton} onClick={onBack} aria-label={t('Kembali')}>
             <Icon name="chevron-left" size={20} />
           </button>
         )}
@@ -83,10 +85,10 @@ export function CollectionHero({ kind, title, onTitleClick, description, songs, 
         <div className={styles.actions}>
           {!isLoading && songs.length > 0 && (
             <>
-              <button type="button" className={styles.playButton} onClick={() => playSongList(songs, 0)} aria-label={`Putar ${title}`}>
+              <button type="button" className={styles.playButton} onClick={() => playSongList(songs, 0)} aria-label={t('Putar {title}', { title })}>
                 <Icon name="play" size={24} />
               </button>
-              <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffledCopy(songs), 0)} aria-label="Putar acak">
+              <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffledCopy(songs), 0)} aria-label={t('Putar acak')}>
                 <Icon name="shuffle" size={22} />
               </button>
               <CollectionDownloadButton songs={songs} />

@@ -1,6 +1,7 @@
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import { SongRow } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
+import { useT } from '../../i18n/i18n';
 import { playSongRadio } from '../../playback/playSongRadio';
 import { useTrendingSongs } from '../../recommendation/useTrendingSongs';
 import sectionStyles from './RecentlyPlayedSection.module.css';
@@ -10,6 +11,7 @@ const VISIBLE_ROWS = 10;
 
 /** The day's chart as a ranked list (01, 02, …) — quieter and denser than a strip of big covers. */
 export function TopChartSection() {
+  const t = useT();
   const { songs, isLoading } = useTrendingSongs(15);
 
   if (!isLoading && songs.length === 0) return null;
@@ -18,10 +20,10 @@ export function TopChartSection() {
     <section className={sectionStyles.section}>
       <div className={styles.headingRow}>
         <div>
-          <h2 className={styles.heading}>Lagi ramai</h2>
-          <p className={styles.hint}>Diperbarui setiap hari untuk pendengar di Indonesia</p>
+          <h2 className={styles.heading}>{t('Lagi ramai')}</h2>
+          <p className={styles.hint}>{t('Diperbarui setiap hari untuk pendengar di Indonesia')}</p>
         </div>
-        <span className={styles.tag}>Live Chart</span>
+        <span className={styles.tag}>{t('Live Chart')}</span>
       </div>
 
       <div className={styles.list}>

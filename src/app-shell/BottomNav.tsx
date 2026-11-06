@@ -12,6 +12,7 @@ import { useUiStore, type ViewName } from '../stores/uiStore';
 import styles from './BottomNav.module.css';
 import { LiquidGlassLensDefs } from './LiquidGlassLens';
 import { useLiquidPill } from './useLiquidPill';
+import { msg, useT } from '../i18n/i18n';
 
 interface Tab {
   /** A menu to show, or 'jam': the Jam tab opens the Jam sheet over whatever is showing instead of changing menu. */
@@ -23,12 +24,12 @@ interface Tab {
 // The phone dock keeps Pengaturan (Jam is one tap away from Beranda's header and from Now Playing). The desktop
 // sidebar has room for Jam too.
 const PHONE_TABS: Tab[] = [
-  { view: 'home', label: 'Beranda', icon: 'home' },
-  { view: 'search', label: 'Cari', icon: 'search' },
-  { view: 'library', label: 'Koleksi', icon: 'library' },
-  { view: 'settings', label: 'Pengaturan', icon: 'settings' },
+  { view: 'home', label: msg('Beranda'), icon: 'home' },
+  { view: 'search', label: msg('Cari'), icon: 'search' },
+  { view: 'library', label: msg('Koleksi'), icon: 'library' },
+  { view: 'settings', label: msg('Pengaturan'), icon: 'settings' },
 ];
-const DESKTOP_TABS: Tab[] = [...PHONE_TABS.slice(0, 3), { view: 'jam', label: 'Jam', icon: 'users' }, PHONE_TABS[3]];
+const DESKTOP_TABS: Tab[] = [...PHONE_TABS.slice(0, 3), { view: 'jam', label: msg('Jam'), icon: 'users' }, PHONE_TABS[3]];
 
 // No bubble ripple on the tabs: the lifted glass pill (useLiquidPill) already answers the press, as in Apple's tab bar,
 // and inside the rectangular tab the clipped ripple flashed as a coloured box.
@@ -43,18 +44,20 @@ function TabButton({
   hasUpdate: boolean;
   onSelect: () => void;
 }) {
+  const t = useT();
   return (
     <button type="button" className={[styles.tabButton, isActive ? styles.tabActive : ''].join(' ')} onClick={onSelect}>
       <span className={styles.tabIcon}>
         <Icon name={tab.icon} size={22} />
-        {tab.view === 'settings' && hasUpdate && <span className={styles.updateDot} aria-label="Ada pembaruan" />}
+        {tab.view === 'settings' && hasUpdate && <span className={styles.updateDot} aria-label={t('Ada pembaruan')} />}
       </span>
-      <span>{tab.label}</span>
+      <span>{t(tab.label)}</span>
     </button>
   );
 }
 
 export function BottomNav() {
+  const t = useT();
   const currentView = useUiStore((state) => state.currentView);
   const setView = useUiStore((state) => state.setView);
   const selectedPlaylistId = useUiStore((state) => state.selectedPlaylistId);
@@ -128,7 +131,7 @@ export function BottomNav() {
         {...navGlass}
         tabIndex={isCollapsed ? 0 : -1}
         aria-hidden={!isCollapsed}
-        aria-label={orbTab.label}
+        aria-label={t(orbTab.label)}
       >
         <Icon name={orbTab.icon} size={24} />
       </button>
@@ -148,8 +151,8 @@ export function BottomNav() {
           sub-tabs, matching Spotify's persistent library list. */}
       <div className={styles.library}>
         <div className={styles.libraryHeadingRow}>
-          <span className={styles.libraryHeading}>Koleksimu</span>
-          <button type="button" className={styles.addButton} onClick={() => setIsCreating(true)} aria-label="Buat playlist baru">
+          <span className={styles.libraryHeading}>{t('Koleksimu')}</span>
+          <button type="button" className={styles.addButton} onClick={() => setIsCreating(true)} aria-label={t('Buat playlist baru')}>
             <Icon name="plus" size={16} />
           </button>
         </div>
@@ -163,8 +166,8 @@ export function BottomNav() {
               <Icon name="heart-filled" size={22} />
             </span>
             <span className={styles.libraryText}>
-              <span className={styles.libraryLabel}>Lagu Disukai</span>
-              <span className={styles.librarySub}>{likedCount} trek</span>
+              <span className={styles.libraryLabel}>{t('Lagu Disukai')}</span>
+              <span className={styles.librarySub}>{t('{n} trek', { n: likedCount })}</span>
             </span>
           </button>
           {playlists.map((playlist) => (
@@ -183,7 +186,7 @@ export function BottomNav() {
               )}
               <span className={styles.libraryText}>
                 <span className={styles.libraryLabel}>{playlist.name}</span>
-                <span className={styles.librarySub}>Daftar Putar</span>
+                <span className={styles.librarySub}>{t('Daftar Putar')}</span>
               </span>
             </button>
           ))}
@@ -192,8 +195,8 @@ export function BottomNav() {
 
       <PlaylistNameDialog
         isOpen={isCreating}
-        title="Playlist Baru"
-        confirmLabel="Buat"
+        title={t('Playlist Baru')}
+        confirmLabel={t('Buat')}
         onConfirm={(name) => {
           const playlist = createPlaylist(name);
           setIsCreating(false);
@@ -210,7 +213,7 @@ export function BottomNav() {
       {...searchOrbGlass}
       tabIndex={isCollapsed ? 0 : -1}
       aria-hidden={!isCollapsed}
-      aria-label="Cari"
+      aria-label={t('Cari')}
     >
       <Icon name="search" size={24} />
     </button>

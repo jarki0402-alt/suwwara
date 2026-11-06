@@ -5,6 +5,7 @@ import { joinJamRoom } from '../../jam/joinJam';
 import { useToast } from '../Toast/ToastProvider';
 import { Icon } from '../Icon/Icon';
 import styles from './JoinJamSheet.module.css';
+import { useT } from '../../i18n/i18n';
 
 interface JoinJamSheetProps {
   isOpen: boolean;
@@ -18,12 +19,15 @@ interface JoinJamSheetProps {
  * join request, so a Jam-driven "play" arriving moments later over SSE is
  * allowed to make sound. */
 export function JoinJamSheet({ isOpen, roomId, onClose }: JoinJamSheetProps) {
+  const t = useT();
   const { showToast } = useToast();
   const [busy, setBusy] = useState(false);
 
   if (!isOpen) return null;
 
   const stopPropagation = (event: MouseEvent) => event.stopPropagation();
+  // One sentence for the translator, split around {code} afterwards so the room code can still be bold.
+  const [beforeCode, afterCode = ''] = t('Kamu bakal dengerin bareng room {code}. Antrean lagu kamu saat ini disimpan dulu dan dikembalikan begitu keluar dari Jam.').split('{code}');
 
   const handleJoin = async () => {
     void audioEngine.unlock();
@@ -32,11 +36,11 @@ export function JoinJamSheet({ isOpen, roomId, onClose }: JoinJamSheetProps) {
     setBusy(false);
     onClose();
     if (result.ok) {
-      showToast('Gabung Jam!');
+      showToast(t('Gabung Jam!'));
     } else if (result.reason === 'not-found') {
-      showToast('Room Jam tidak ditemukan. Mungkin sudah berakhir.', { type: 'error' });
+      showToast(t('Room Jam tidak ditemukan. Mungkin sudah berakhir.'), { type: 'error' });
     } else {
-      showToast('Gagal gabung Jam. Coba lagi.', { type: 'error' });
+      showToast(t('Gagal gabung Jam. Coba lagi.'), { type: 'error' });
     }
   };
 
@@ -44,19 +48,20 @@ export function JoinJamSheet({ isOpen, roomId, onClose }: JoinJamSheetProps) {
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.sheet} onClick={stopPropagation}>
         <div className={styles.header}>
-          <span className={styles.title}>Gabung Jam?</span>
-          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Tutup">
+          <span className={styles.title}>{t('Gabung Jam?')}</span>
+          <button type="button" className={styles.closeButton} onClick={onClose} aria-label={t('Tutup')}>
             <Icon name="close" size={18} />
           </button>
         </div>
 
         <p className={styles.description}>
-          Kamu bakal dengerin bareng room <strong>{roomId}</strong>. Antrean lagu kamu saat ini disimpan dulu dan
-          dikembalikan begitu keluar dari Jam.
+          {beforeCode}
+          <strong>{roomId}</strong>
+          {afterCode}
         </p>
 
         <button type="button" className={styles.primaryButton} onClick={handleJoin} disabled={busy}>
-          {busy ? 'Gabung...' : 'Gabung'}
+          {busy ? t('Gabung...') : t('Gabung')}
         </button>
       </div>
     </div>

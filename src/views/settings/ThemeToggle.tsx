@@ -1,11 +1,12 @@
 import { Icon } from '../../components/Icon/Icon';
+import { msg, useT } from '../../i18n/i18n';
 import { useSettingsStore, type PaletteId, type ThemePreference } from '../../stores/settingsStore';
 import styles from './ThemeToggle.module.css';
 
 const OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'system', label: 'Sistem' },
-  { value: 'light', label: 'Terang' },
-  { value: 'dark', label: 'Gelap' },
+  { value: 'system', label: msg('Sistem') },
+  { value: 'light', label: msg('Terang') },
+  { value: 'dark', label: msg('Gelap') },
 ];
 
 // Swatch = the palette's own light accent on its own paper, so the choice reads the same in either theme.
@@ -20,6 +21,7 @@ const PALETTE_OPTIONS: { value: PaletteId; label: string; accent: string; paper:
 ];
 
 export function ThemeToggle() {
+  const t = useT();
   const theme = useSettingsStore((state) => state.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const palette = useSettingsStore((state) => state.palette);
@@ -32,11 +34,11 @@ export function ThemeToggle() {
           <Icon name="theme" size={18} />
         </span>
         <span className={styles.headerText}>
-          <span className={styles.title}>Tampilan</span>
-          <span className={styles.subtitle}>Pilih tema terang, gelap, atau ikuti sistem, lalu warna aplikasinya.</span>
+          <span className={styles.title}>{t('Tampilan')}</span>
+          <span className={styles.subtitle}>{t('Pilih tema terang, gelap, atau ikuti sistem, lalu warna aplikasinya.')}</span>
         </span>
       </div>
-      <div className={styles.segmented} role="radiogroup" aria-label="Tampilan">
+      <div className={styles.segmented} role="radiogroup" aria-label={t('Tampilan')}>
         {OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -46,11 +48,11 @@ export function ThemeToggle() {
             className={[styles.segment, theme === option.value ? styles.segmentActive : ''].join(' ')}
             onClick={() => setTheme(option.value)}
           >
-            {option.label}
+            {t(option.label)}
           </button>
         ))}
       </div>
-      <div className={styles.palettes} role="radiogroup" aria-label="Warna">
+      <div className={styles.palettes} role="radiogroup" aria-label={t('Warna')}>
         {PALETTE_OPTIONS.map((option) => (
           <button
             key={option.value}

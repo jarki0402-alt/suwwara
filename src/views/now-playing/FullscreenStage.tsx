@@ -17,6 +17,7 @@ import { useJamStore } from '../../stores/jamStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useUiStore } from '../../stores/uiStore';
 import { formatTime } from '../../utils/formatTime';
+import { msg, useT } from '../../i18n/i18n';
 import { LyricsPanel } from './LyricsPanel';
 import { PlayerControls } from './PlayerControls';
 import { SeekBar } from './SeekBar';
@@ -37,8 +38,9 @@ function useUpNext(limit: number): { song: Song; orderPosition: number }[] {
 
 /** "Berikutnya": the next few songs; a tap plays one (in a Jam, for the whole room, via jamQueueActions). */
 export function UpNextList({ limit, compact = false }: { limit: number; compact?: boolean }) {
+  const t = useT();
   const upNext = useUpNext(limit);
-  if (upNext.length === 0) return <p className={styles.empty}>Belum ada lagu berikutnya di antrean.</p>;
+  if (upNext.length === 0) return <p className={styles.empty}>{t('Belum ada lagu berikutnya di antrean.')}</p>;
   return (
     <ol className={styles.upNext}>
       {upNext.map(({ song, orderPosition }) => (
@@ -67,6 +69,7 @@ const STAGE_QUEUE_LIMIT = 60;
  * state, and the reorder is committed once on release (in a Jam, for the whole room, via jamQueueActions).
  */
 export function StageQueue() {
+  const t = useT();
   const queue = useQueueStore((state) => state.queue);
   const order = useQueueStore((state) => state.order);
   const position = useQueueStore((state) => state.position);
@@ -118,7 +121,7 @@ export function StageQueue() {
     return { transform: `translateY(${dragIndex < targetIndex ? -rowHeightPx : rowHeightPx}px)`, transition: 'transform 150ms ease' };
   };
 
-  if (upcoming.length === 0) return <p className={styles.empty}>Belum ada lagu berikutnya di antrean.</p>;
+  if (upcoming.length === 0) return <p className={styles.empty}>{t('Belum ada lagu berikutnya di antrean.')}</p>;
   return (
     <ol className={styles.upNext}>
       {upcoming.map((queueIndex, index) => {
@@ -144,7 +147,7 @@ export function StageQueue() {
               onPointerMove={(event) => moveDrag(event.clientY)}
               onPointerUp={endDrag}
               onPointerCancel={endDrag}
-              aria-label={`Geser ${song.name} untuk mengubah urutan`}
+              aria-label={t('Geser {name} untuk mengubah urutan', { name: song.name })}
             >
               <Icon name="grip" size={18} />
             </button>
@@ -172,6 +175,7 @@ export function StageQueue() {
  * and the fullscreen stage (2026-11 redesign), so listening together is never more than a tap away from the song.
  */
 export function JamCard() {
+  const t = useT();
   const jam = useJamStatus();
   const roomId = useJamStore((state) => state.roomId);
   const openJamSheet = useUiStore((state) => state.openJamSheet);
@@ -184,8 +188,8 @@ export function JamCard() {
           <Icon name="users" size={20} />
         </span>
         <span className={styles.jamText}>
-          <span className={styles.jamTitle}>Dengar bareng</span>
-          <span className={styles.jamSub}>Ajak teman ke Jam, antreannya jadi milik bersama</span>
+          <span className={styles.jamTitle}>{t('Dengar bareng')}</span>
+          <span className={styles.jamSub}>{t('Ajak teman ke Jam, antreannya jadi milik bersama')}</span>
         </span>
       </button>
     );
@@ -194,13 +198,13 @@ export function JamCard() {
   const share = async () => {
     if (typeof navigator.share === 'function') {
       try {
-        await navigator.share({ title: 'Dengerin bareng di Suwwara', text: `Gabung Jam-ku di Suwwara, kode ${roomId}`, url: jamShareLink(roomId) });
+        await navigator.share({ title: t('Dengerin bareng di Suwwara'), text: t('Gabung Jam-ku di Suwwara, kode {code}', { code: roomId }), url: jamShareLink(roomId) });
         return;
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
       }
     }
-    showToast((await copyJamLink(roomId)) ? 'Link Jam disalin.' : 'Gagal menyalin link.');
+    showToast((await copyJamLink(roomId)) ? t('Link Jam disalin.') : t('Gagal menyalin link.'));
   };
 
   return (
@@ -209,16 +213,16 @@ export function JamCard() {
       <span className={styles.jamText}>
         <span className={styles.jamTitle}>
           <span className={[styles.liveDot, jam.live ? '' : styles.liveDotWarn].join(' ')} aria-hidden="true" />
-          {jam.live ? `Jam aktif · ${jam.peopleText}` : jam.statusText}
+          {jam.live ? t('Jam aktif · {people}', { people: jam.peopleText }) : jam.statusText}
         </span>
-        <span className={styles.jamSub}>Semua bisa atur antrean dan pemutaran · kode {roomId}</span>
+        <span className={styles.jamSub}>{t('Semua bisa atur antrean dan pemutaran · kode {code}', { code: roomId })}</span>
       </span>
       <span className={styles.jamActions}>
         <button type="button" className={styles.jamPrimary} onClick={() => void share()}>
-          Bagikan
+          {t('Bagikan')}
         </button>
         <button type="button" className={styles.jamSecondary} onClick={openJamSheet}>
-          Kelola
+          {t('Kelola')}
         </button>
       </span>
     </div>
@@ -227,9 +231,9 @@ export function JamCard() {
 
 type Tab = 'lyrics' | 'queue' | 'jam';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'lyrics', label: 'Lirik' },
-  { id: 'queue', label: 'Antrean' },
-  { id: 'jam', label: 'Jam' },
+  { id: 'lyrics', label: msg('Lirik') },
+  { id: 'queue', label: msg('Antrean') },
+  { id: 'jam', label: msg('Jam') },
 ];
 
 /**
@@ -239,6 +243,7 @@ const TABS: { id: Tab; label: string }[] = [
  * the bottom: the stage gets the full height.
  */
 export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song; chromeHidden: boolean; onMinimize: () => void }) {
+  const t = useT();
   const { playbackState, remoteDevice, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
   const [tab, setTab] = useState<Tab>('lyrics');
@@ -251,9 +256,9 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
       <header className={[styles.topBar, chromeHidden ? styles.hidden : ''].join(' ')}>
         <button type="button" className={styles.chip} onClick={onMinimize}>
           <Icon name="chevron-down" size={18} />
-          Kecilkan
+          {t('Kecilkan')}
         </button>
-        <div className={styles.tabs} role="tablist" aria-label="Panel">
+        <div className={styles.tabs} role="tablist" aria-label={t('Panel')}>
           {TABS.map((item) => (
             <button
               key={item.id}
@@ -263,18 +268,18 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
               className={[styles.tab, tab === item.id ? styles.tabActive : ''].join(' ')}
               onClick={() => setTab(item.id)}
             >
-              {item.label}
+              {t(item.label)}
             </button>
           ))}
         </div>
         <button type="button" className={[styles.chip, styles.chipAccent, styles.chipEnd].join(' ')} onClick={openConnectSheet}>
           <Icon name="devices" size={18} />
-          {remoteDevice ? remoteDevice.name : 'Perangkat ini'}
+          {remoteDevice ? remoteDevice.name : t('Perangkat ini')}
         </button>
       </header>
 
       <div className={styles.columns}>
-        <section className={styles.songColumn} aria-label="Lagu yang diputar">
+        <section className={styles.songColumn} aria-label={t('Lagu yang diputar')}>
           <LazyImage images={song.image} quality="500x500" alt={song.name} className={styles.art} />
           <div className={styles.meta}>
             <div className={styles.metaText}>
@@ -292,7 +297,7 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
           <PlayerControls isPlaying={isPlaying} isBuffering={isBuffering} onTogglePlay={handleTogglePlay} onNext={handleNext} onPrevious={handlePrevious} />
         </section>
 
-        <section className={styles.stageColumn} aria-label={TABS.find((item) => item.id === tab)?.label}>
+        <section className={styles.stageColumn} aria-label={t(TABS.find((item) => item.id === tab)?.label ?? '')}>
           {tab === 'lyrics' && (
             <div className={styles.stageLyrics}>
               <LyricsPanel song={song} isFullscreen />
@@ -300,7 +305,7 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
           )}
           {tab === 'queue' && (
             <div className={styles.panel}>
-              <span className={styles.panelHeading}>Berikutnya</span>
+              <span className={styles.panelHeading}>{t('Berikutnya')}</span>
               <StageQueue />
             </div>
           )}
@@ -308,8 +313,7 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
             <div className={styles.jamStage}>
               <JamCard />
               <p className={styles.jamNote}>
-                Di Jam, semua orang bisa menambah, menghapus, dan mengatur urutan antrean, serta memutar, menjeda, dan
-                melompati lagu. Lagu berganti bersamaan untuk semua yang ikut.
+                {t('Di Jam, semua orang bisa menambah, menghapus, dan mengatur urutan antrean, serta memutar, menjeda, dan melompati lagu. Lagu berganti bersamaan untuk semua yang ikut.')}
               </p>
             </div>
           )}

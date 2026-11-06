@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { isRunningInstalled } from '../../pwa/detectPlatform';
+import { useT } from '../../i18n/i18n';
 import { Icon } from '../Icon/Icon';
 import styles from './InstallBanner.module.css';
 
@@ -15,6 +16,7 @@ function wasDismissed() {
 
 /** A quiet pointer to /install on Home for anyone still using Suwwara in a browser tab; closing it is for good. */
 export function InstallBanner() {
+  const t = useT();
   const [hidden, setHidden] = useState(() => isRunningInstalled() || wasDismissed());
   if (hidden) return null;
 
@@ -31,13 +33,13 @@ export function InstallBanner() {
     <div className={styles.banner}>
       <img src="/icons/icon-192.png" alt="" className={styles.icon} />
       <span className={styles.text}>
-        <span className={styles.title}>Pasang Suwwara</span>
-        <span className={styles.subtitle}>Buka dari layar utama, layar penuh tanpa bar browser.</span>
+        <span className={styles.title}>{t('Pasang Suwwara')}</span>
+        <span className={styles.subtitle}>{t('Buka dari layar utama, layar penuh tanpa bar browser.')}</span>
       </span>
       <a className={styles.action} href="/install">
-        Pasang
+        {t('Pasang')}
       </a>
-      <button type="button" className={styles.close} onClick={dismiss} aria-label="Tutup">
+      <button type="button" className={styles.close} onClick={dismiss} aria-label={t('Tutup')}>
         <Icon name="close" size={16} />
       </button>
     </div>

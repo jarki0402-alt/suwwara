@@ -7,6 +7,7 @@ import { downloadManager, type DownloadRecord } from '../../downloads/downloadMa
 import { OFFLINE_QUOTA_OPTIONS_MB } from '../../downloads/downloadPolicy';
 import { clearRuntimeCaches } from '../../pwa/storageEstimate';
 import { useInstallPrompt } from '../../pwa/useInstallPrompt';
+import { msg, useT } from '../../i18n/i18n';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { formatBytes } from '../../utils/formatBytes';
 import { OptionSegments } from './OptionSegments';
@@ -15,7 +16,8 @@ import styles from './SettingsView.module.css';
 
 const quotaLabel = (megabytes: number) => (megabytes >= 1024 ? `${megabytes / 1024} GB` : `${megabytes} MB`);
 const QUOTA_OPTIONS = OFFLINE_QUOTA_OPTIONS_MB.map((value) => ({ value, label: quotaLabel(value) }));
-const RETENTION_OPTIONS = CACHE_RETENTION_OPTIONS_DAYS.map((value) => ({ value, label: value === 0 ? 'Tak pernah' : `${value} hari` }));
+// Labels built at render (retentionOptions below), not here: they are words, and the language can change while the app runs.
+const NEVER = msg('Tak pernah');
 
 /**
  * "Tersimpan Offline" — one card, one quota, one number, for everything kept locally. Under the hood this is
@@ -30,6 +32,8 @@ const RETENTION_OPTIONS = CACHE_RETENTION_OPTIONS_DAYS.map((value) => ({ value, 
  * card only owns the aggregate numbers and the bulk "clear everything" actions.
  */
 export function CacheManager() {
+  const t = useT();
+  const retentionOptions = CACHE_RETENTION_OPTIONS_DAYS.map((value) => ({ value, label: value === 0 ? t(NEVER) : t('{n} hari', { n: value }) }));
   const [cacheUsage, setCacheUsage] = useState<{ count: number; bytes: number } | null>(null);
   const [downloads, setDownloads] = useState<DownloadRecord[] | null>(null);
   const { canInstall, isInstalled, isIOS, promptInstall } = useInstallPrompt();
@@ -70,12 +74,12 @@ export function CacheManager() {
 
   const handleClearDownloads = async () => {
     await downloadManager.clearAll();
-    showToast('Semua unduhan offline dihapus.');
+    showToast(t('Semua unduhan offline dihapus.'));
     refresh();
   };
   const handleClearCache = async () => {
     await Promise.all([clearRuntimeCaches(), AudioCache.clear()]);
-    showToast('Cache lagu sementara & gambar offline berhasil dibersihkan.');
+    showToast(t('Cache lagu sementara & gambar offline berhasil dibersihkan.'));
     refresh();
   };
 
@@ -88,83 +92,87 @@ export function CacheManager() {
   return (
     <>
       <div className={styles.section}>
-        <span className={styles.sectionTitle}>Tersimpan Offline</span>
+        <span className={styles.sectionTitle}>{t('Tersimpan Offline')}</span>
         <div className={styles.card}>
           {!supported ? (
-            <SettingsRow icon="database" title="Lagu Offline" subtitle="Tidak tersedia di browser ini." />
+            <SettingsRow icon="database" title={t('Lagu Offline')} subtitle={t('Tidak tersedia di browser ini.')} />
           ) : (
             <>
               <SettingsRow
                 icon="download"
-                title="Simpan lagu di perangkat"
+                title={t('Simpan lagu di perangkat')}
                 subtitle={
                   localAudioEnabled
-                    ? 'Percepat pemutaran & aktifkan mode offline dengan lagu yang tersimpan.'
-                    : `Dinonaktifkan otomatis setelah pemutaran gagal ${localAudioFailureCount}× berturut-turut di perangkat ini. Nyalakan lagi kalau mau coba ulang.`
+                    ? t('Percepat pemutaran & aktifkan mode offline dengan lagu yang tersimpan.')
+                    : t('Dinonaktifkan otomatis setelah pemutaran gagal {n}× berturut-turut di perangkat ini. Nyalakan lagi kalau mau coba ulang.', { n: localAudioFailureCount })
                 }
-                control={<Switch checked={localAudioEnabled} onChange={setLocalAudioEnabled} ariaLabel="Simpan lagu di perangkat" />}
+                control={<Switch checked={localAudioEnabled} onChange={setLocalAudioEnabled} ariaLabel={t('Simpan lagu di perangkat')} />}
               />
 
               <SettingsRow
                 icon="database"
-                title="Penyimpanan"
+                title={t('Penyimpanan')}
                 subtitle={
                   downloads
-                    ? `${formatBytes(combinedBytes)} terpakai dari batas ${quotaLabel(quotaMB)}. ${downloads.length} lagu diunduh, sisanya cache sementara dari lagu yang baru diputar.`
-                    : 'Memuat…'
+                    ? t('{used} terpakai dari batas {limit}. {n} lagu diunduh, sisanya cache sementara dari lagu yang baru diputar.', {
+                        used: formatBytes(combinedBytes),
+                        limit: quotaLabel(quotaMB),
+                        n: downloads.length,
+                      })
+                    : t('Memuat…')
                 }
               />
               <div className={styles.storageBarTrack}>
                 <div className={styles.storageBarFill} style={{ width: `${usedPercent}%` }} />
               </div>
               <OptionSegments
-                title="Batas penyimpanan offline"
-                subtitle="Unduhan baru ditolak begitu batas ini tercapai. Cache sementara mengecil sendiri duluan untuk kasih ruang."
+                title={t('Batas penyimpanan offline')}
+                subtitle={t('Unduhan baru ditolak begitu batas ini tercapai. Cache sementara mengecil sendiri duluan untuk kasih ruang.')}
                 options={QUOTA_OPTIONS}
                 value={quotaMB}
                 onChange={handleQuota}
               />
               <OptionSegments
-                title="Hapus cache sementara kalau gak diputar selama"
-                subtitle="Cuma berlaku ke cache sementara. Lagu yang kamu unduh gak pernah kena ini, hilang cuma kalau kamu hapus sendiri."
-                options={RETENTION_OPTIONS}
+                title={t('Hapus cache sementara kalau gak diputar selama')}
+                subtitle={t('Cuma berlaku ke cache sementara. Lagu yang kamu unduh gak pernah kena ini, hilang cuma kalau kamu hapus sendiri.')}
+                options={retentionOptions}
                 value={retentionDays}
                 onChange={handleRetention}
               />
 
               {nothingStored ? (
-                <p className={styles.diagEmpty}>Belum ada lagu tersimpan offline. Putar sebuah lagu, atau buka menu "⋯" dan pilih "Unduh untuk Offline" biar pasti tersimpan.</p>
+                <p className={styles.diagEmpty}>{t('Belum ada lagu tersimpan offline. Putar sebuah lagu, atau buka menu "⋯" dan pilih "Unduh untuk Offline" biar pasti tersimpan.')}</p>
               ) : (
-                <p className={styles.diagEmpty}>Lihat & kelola lagu yang diunduh satu-satu di Koleksi → Diunduh.</p>
+                <p className={styles.diagEmpty}>{t('Lihat & kelola lagu yang diunduh satu-satu di Koleksi → Diunduh.')}</p>
               )}
 
-              {cacheBytes > 0 && <SettingsRow icon="trash" title="Hapus Cache Sementara" onClick={() => void handleClearCache()} />}
-              {downloads && downloads.length > 0 && <SettingsRow icon="trash" title="Hapus Semua Unduhan" onClick={() => void handleClearDownloads()} />}
+              {cacheBytes > 0 && <SettingsRow icon="trash" title={t('Hapus Cache Sementara')} onClick={() => void handleClearCache()} />}
+              {downloads && downloads.length > 0 && <SettingsRow icon="trash" title={t('Hapus Semua Unduhan')} onClick={() => void handleClearDownloads()} />}
             </>
           )}
         </div>
       </div>
 
       <div className={styles.section}>
-        <span className={styles.sectionTitle}>Instalasi</span>
+        <span className={styles.sectionTitle}>{t('Instalasi')}</span>
         <div className={styles.card}>
           {isInstalled ? (
-            <SettingsRow icon="check" title="Sudah Terpasang" subtitle="Suwwara sudah terpasang di perangkatmu." />
+            <SettingsRow icon="check" title={t('Sudah Terpasang')} subtitle={t('Suwwara sudah terpasang di perangkatmu.')} />
           ) : canInstall ? (
             <SettingsRow
               icon="download"
-              title="Pasang ke Layar Utama"
-              subtitle="Akses Suwwara seperti aplikasi native, tanpa browser."
+              title={t('Pasang ke Layar Utama')}
+              subtitle={t('Akses Suwwara seperti aplikasi native, tanpa browser.')}
               onClick={() => void promptInstall()}
             />
           ) : isIOS ? (
             <SettingsRow
               icon="download"
-              title="Pasang ke Layar Utama"
-              subtitle={'Ketuk tombol Share di Safari, lalu pilih "Add to Home Screen".'}
+              title={t('Pasang ke Layar Utama')}
+              subtitle={t('Ketuk tombol Share di Safari, lalu pilih "Add to Home Screen".')}
             />
           ) : (
-            <SettingsRow icon="download" title="Pasang ke Layar Utama" subtitle="Opsi ini muncul otomatis jika browser mendukungnya." />
+            <SettingsRow icon="download" title={t('Pasang ke Layar Utama')} subtitle={t('Opsi ini muncul otomatis jika browser mendukungnya.')} />
           )}
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useJamStore, type JamConnection } from '../stores/jamStore';
+import { useT } from '../i18n/i18n';
 
 export interface JamStatus {
   active: boolean;
@@ -19,14 +20,15 @@ export interface JamStatus {
 
 /** Everything the "you are in a Jam" indicators show, from the one place that knows it. */
 export function useJamStatus(): JamStatus {
+  const t = useT();
   const role = useJamStore((state) => state.role);
   const memberCount = useJamStore((state) => state.memberCount);
   const isHost = useJamStore((state) => state.isCreator);
   const connection = useJamStore((state) => state.connection);
 
   const count = Math.max(memberCount, 1);
-  const peopleText = count <= 1 ? 'Baru kamu' : `${count} pendengar`;
-  const statusText = connection === 'live' ? 'Mendengarkan bersama' : connection === 'reconnecting' ? 'Menyambung ulang…' : 'Menyambung…';
+  const peopleText = count <= 1 ? t('Baru kamu') : t('{n} pendengar', { n: count });
+  const statusText = connection === 'live' ? t('Mendengarkan bersama') : connection === 'reconnecting' ? t('Menyambung ulang…') : t('Menyambung…');
   return {
     active: role === 'jam',
     count,
@@ -35,7 +37,9 @@ export function useJamStatus(): JamStatus {
     live: connection === 'live',
     statusText,
     peopleText,
-    roleLabel: isHost ? 'Host' : 'Tamu',
-    summary: `Jam, ${statusText}, ${peopleText}, kamu ${isHost ? 'host' : 'tamu'}`,
+    roleLabel: isHost ? t('Host') : t('Tamu'),
+    summary: isHost
+      ? t('Jam, {status}, {people}, kamu host', { status: statusText, people: peopleText })
+      : t('Jam, {status}, {people}, kamu tamu', { status: statusText, people: peopleText }),
   };
 }

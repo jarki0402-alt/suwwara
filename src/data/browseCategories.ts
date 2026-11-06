@@ -1,5 +1,8 @@
+import { msg } from '../i18n/i18n';
+
 export interface BrowseCategory {
   id: string;
+  /** Indonesian, translated where it is shown (`t(label)`). Names that are the same in English are left unmarked. */
   label: string;
   /** Preset search query sent to the existing /api/search backend — same technique
    * trending.ts already uses for its seed queries, just one per category tile here. */
@@ -17,11 +20,11 @@ export const BROWSE_CATEGORIES: BrowseCategory[] = [
   { id: 'rnb', label: 'R&B', query: 'rnb soul songs official audio', color: '#3d4e8c' },
   { id: 'rock', label: 'Rock', query: 'rock songs official audio', color: '#a33a2b' },
   { id: 'kpop', label: 'K-Pop', query: 'kpop songs 2026 official music video', color: '#2f6b8a' },
-  { id: 'indonesia', label: 'Musik Indonesia', query: 'lagu indonesia terbaru 2026', color: '#c2470f' },
+  { id: 'indonesia', label: msg('Musik Indonesia'), query: 'lagu indonesia terbaru 2026', color: '#c2470f' },
   { id: 'edm', label: 'Dance/Electronic', query: 'edm dance electronic music 2026', color: '#0f6e78' },
-  { id: 'chill', label: 'Santai', query: 'lofi chill relax music playlist', color: '#2f7a5c' },
-  { id: 'sad', label: 'Galau', query: 'lagu galau sedih baper', color: '#4a5568' },
-  { id: 'party', label: 'Pesta', query: 'party dance hits playlist', color: '#a8326e' },
-  { id: 'workout', label: 'Olahraga', query: 'workout gym motivation music', color: '#3b7a1f' },
+  { id: 'chill', label: msg('Santai'), query: 'lofi chill relax music playlist', color: '#2f7a5c' },
+  { id: 'sad', label: msg('Galau'), query: 'lagu galau sedih baper', color: '#4a5568' },
+  { id: 'party', label: msg('Pesta'), query: 'party dance hits playlist', color: '#a8326e' },
+  { id: 'workout', label: msg('Olahraga'), query: 'workout gym motivation music', color: '#3b7a1f' },
   { id: 'throwback', label: 'Throwback', query: 'throwback hits 2000s 2010s', color: '#6b4f2a' },
 ];

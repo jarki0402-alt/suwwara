@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Song } from '../api/types';
 import { useToast } from '../components/Toast/ToastProvider';
+import { t } from '../i18n/i18n';
 import { downloadManager } from './downloadManager';
 
 export type CollectionDownloadStatus = 'checking' | 'none' | 'partial' | 'downloading' | 'complete';
@@ -64,9 +65,9 @@ export function useCollectionDownload(songs: Song[]) {
     recount();
 
     if (quotaHit) {
-      showToast(`${done} dari ${pending.length} lagu berhasil diunduh. Kuota penyimpanan penuh, sisanya dilewati.`);
+      showToast(t('{done} dari {total} lagu berhasil diunduh. Kuota penyimpanan penuh, sisanya dilewati.', { done, total: pending.length }));
     } else if (cancelled) {
-      showToast(`Unduhan playlist dibatalkan setelah ${done} dari ${pending.length} lagu.`);
+      showToast(t('Unduhan playlist dibatalkan setelah {done} dari {total} lagu.', { done, total: pending.length }));
     }
   };
 

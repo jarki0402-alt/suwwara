@@ -8,6 +8,7 @@ import { OptionsMenu } from '../../components/OptionsMenu/OptionsMenu';
 import { PlaylistNameDialog } from '../../components/PlaylistNameDialog/PlaylistNameDialog';
 import { SongRow, SongTable } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
+import { useT } from '../../i18n/i18n';
 import { playSongList } from '../../playback/playSongList';
 import { useLibraryStore, type UserPlaylist } from '../../stores/libraryStore';
 import { debounce } from '../../utils/debounce';
@@ -19,6 +20,7 @@ interface PlaylistDetailProps {
 }
 
 export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
+  const t = useT();
   const removeSongFromPlaylist = useLibraryStore((state) => state.removeSongFromPlaylist);
   const addSongToPlaylist = useLibraryStore((state) => state.addSongToPlaylist);
   const deletePlaylist = useLibraryStore((state) => state.deletePlaylist);
@@ -63,7 +65,7 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
   return (
     <div className={styles.detail}>
       <CollectionHero
-        kind="Playlist"
+        kind={t('Playlist')}
         title={playlist.name}
         songs={playlist.songs}
         images={playlist.songs[0]?.image ?? []}
@@ -71,11 +73,11 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
         onBack={onBack}
         extraActions={
           <OptionsMenu
-            ariaLabel="Opsi playlist"
+            ariaLabel={t('Opsi playlist')}
             triggerClassName={styles.heroMenuButton}
             items={[
-              { key: 'rename', icon: 'edit', label: 'Ganti Nama', onClick: () => setRenameOpen(true) },
-              { key: 'delete', icon: 'trash', label: 'Hapus Playlist', onClick: () => setDeleteOpen(true), danger: true, separatorBefore: true },
+              { key: 'rename', icon: 'edit', label: t('Ganti Nama'), onClick: () => setRenameOpen(true) },
+              { key: 'delete', icon: 'trash', label: t('Hapus Playlist'), onClick: () => setDeleteOpen(true), danger: true, separatorBefore: true },
             ]}
           />
         }
@@ -86,7 +88,7 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
         <Icon name="search" size={16} />
         <input
           className={styles.addSongInput}
-          placeholder="Tambah lagu ke playlist ini"
+          placeholder={t('Tambah lagu ke playlist ini')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -105,7 +107,7 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
                     type="button"
                     className={styles.iconButton}
                     onClick={() => addSongToPlaylist(playlist.id, song)}
-                    aria-label="Tambahkan ke playlist ini"
+                    aria-label={t('Tambahkan ke playlist ini')}
                   >
                     <Icon name="plus" size={20} />
                   </button>
@@ -118,7 +120,7 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
       )}
 
       {playlist.songs.length === 0 ? (
-        <p className={styles.empty}>Playlist ini masih kosong. Cari lagu di atas untuk menambahkannya.</p>
+        <p className={styles.empty}>{t('Playlist ini masih kosong. Cari lagu di atas untuk menambahkannya.')}</p>
       ) : (
         <SongTable>
           {playlist.songs.map((song, index) => (
@@ -137,8 +139,8 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
 
       <PlaylistNameDialog
         isOpen={isRenameOpen}
-        title="Ganti Nama Playlist"
-        confirmLabel="Simpan"
+        title={t('Ganti Nama Playlist')}
+        confirmLabel={t('Simpan')}
         initialValue={playlist.name}
         onConfirm={handleConfirmRename}
         onClose={() => setRenameOpen(false)}
@@ -146,9 +148,9 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
 
       <ConfirmDialog
         isOpen={isDeleteOpen}
-        title="Hapus Playlist?"
-        description={`Playlist "${playlist.name}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.`}
-        confirmLabel="Hapus"
+        title={t('Hapus Playlist?')}
+        description={t('Playlist "{name}" akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.', { name: playlist.name })}
+        confirmLabel={t('Hapus')}
         onConfirm={handleConfirmDelete}
         onClose={() => setDeleteOpen(false)}
       />

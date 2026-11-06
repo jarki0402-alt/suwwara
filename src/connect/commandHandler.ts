@@ -8,6 +8,7 @@ import { sendCommand } from './connectClient';
 import { applyResumePoint, holdNextLoad, setResumePoint } from './sessionHold';
 import { suppressFollow } from './sessionSync';
 import { reportPlayback } from '../diagnostics/playbackReports';
+import { t } from '../i18n/i18n';
 
 export interface RemoteCommand {
   from: string;
@@ -26,8 +27,9 @@ export function showConnectToast(message: string): void {
 
 const RESTART_FROM_BEGINNING_THRESHOLD_SEC = 3;
 
-function deviceName(ref: string): string {
-  return useConnectStore.getState().devices.find((device) => device.ref === ref)?.name ?? 'perangkat lain';
+/** `fallback` defaults to Indonesian for the diagnostic report; the toast passes its translated one. */
+function deviceName(ref: string, fallback = 'perangkat lain'): string {
+  return useConnectStore.getState().devices.find((device) => device.ref === ref)?.name ?? fallback;
 }
 
 /**
@@ -47,7 +49,7 @@ export function handleRemoteCommand({ from, type, payload }: RemoteCommand): voi
     case 'pause':
       audioEngine.pause();
       if (data.reason === 'takeover') {
-        toast(`Dijeda, sekarang memutar di ${deviceName(from)}.`);
+        toast(t('Dijeda, sekarang memutar di {device}.', { device: deviceName(from, t('perangkat lain')) }));
         if (document.visibilityState === 'hidden') reportPlayback('takeover_pause', `Dijeda karena ${deviceName(from)} mulai memutar, saat app di background · ${audioEngine.getCurrentSong()?.name ?? ''}`);
       }
       break;
@@ -78,9 +80,9 @@ export function handleRemoteCommand({ from, type, payload }: RemoteCommand): voi
 
 /** A `play` sent from elsewhere has no tap behind it on this device — a browser may refuse it; ask for one. */
 function promptToResume(): void {
-  toast('Ketuk untuk melanjutkan audio.', {
+  toast(t('Ketuk untuk melanjutkan audio.'), {
     action: {
-      label: 'Putar',
+      label: t('Putar'),
       onClick: () => {
         void audioEngine.unlock();
         audioEngine

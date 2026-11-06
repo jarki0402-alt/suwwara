@@ -20,6 +20,7 @@ import { useQueueStore } from '../stores/queueStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { extendQueueWithRadio } from './playSongRadio';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
+import { msg, t } from '../i18n/i18n';
 
 const COMPLETION_THRESHOLD = 0.9;
 // Far from the end nothing needs checking often (each wakeup costs a phone battery); near the end it must be tight so
@@ -215,7 +216,7 @@ export function usePlaybackController() {
             if (document.visibilityState === 'hidden') return schedule();
             stop();
             reportPlayback('background_failed', `Masih gagal saat app dibuka lagi, ${attempt} percobaan · ${song.name}`, true);
-            setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
+            setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
           });
       }
       recoveryRef.current = stop;
@@ -352,7 +353,7 @@ export function usePlaybackController() {
           setPlaybackStatus({
             isPlaying: false,
             isBuffering: false,
-            error: timedOut ? 'Koneksi lambat, lagu gagal dimuat.' : 'Gagal memutar lagu ini.',
+            error: timedOut ? msg('Koneksi lambat, lagu gagal dimuat.') : msg('Gagal memutar lagu ini.'),
           });
         });
     };
@@ -455,7 +456,7 @@ export function usePlaybackController() {
         retryPendingRef.current = false;
         if (loadedSongIdRef.current !== songToRetry.id) return; // the user moved on to something else
         audioEngine.loadTrack(songToRetry, { dataSaver, autoplay: true }).catch(() => {
-          setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
+          setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
         });
       }, 800);
       return;
@@ -475,13 +476,14 @@ export function usePlaybackController() {
       }
     }
 
-    showToast(playerError, {
+    // The stored error stays Indonesian (it is matched on above and sent in reports); only the toast is translated.
+    showToast(t(playerError), {
       type: 'error',
       action: {
-        label: 'Coba lagi',
+        label: t('Coba lagi'),
         onClick: () => {
           audioEngine.loadTrack(songToRetry, { dataSaver, autoplay: true }).catch(() => {
-            setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
+            setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
           });
         },
       },
@@ -636,7 +638,7 @@ export function usePlaybackController() {
         // Reported like any failed load (quiet retry, then move on). Swallowing it left the track stopped for good:
         // the stall watchdog only runs while the status says 'playing', which a failed reload never gets back to.
         if (loadedSongIdRef.current !== currentSong.id) return;
-        setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
+        setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
       });
     }, REBUFFER_QUALITY_DROP_MS);
     return () => clearTimeout(timeoutId);
@@ -765,9 +767,9 @@ export function usePlaybackController() {
         // guarded so a still-blocked heartbeat doesn't reshow this every cycle.
         if (jamPlayPromptShownRef.current) return;
         jamPlayPromptShownRef.current = true;
-        showToast('Ketuk untuk lanjutkan audio Jam.', {
+        showToast(t('Ketuk untuk lanjutkan audio Jam.'), {
           action: {
-            label: 'Putar',
+            label: t('Putar'),
             onClick: () => {
               void audioEngine.unlock();
               audioEngine.play().catch(() => {});
@@ -811,7 +813,7 @@ export function usePlaybackController() {
       return;
     }
     audioEngine.play().catch(() => {
-      setPlaybackStatus({ isPlaying: false, isBuffering: false, error: 'Gagal memutar lagu ini.' });
+      setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
     });
   }, [setPlaybackStatus, jamRole, jamRoomId, jamClientId, remoteRef, stopBackgroundRecovery]);
   const handlePause = useCallback(() => {

@@ -12,6 +12,7 @@ import { useUiStore } from '../stores/uiStore';
 import { debounce, type Debounced } from '../utils/debounce';
 import { isFullscreenSupported, toggleAppFullscreen, useIsDocumentFullscreen } from '../utils/documentFullscreen';
 import styles from './TopBar.module.css';
+import { useT } from '../i18n/i18n';
 
 const DEBOUNCE_MS = 300;
 const MAX_RESULTS = 8;
@@ -25,6 +26,7 @@ const MAX_RESULTS = 8;
  * banner runs full-bleed to the top edge.
  */
 export function TopBar() {
+  const t = useT();
   const currentView = useUiStore((state) => state.currentView);
   const detailDepth = useUiStore((state) => state.detailStack.length);
   const openArtist = useUiStore((state) => state.openArtist);
@@ -160,8 +162,8 @@ export function TopBar() {
           type="button"
           className={[styles.fullscreenButton, 'liquid-glass'].join(' ')}
           onClick={toggleAppFullscreen}
-          aria-label={isFullscreen ? 'Keluar dari layar penuh' : 'Layar penuh'}
-          title={isFullscreen ? 'Keluar dari layar penuh (F)' : 'Layar penuh (F)'}
+          aria-label={isFullscreen ? t('Keluar dari layar penuh') : t('Layar penuh')}
+          title={isFullscreen ? t('Keluar dari layar penuh (F)') : t('Layar penuh (F)')}
         >
           <Icon name={isFullscreen ? 'fullscreen-exit' : 'fullscreen'} size={18} />
         </button>
@@ -174,12 +176,12 @@ export function TopBar() {
             className={styles.input}
             type="text"
             inputMode="search"
-            placeholder="Cari lagu, artis, atau album…"
+            placeholder={t('Cari lagu, artis, atau album…')}
             value={query}
             onChange={(event) => handleChange(event.target.value)}
             onFocus={() => setIsOpen(true)}
             onKeyDown={onKeyDown}
-            aria-label="Cari lagu, artis, atau album"
+            aria-label={t('Cari lagu, artis, atau album')}
           />
         </div>
 
@@ -188,9 +190,9 @@ export function TopBar() {
             {showRecent && (
               <>
                 <div className={styles.dropdownHeader}>
-                  <span className={styles.dropdownLabel}>Pencarian terakhir</span>
+                  <span className={styles.dropdownLabel}>{t('Pencarian terakhir')}</span>
                   <button type="button" className={styles.clearAll} onClick={recent.clear}>
-                    Hapus semua
+                    {t('Hapus semua')}
                   </button>
                 </div>
                 {recent.items.map((term) => (
@@ -199,15 +201,15 @@ export function TopBar() {
                       <Icon name="clock" size={15} />
                       {term}
                     </button>
-                    <button type="button" className={styles.recentRemove} onClick={() => recent.remove(term)} aria-label={`Hapus "${term}" dari riwayat`}>
+                    <button type="button" className={styles.recentRemove} onClick={() => recent.remove(term)} aria-label={t('Hapus "{term}" dari riwayat', { term })}>
                       <Icon name="close" size={14} />
                     </button>
                   </div>
                 ))}
               </>
             )}
-            {showResults && isLoading && results.length === 0 && <span className={styles.status}>Mencari…</span>}
-            {showResults && !isLoading && results.length === 0 && <span className={styles.status}>Tidak ada hasil untuk “{trimmed}”.</span>}
+            {showResults && isLoading && results.length === 0 && <span className={styles.status}>{t('Mencari…')}</span>}
+            {showResults && !isLoading && results.length === 0 && <span className={styles.status}>{t('Tidak ada hasil untuk “{query}”.', { query: trimmed })}</span>}
             {showResults && artist && (
               <button
                 type="button"
@@ -218,7 +220,7 @@ export function TopBar() {
                 <LazyImage images={artist.image} quality="50x50" alt="" className={styles.artistThumb} />
                 <span className={styles.resultText}>
                   <span className={styles.resultTitle}>{artist.name}</span>
-                  <span className={styles.resultArtist}>Artis · Lihat profil</span>
+                  <span className={styles.resultArtist}>{t('Artis · Lihat profil')}</span>
                 </span>
               </button>
             )}

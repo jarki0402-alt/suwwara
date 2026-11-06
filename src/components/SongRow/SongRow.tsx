@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Song } from '../../api/types';
+import { useLocale, useT } from '../../i18n/i18n';
 import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import { useUiStore } from '../../stores/uiStore';
 import { formatAddedDate, formatCount } from '../../utils/formatCount';
@@ -32,6 +33,8 @@ export function SongRow({ song, onClick, onWarm, isActive, subtitle, trailing, t
   const album = song.album;
   const duration = useSongDuration(song);
   const ripple = useBubbleRipple<HTMLButtonElement>();
+  // Subscribed so the date and play count (formatted per call in the current language) follow a language switch.
+  useLocale();
 
   return (
     <div className={[styles.row, isActive ? styles.active : '', table ? styles.rowTable : ''].filter(Boolean).join(' ')}>
@@ -77,13 +80,14 @@ export function SongRow({ song, onClick, onWarm, isActive, subtitle, trailing, t
  * open the page is narrower than the window, so the date goes first, then the album. On a phone only the title stays.
  */
 export function SongTable({ children }: { children: ReactNode }) {
+  const t = useT();
   return (
     <div className={styles.tableWrap}>
       <div className={styles.table}>
         <div className={styles.tableHead} aria-hidden="true">
-          <span>Judul</span>
-          <span className={styles.headAlbum}>Album</span>
-          <span className={styles.headDate}>Tanggal ditambahkan</span>
+          <span>{t('Judul')}</span>
+          <span className={styles.headAlbum}>{t('Album')}</span>
+          <span className={styles.headDate}>{t('Tanggal ditambahkan')}</span>
           <span className={styles.headDuration}>
             <Icon name="clock" size={16} />
           </span>

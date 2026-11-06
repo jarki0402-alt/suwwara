@@ -1,5 +1,6 @@
 import type { KeyboardEvent, MouseEvent } from 'react';
 import type { Song } from '../../api/types';
+import { useT } from '../../i18n/i18n';
 import { useUiStore } from '../../stores/uiStore';
 import styles from './ArtistLinks.module.css';
 
@@ -11,9 +12,10 @@ import styles from './ArtistLinks.module.css';
  * name from also triggering the row's own action (playing the song).
  */
 export function ArtistLinks({ song }: { song: Song }) {
+  const t = useT();
   const openArtist = useUiStore((state) => state.openArtist);
   const artists = song.artists.primary;
-  if (artists.length === 0) return <>Unknown Artist</>;
+  if (artists.length === 0) return <>{t('Unknown Artist')}</>;
 
   return (
     <>

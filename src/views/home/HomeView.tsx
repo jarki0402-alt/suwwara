@@ -1,3 +1,4 @@
+import { useT } from '../../i18n/i18n';
 import { useUiStore } from '../../stores/uiStore';
 import { ArtistMixesSection } from './ArtistMixesSection';
 import { GeneratedCollectionView } from './GeneratedCollectionView';
@@ -13,6 +14,7 @@ import { useGeneratedCollection } from './useGeneratedCollection';
 import styles from './HomeView.module.css';
 
 export function HomeView() {
+  const t = useT();
   const openedCollectionId = useUiStore((state) => state.openedCollectionId);
   const closeCollection = useUiStore((state) => state.closeCollection);
   const collection = useGeneratedCollection(openedCollectionId);
@@ -24,7 +26,7 @@ export function HomeView() {
       <GeneratedCollectionView
         title={collection.title}
         description={collection.description}
-        kind={isArtistMix ? 'Mix artis' : openedCollectionId === 'viral-indonesia' ? 'Chart' : 'Untukmu'}
+        kind={isArtistMix ? t('Mix artis') : openedCollectionId === 'viral-indonesia' ? t('Chart') : t('Untukmu')}
         songs={collection.songs}
         cover={collection.image}
         isLoading={collection.isLoading}

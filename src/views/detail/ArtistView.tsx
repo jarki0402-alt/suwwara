@@ -7,6 +7,7 @@ import { useIsDesktop } from '../../hooks/useIsDesktop';
 import { formatCount } from '../../utils/formatCount';
 import { SongRow } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
+import { useT } from '../../i18n/i18n';
 import { playSongList } from '../../playback/playSongList';
 import { useUiStore, type DetailRoute } from '../../stores/uiStore';
 import { ArtistInfo } from '../now-playing/ArtistInfo';
@@ -26,6 +27,7 @@ function shuffled<T>(items: T[]): T[] {
 }
 
 export function ArtistView({ route }: { route: Extract<DetailRoute, { type: 'artist' }> }) {
+  const t = useT();
   const closeDetail = useUiStore((state) => state.closeDetail);
   const key = route.artistId ?? `name:${route.name ?? ''}`;
 
@@ -40,11 +42,11 @@ export function ArtistView({ route }: { route: Extract<DetailRoute, { type: 'art
     return (
       <div className={styles.view}>
         <div className={styles.hero} style={{ minHeight: 120 }}>
-          <button type="button" className={styles.backButton} onClick={closeDetail} aria-label="Kembali">
+          <button type="button" className={styles.backButton} onClick={closeDetail} aria-label={t('Kembali')}>
             <Icon name="chevron-left" size={18} />
           </button>
         </div>
-        <p className={styles.status}>Artis ini belum bisa dimuat. Coba lagi sebentar lagi.</p>
+        <p className={styles.status}>{t('Artis ini belum bisa dimuat. Coba lagi sebentar lagi.')}</p>
       </div>
     );
   }
@@ -52,10 +54,11 @@ export function ArtistView({ route }: { route: Extract<DetailRoute, { type: 'art
 }
 
 function ArtistSkeleton({ onBack }: { onBack: () => void }) {
+  const t = useT();
   return (
     <div className={styles.view}>
       <div className={styles.hero}>
-        <button type="button" className={styles.backButton} onClick={onBack} aria-label="Kembali">
+        <button type="button" className={styles.backButton} onClick={onBack} aria-label={t('Kembali')}>
           <Icon name="chevron-left" size={18} />
         </button>
       </div>
@@ -69,6 +72,7 @@ function ArtistSkeleton({ onBack }: { onBack: () => void }) {
 }
 
 function ArtistPage({ data }: { data: ArtistPageData }) {
+  const t = useT();
   const closeDetail = useUiStore((state) => state.closeDetail);
   const openAlbum = useUiStore((state) => state.openAlbum);
   const openArtist = useUiStore((state) => state.openArtist);
@@ -90,22 +94,22 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
         {/* If the banner can't load, drop the <img> — the hero falls back to its plain background instead of a broken-image icon. */}
         {data.banner && !bannerFailed && <img className={styles.heroImage} src={data.banner} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setBannerFailed(true)} />}
         <div className={styles.heroScrim} />
-        <button type="button" className={styles.backButton} onClick={closeDetail} aria-label="Kembali">
+        <button type="button" className={styles.backButton} onClick={closeDetail} aria-label={t('Kembali')}>
           <Icon name="chevron-left" size={18} />
         </button>
         <div className={styles.heroText}>
           <h1 className={[styles.heroName, data.monthlyListeners ? styles.heroNameWithMeta : ''].join(' ')}>{data.name}</h1>
-          {data.monthlyListeners ? <p className={styles.heroMeta}>{formatCount(data.monthlyListeners)} pendengar bulanan</p> : null}
+          {data.monthlyListeners ? <p className={styles.heroMeta}>{t('{count} pendengar bulanan', { count: formatCount(data.monthlyListeners) })}</p> : null}
         </div>
       </div>
 
       <div className={styles.body}>
         {songs.length > 0 && (
           <div className={styles.actions}>
-            <button type="button" className={styles.playButton} onClick={() => playSongList(songs, 0)} aria-label={`Putar ${data.name}`}>
+            <button type="button" className={styles.playButton} onClick={() => playSongList(songs, 0)} aria-label={t('Putar {name}', { name: data.name })}>
               <Icon name="play" size={24} />
             </button>
-            <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffled(songs), 0)} aria-label="Putar acak">
+            <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffled(songs), 0)} aria-label={t('Putar acak')}>
               <Icon name="shuffle" size={22} />
             </button>
           </div>
@@ -113,7 +117,7 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
 
         {data.topSongs.length > 0 && (
           <section>
-            <h2 className={styles.sectionTitle}>Populer</h2>
+            <h2 className={styles.sectionTitle}>{t('Populer')}</h2>
             <div className={showAll ? styles.longList : undefined}>
               {visible.map((song, index) => (
                 <div key={song.id} className={styles.rankedRow}>
@@ -138,7 +142,7 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
             )}
             {canShowMore && (
               <button type="button" className={styles.textButton} onClick={() => setShowAll((value) => !value)}>
-                {showAll ? 'Lebih sedikit' : 'Lihat semua lagu'}
+                {showAll ? t('Lebih sedikit') : t('Lihat semua lagu')}
               </button>
             )}
           </section>
@@ -146,10 +150,10 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
 
         {data.albums.length > 0 && (
           <section>
-            <h2 className={styles.sectionTitle}>Album</h2>
+            <h2 className={styles.sectionTitle}>{t('Album')}</h2>
             <div className={styles.shelf}>
               {data.albums.map((album) => (
-                <ShelfCard key={album.id} title={album.name} meta={[album.year, 'Album'].filter(Boolean).join(' · ')} imageUrl={album.thumbnail} onClick={() => openAlbum(album.id)} />
+                <ShelfCard key={album.id} title={album.name} meta={[album.year, t('Album')].filter(Boolean).join(' · ')} imageUrl={album.thumbnail} onClick={() => openAlbum(album.id)} />
               ))}
             </div>
           </section>
@@ -157,10 +161,10 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
 
         {data.singles.length > 0 && (
           <section>
-            <h2 className={styles.sectionTitle}>Single & EP</h2>
+            <h2 className={styles.sectionTitle}>{t('Single & EP')}</h2>
             <div className={styles.shelf}>
               {data.singles.map((single) => (
-                <ShelfCard key={single.id} title={single.name} meta={[single.year, 'Single'].filter(Boolean).join(' · ')} imageUrl={single.thumbnail} onClick={() => openAlbum(single.id)} />
+                <ShelfCard key={single.id} title={single.name} meta={[single.year, t('Single')].filter(Boolean).join(' · ')} imageUrl={single.thumbnail} onClick={() => openAlbum(single.id)} />
               ))}
             </div>
           </section>
@@ -168,7 +172,7 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
 
         {data.similarArtists.length > 0 && (
           <section>
-            <h2 className={styles.sectionTitle}>Artis serupa</h2>
+            <h2 className={styles.sectionTitle}>{t('Artis serupa')}</h2>
             <div className={styles.shelf}>
               {data.similarArtists.map((similar) => (
                 <ShelfCard key={similar.id} round title={similar.name} imageUrl={similar.thumbnail} onClick={() => openArtist({ artistId: similar.id, name: similar.name })} />

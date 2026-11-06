@@ -11,6 +11,7 @@ import { Icon } from '../Icon/Icon';
 import { useToast } from '../Toast/ToastProvider';
 import sheetStyles from '../JamSheet/JamSheet.module.css';
 import styles from './ConnectSheet.module.css';
+import { useT, type Translate } from '../../i18n/i18n';
 
 interface Choice {
   ref: string;
@@ -20,10 +21,10 @@ interface Choice {
   disabled: boolean;
 }
 
-function describeRemote(device: RemoteDevice): { sub: string; disabled: boolean } {
-  if (device.state?.inJam) return { sub: 'Sedang di Jam', disabled: true };
-  if (device.state?.song && !device.state.followingRef) return { sub: `${device.state.isPlaying ? 'Memutar' : 'Dijeda'} · ${device.state.song.name}`, disabled: false };
-  return { sub: 'Siap memutar', disabled: false };
+function describeRemote(device: RemoteDevice, t: Translate): { sub: string; disabled: boolean } {
+  if (device.state?.inJam) return { sub: t('Sedang di Jam'), disabled: true };
+  if (device.state?.song && !device.state.followingRef) return { sub: device.state.isPlaying ? t('Memutar · {song}', { song: device.state.song.name }) : t('Dijeda · {song}', { song: device.state.song.name }), disabled: false };
+  return { sub: t('Siap memutar'), disabled: false };
 }
 
 /**
@@ -35,6 +36,7 @@ function describeRemote(device: RemoteDevice): { sub: string; disabled: boolean 
  * panel sits beside the page and stays put.
  */
 function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
+  const t = useT();
   const { showToast } = useToast();
   const { currentSong, playbackState, remoteDevice } = usePlayback();
   const closeSheet = useUiStore((state) => state.closeConnectSheet);
@@ -51,14 +53,14 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
   const active = remoteDevice
     ? { ref: remoteDevice.ref, name: remoteDevice.name, icon: deviceIcon(remoteDevice.kind), isPlaying: remoteDevice.state?.isPlaying ?? false }
     : hasMusic
-      ? { ref: youRef, name: `Perangkat ini · ${selfName}`, icon: deviceIcon(self.kind), isPlaying: playbackState.status === 'playing' || playbackState.status === 'loading' }
+      ? { ref: youRef, name: t('Perangkat ini · {name}', { name: selfName }), icon: deviceIcon(self.kind), isPlaying: playbackState.status === 'playing' || playbackState.status === 'loading' }
       : null;
 
   const choices: Choice[] = [];
-  if (remoteDevice) choices.push({ ref: youRef ?? 'self', name: `Perangkat ini · ${selfName}`, icon: deviceIcon(self.kind), sub: 'Putar di sini', disabled: false });
+  if (remoteDevice) choices.push({ ref: youRef ?? 'self', name: t('Perangkat ini · {name}', { name: selfName }), icon: deviceIcon(self.kind), sub: t('Putar di sini'), disabled: false });
   for (const device of devices) {
     if (device.ref === youRef || device.ref === active?.ref) continue;
-    choices.push({ ref: device.ref, name: device.name, icon: deviceIcon(device.kind), ...describeRemote(device) });
+    choices.push({ ref: device.ref, name: device.name, icon: deviceIcon(device.kind), ...describeRemote(device, t) });
   }
 
   const handlePick = async (choice: Choice) => {
@@ -67,7 +69,7 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
     const moved = await moveTo(choice.ref === 'self' ? (youRef ?? '') : choice.ref);
     setBusyRef(null);
     if (!moved) {
-      showToast(`${choice.name} tidak terhubung.`, { type: 'error' });
+      showToast(t('{name} tidak terhubung.', { name: choice.name }), { type: 'error' });
       return;
     }
     if (closeAfterAction) closeSheet();
@@ -75,7 +77,7 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
 
   return (
     <div className={styles.body}>
-      {inJam && <p className={styles.note}>Selama kamu di Jam, musik tidak bisa dipindah ke perangkat lain.</p>}
+      {inJam && <p className={styles.note}>{t('Selama kamu di Jam, musik tidak bisa dipindah ke perangkat lain.')}</p>}
 
       {active && currentSong && (
         <div className={styles.current}>
@@ -85,7 +87,7 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
           <span className={styles.rowText}>
             <span className={styles.currentLabel}>
               <Icon name="speaker" size={13} />
-              {active.isPlaying ? 'Sedang memutar di' : 'Dijeda di'}
+              {active.isPlaying ? t('Sedang memutar di') : t('Dijeda di')}
             </span>
             <span className={styles.currentName}>{active.name}</span>
             <span className={styles.rowSub}>{currentSong.name}</span>
@@ -95,7 +97,7 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
 
       {choices.length > 0 ? (
         <div className={styles.section}>
-          <span className={styles.sectionLabel}>{hasMusic ? 'Pindahkan ke' : 'Perangkat aktif'}</span>
+          <span className={styles.sectionLabel}>{hasMusic ? t('Pindahkan ke') : t('Perangkat aktif')}</span>
           <div className={styles.list}>
             {choices.map((choice) => (
               <button
@@ -118,15 +120,15 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
           </div>
         </div>
       ) : (
-        <p className={styles.empty}>Belum ada perangkat lain yang aktif. Buka Suwwara dengan akun yang sama di HP, tablet, atau laptop, lalu perangkat itu akan muncul di sini.</p>
+        <p className={styles.empty}>{t('Belum ada perangkat lain yang aktif. Buka Suwwara dengan akun yang sama di HP, tablet, atau laptop, lalu perangkat itu akan muncul di sini.')}</p>
       )}
 
       {/* Only beside a list there is something to tap; under the "no other device yet" text it just repeated it. */}
       {choices.length > 0 && (
         <p className={styles.footnote}>
           {hasMusic
-            ? 'Ketuk perangkat untuk memindahkan musik ke sana, lanjut dari detik yang sama. Perangkatnya harus sedang membuka Suwwara.'
-            : 'Putar lagu dulu, lalu pilih di perangkat mana musiknya diputar.'}
+            ? t('Ketuk perangkat untuk memindahkan musik ke sana, lanjut dari detik yang sama. Perangkatnya harus sedang membuka Suwwara.')
+            : t('Putar lagu dulu, lalu pilih di perangkat mana musiknya diputar.')}
         </p>
       )}
     </div>
@@ -139,6 +141,7 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
  * doing. On a phone it is a sheet from the bottom.
  */
 export function ConnectSheet() {
+  const t = useT();
   const isDesktop = useIsDesktop();
   const close = useUiStore((state) => state.closeConnectSheet);
   // Over fullscreen Now Playing there is no right column to dock into: a full-height panel there hung off the edge
@@ -178,10 +181,10 @@ export function ConnectSheet() {
   if (asPopover) {
     return (
       <div className={styles.popoverScrim} onClick={close}>
-        <aside className={styles.popover} aria-label="Perangkat" onClick={stop}>
+        <aside className={styles.popover} aria-label={t('Perangkat')} onClick={stop}>
           <div className={sheetStyles.header}>
-            <span className={sheetStyles.title}>Perangkat</span>
-            <button type="button" className={sheetStyles.closeButton} onClick={close} aria-label="Tutup">
+            <span className={sheetStyles.title}>{t('Perangkat')}</span>
+            <button type="button" className={sheetStyles.closeButton} onClick={close} aria-label={t('Tutup')}>
               <Icon name="close" size={18} />
             </button>
           </div>
@@ -193,10 +196,10 @@ export function ConnectSheet() {
 
   if (isDesktop) {
     return (
-      <aside ref={panelRef} className={styles.panel} aria-label="Perangkat">
+      <aside ref={panelRef} className={styles.panel} aria-label={t('Perangkat')}>
         <div className={sheetStyles.header}>
-          <span className={sheetStyles.title}>Perangkat</span>
-          <button type="button" className={sheetStyles.closeButton} onClick={close} aria-label="Tutup">
+          <span className={sheetStyles.title}>{t('Perangkat')}</span>
+          <button type="button" className={sheetStyles.closeButton} onClick={close} aria-label={t('Tutup')}>
             <Icon name="close" size={18} />
           </button>
         </div>
@@ -209,8 +212,8 @@ export function ConnectSheet() {
     <div className={sheetStyles.overlay} onClick={close}>
       <div className={[sheetStyles.sheet, styles.sheetSolid].join(' ')} onClick={stop}>
         <div className={sheetStyles.header}>
-          <span className={sheetStyles.title}>Perangkat</span>
-          <button type="button" className={sheetStyles.closeButton} onClick={close} aria-label="Tutup">
+          <span className={sheetStyles.title}>{t('Perangkat')}</span>
+          <button type="button" className={sheetStyles.closeButton} onClick={close} aria-label={t('Tutup')}>
             <Icon name="close" size={18} />
           </button>
         </div>

@@ -1,22 +1,23 @@
 import { useSyncExternalStore } from 'react';
 import { useToast } from '../../components/Toast/ToastProvider';
+import { useT, type Translate } from '../../i18n/i18n';
 import { clearTraces, formatReport, getTraces, subscribeTraces, type LoadTrace } from '../../diagnostics/loadTraces';
 import styles from './SettingsView.module.css';
 
-const seconds = (ms: number | undefined): string => (ms === undefined ? 'belum' : `${(ms / 1000).toFixed(1)}s`);
+const seconds = (t: Translate, ms: number | undefined): string => (ms === undefined ? t('belum') : `${(ms / 1000).toFixed(1)}s`);
 
-function outcomeLabel(trace: LoadTrace): string {
+function outcomeLabel(t: Translate, trace: LoadTrace): string {
   switch (trace.outcome) {
     case 'playing':
-      return 'bunyi';
+      return t('bunyi');
     case 'timeout':
       return 'timeout';
     case 'error':
       return `error${trace.mediaErrorCode ? ` ${trace.mediaErrorCode}` : ''}`;
     case 'superseded':
-      return 'diganti';
+      return t('diganti');
     default:
-      return 'memuat…';
+      return t('memuat…');
   }
 }
 
@@ -25,28 +26,29 @@ function outcomeLabel(trace: LoadTrace): string {
  * for why this exists. "Salin" produces plain text meant to be pasted into a chat.
  */
 export function DiagnosticsPanel() {
+  const t = useT();
   const traces = useSyncExternalStore(subscribeTraces, getTraces);
   const { showToast } = useToast();
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(formatReport(__APP_BUILD__));
-      showToast('Laporan disalin.');
+      showToast(t('Laporan disalin.'));
     } catch {
-      showToast('Gagal menyalin laporan.');
+      showToast(t('Gagal menyalin laporan.'));
     }
   };
 
   return (
     <div className={styles.section}>
-      <span className={styles.sectionTitle}>Diagnostik</span>
+      <span className={styles.sectionTitle}>{t('Diagnostik')}</span>
       <div className={styles.card}>
         <div className={styles.diagRow}>
-          <span className={styles.diagLabel}>Versi</span>
+          <span className={styles.diagLabel}>{t('Versi')}</span>
           <span className={styles.diagValue}>{__APP_BUILD__}</span>
         </div>
         {traces.length === 0 ? (
-          <p className={styles.diagEmpty}>Putar sebuah lagu. Waktu tiap tahap pemuatan akan tercatat di sini.</p>
+          <p className={styles.diagEmpty}>{t('Putar sebuah lagu. Waktu tiap tahap pemuatan akan tercatat di sini.')}</p>
         ) : (
           <ul className={styles.diagList}>
             {traces.slice(0, 8).map((trace) => (
@@ -56,9 +58,14 @@ export function DiagnosticsPanel() {
                   {trace.preloaded ? ' · preload' : ''}
                 </span>
                 <span className={styles.diagStages}>
-                  mulai {seconds(trace.stages.loadstart)} · metadata {seconds(trace.stages.loadedmetadata)} · siap {seconds(trace.stages.canplay)} · bunyi{' '}
-                  {seconds(trace.stages.playing)} · {outcomeLabel(trace)}
-                  {trace.waits > 0 ? ` · menunggu ${trace.waits}×` : ''}
+                  {t('mulai {start} · metadata {meta} · siap {ready} · bunyi {sound}', {
+                    start: seconds(t, trace.stages.loadstart),
+                    meta: seconds(t, trace.stages.loadedmetadata),
+                    ready: seconds(t, trace.stages.canplay),
+                    sound: seconds(t, trace.stages.playing),
+                  })}{' '}
+                  · {outcomeLabel(t, trace)}
+                  {trace.waits > 0 ? ` · ${t('menunggu {n}×', { n: trace.waits })}` : ''}
                 </span>
               </li>
             ))}
@@ -66,11 +73,11 @@ export function DiagnosticsPanel() {
         )}
         <div className={styles.diagActions}>
           <button type="button" className={styles.linkButton} onClick={handleCopy}>
-            Salin laporan
+            {t('Salin laporan')}
           </button>
           {traces.length > 0 && (
             <button type="button" className={styles.linkButton} onClick={clearTraces}>
-              Bersihkan
+              {t('Bersihkan')}
             </button>
           )}
         </div>

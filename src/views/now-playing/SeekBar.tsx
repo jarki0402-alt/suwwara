@@ -9,6 +9,7 @@ import { sendJamIntent } from '../../jam/jamClient';
 import { useJamStore } from '../../stores/jamStore';
 import { formatTime } from '../../utils/formatTime';
 import styles from './SeekBar.module.css';
+import { useT } from '../../i18n/i18n';
 
 /**
  * Reads playback position every frame via the shared frameTicker and pushes
@@ -23,6 +24,7 @@ import styles from './SeekBar.module.css';
  * read-only progress line).
  */
 export function SeekBar({ duration, horizontal = false }: { duration: number; horizontal?: boolean }) {
+  const t = useT();
   const progressBarRef = useRef<ProgressBarHandle>(null);
   const [displaySeconds, setDisplaySeconds] = useState(0);
   // Mirrors whatever denominator the bar itself is using (audioEngine.getDuration(),
@@ -79,7 +81,7 @@ export function SeekBar({ duration, horizontal = false }: { duration: number; ho
     return (
       <div className={styles.horizontalWrapper}>
         <span className={styles.horizontalTime}>{formatTime(displaySeconds)}</span>
-        <ProgressBar ref={progressBarRef} onSeekFraction={handleSeekFraction} ariaLabel="Posisi lagu" />
+        <ProgressBar ref={progressBarRef} onSeekFraction={handleSeekFraction} ariaLabel={t('Posisi lagu')} />
         <span className={styles.horizontalTime}>{formatTime(totalSeconds)}</span>
       </div>
     );
@@ -87,7 +89,7 @@ export function SeekBar({ duration, horizontal = false }: { duration: number; ho
 
   return (
     <div className={styles.wrapper}>
-      <ProgressBar ref={progressBarRef} onSeekFraction={handleSeekFraction} ariaLabel="Posisi lagu" />
+      <ProgressBar ref={progressBarRef} onSeekFraction={handleSeekFraction} ariaLabel={t('Posisi lagu')} />
       <div className={styles.times}>
         <span>{formatTime(displaySeconds)}</span>
         <span>{formatTime(totalSeconds)}</span>

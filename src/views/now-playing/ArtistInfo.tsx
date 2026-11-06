@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getArtistSummary } from '../../api/wikipediaClient';
 import styles from './ArtistInfo.module.css';
+import { useT } from '../../i18n/i18n';
 
 /**
  * Lazily loaded — mounts only once the Now Playing panel is actually open
@@ -9,6 +10,7 @@ import styles from './ArtistInfo.module.css';
  * or delays anything else in the panel.
  */
 export function ArtistInfo({ artistName }: { artistName: string }) {
+  const t = useT();
   const [extract, setExtract] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export function ArtistInfo({ artistName }: { artistName: string }) {
 
   return (
     <div className={styles.wrapper}>
-      <span className={styles.label}>Tentang Artis</span>
+      <span className={styles.label}>{t('Tentang Artis')}</span>
       <p className={styles.text}>{extract}</p>
     </div>
   );

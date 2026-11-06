@@ -16,6 +16,7 @@ suwwara/
 │   ├── jam/             client "Jam" (dengerin bareng) — SSE client, aksi antrean yang jam-aware
 │   ├── stores/         Zustand stores (player, queue, library, history, settings, ui, jam)
 │   ├── recommendation/ mesin rekomendasi & trending berbasis histori lokal
+│   ├── i18n/            dua bahasa (Indonesia bawaan + Inggris): t()/useT(), kamus Inggris di i18n/en/ (dimuat lazy)
 │   ├── lyrics/         parser LRC, sinkronisasi + koreksi waktu lirik (data dari backend /api/lyrics)
 │   ├── views/          layar: home, search, library, queue, now-playing, settings
 │   ├── app-shell/      shell aplikasi: bottom nav, mini player (juga jadi remote saat musik diputar di perangkat lain)

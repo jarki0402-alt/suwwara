@@ -16,6 +16,7 @@ import { useSwipeGesture } from '../../hooks/useSwipeGesture';
 import { usePlayback } from '../../playback/PlaybackContext';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUiStore } from '../../stores/uiStore';
+import { useT } from '../../i18n/i18n';
 import { isDocumentFullscreen, leaveFullscreen, onDocumentFullscreenChange } from '../../utils/documentFullscreen';
 import { QueueView } from '../queue/QueueView';
 import { ArtistInfo } from './ArtistInfo';
@@ -29,6 +30,7 @@ import { SeekBar } from './SeekBar';
 const IDLE_TIMEOUT_MS = 2500;
 
 export function NowPlayingView() {
+  const t = useT();
   const isOpen = useUiStore((state) => state.isNowPlayingOpen);
   const isQueueOpen = useUiStore((state) => state.isQueueOpen);
   const isFullscreen = useUiStore((state) => state.isNowPlayingFullscreen);
@@ -142,22 +144,22 @@ export function NowPlayingView() {
             className={[styles.iconButton, 'glass-ripple-host'].join(' ')}
             onClick={handleBack}
             onPointerDown={backRipple.onPointerDown}
-            aria-label="Tutup"
+            aria-label={t('Tutup')}
           >
             <Icon name="chevron-down" size={22} />
           </button>
           {jam.active ? (
             <span className={[styles.topBarLabel, styles.topBarLabelJam].join(' ')}>
               <Icon name={jam.live ? 'users' : 'wifi-off'} size={15} />
-              {jam.live ? `Jam · ${jam.count} pendengar` : jam.statusText}
+              {jam.live ? t('Jam · {n} pendengar', { n: jam.count }) : jam.statusText}
             </span>
           ) : remoteDevice ? (
             <span className={[styles.topBarLabel, styles.topBarLabelRemote].join(' ')}>
               <Icon name="speaker" size={15} />
-              Memutar di {remoteDevice.name}
+              {t('Memutar di {name}', { name: remoteDevice.name })}
             </span>
           ) : (
-            <span className={styles.topBarLabel}>Sedang Diputar</span>
+            <span className={styles.topBarLabel}>{t('Sedang Diputar')}</span>
           )}
           <span className={styles.topBarActions}>
             <button
@@ -166,7 +168,7 @@ export function NowPlayingView() {
               className={[styles.iconButton, 'glass-ripple-host'].join(' ')}
               onClick={openQueue}
               onPointerDown={queueRipple.onPointerDown}
-              aria-label="Buka antrean"
+              aria-label={t('Buka antrean')}
             >
               <Icon name="queue" size={20} />
             </button>
@@ -207,7 +209,7 @@ export function NowPlayingView() {
         {!showLyrics && !isFullscreen && isDesktop && (
           <div className={styles.dockedExtras}>
             <div className={styles.upNextBox}>
-              <span className={styles.upNextHeading}>Berikutnya</span>
+              <span className={styles.upNextHeading}>{t('Berikutnya')}</span>
               <UpNextList limit={3} compact />
             </div>
             <JamCard />
@@ -251,7 +253,7 @@ export function NowPlayingView() {
                   className={[styles.bottomIconButton, 'glass-ripple-host', showLyrics ? styles.bottomIconButtonActive : ''].join(' ')}
                   onClick={toggleLyrics}
                   onPointerDown={lyricsRipple.onPointerDown}
-                  aria-label="Tampilkan lirik"
+                  aria-label={t('Tampilkan lirik')}
                   aria-pressed={showLyrics}
                 >
                   <Icon name="lyrics" size={24} />
@@ -263,7 +265,7 @@ export function NowPlayingView() {
                   className={[styles.bottomIconButton, 'glass-ripple-host', isControllingRemote ? styles.bottomIconButtonActive : ''].join(' ')}
                   onClick={openConnectSheet}
                   onPointerDown={devicesRipple.onPointerDown}
-                  aria-label="Perangkat"
+                  aria-label={t('Perangkat')}
                 >
                   <Icon name="devices" size={24} />
                   {hasOtherDevices && <span className={styles.deviceDot} aria-hidden="true" />}
@@ -273,7 +275,7 @@ export function NowPlayingView() {
                   type="button"
                   className={[styles.bottomIconButton, jam.active ? styles.bottomIconButtonActive : ''].join(' ')}
                   onClick={openJamSheet}
-                  aria-label={jam.active ? 'Kelola Jam' : 'Dengar bareng (Jam)'}
+                  aria-label={jam.active ? t('Kelola Jam') : t('Dengar bareng (Jam)')}
                 >
                   <Icon name="users" size={24} />
                 </button>
@@ -289,7 +291,7 @@ export function NowPlayingView() {
                     onChange={(event) => setVolume(Number(event.target.value) / 100)}
                     className={styles.volumeSlider}
                     style={{ '--fill': `${Math.round(volume * 100)}%` } as CSSProperties}
-                    aria-label="Volume"
+                    aria-label={t('Volume')}
                   />
                 </div>
               )}

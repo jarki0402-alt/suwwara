@@ -7,6 +7,7 @@ import './styles/theme.css';
 import './styles/global.css';
 import { applySavedPaneWidths } from './app-shell/paneWidths';
 import { captureInstallPrompt } from './pwa/installPrompt';
+import { initLanguage } from './i18n/i18n';
 
 applySavedPaneWidths();
 captureInstallPrompt();
@@ -14,10 +15,13 @@ captureInstallPrompt();
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element (#root) not found.');
 
-createRoot(rootElement).render(
-  <StrictMode>
-    <ToastProvider>
-      <App />
-    </ToastProvider>
-  </StrictMode>,
-);
+// Waits only when the device uses English (its dictionary is a separate download); Indonesian renders at once as before.
+void initLanguage().then(() => {
+  createRoot(rootElement).render(
+    <StrictMode>
+      <ToastProvider>
+        <App />
+      </ToastProvider>
+    </StrictMode>,
+  );
+});

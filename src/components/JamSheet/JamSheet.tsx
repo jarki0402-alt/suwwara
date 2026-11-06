@@ -11,6 +11,7 @@ import { useToast } from '../Toast/ToastProvider';
 import { Icon } from '../Icon/Icon';
 import { JamAvatars } from '../JamIndicator/JamIndicator';
 import styles from './JamSheet.module.css';
+import { useT } from '../../i18n/i18n';
 
 const ROOM_CODE_LENGTH = 6;
 const END_CONFIRM_MS = 4000;
@@ -24,6 +25,7 @@ interface JamSheetProps {
  * one already in progress. Follows the same overlay/sheet shape as
  * AddToPlaylistSheet. */
 export function JamSheet({ isOpen, onClose }: JamSheetProps) {
+  const t = useT();
   const role = useJamStore((s) => s.role);
   const roomId = useJamStore((s) => s.roomId);
   const clientId = useJamStore((s) => s.clientId);
@@ -53,12 +55,12 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
     const result = await joinJamRoom(joinCode);
     setBusy(false);
     if (result.ok) {
-      showToast('Gabung Jam!');
+      showToast(t('Gabung Jam!'));
       onClose();
     } else if (result.reason === 'not-found') {
-      showToast('Kode gak ditemukan. Cek lagi kodenya.', { type: 'error' });
+      showToast(t('Kode gak ditemukan. Cek lagi kodenya.'), { type: 'error' });
     } else {
-      showToast('Gagal gabung Jam. Coba lagi.', { type: 'error' });
+      showToast(t('Gagal gabung Jam. Coba lagi.'), { type: 'error' });
     }
   };
 
@@ -73,9 +75,9 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
         positionSec: audioEngine.getCurrentTime(),
       });
       enterJam({ roomId: newRoomId, isCreator: true, queueSnapshotToRestore: queueSnapshot });
-      showToast('Jam dimulai. Bagikan link-nya ke teman.');
+      showToast(t('Jam dimulai. Bagikan link-nya ke teman.'));
     } catch {
-      showToast('Gagal memulai Jam. Coba lagi.', { type: 'error' });
+      showToast(t('Gagal memulai Jam. Coba lagi.'), { type: 'error' });
     } finally {
       setBusy(false);
     }
@@ -86,9 +88,9 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareLink);
-      showToast('Link disalin.');
+      showToast(t('Link disalin.'));
     } catch {
-      showToast('Gagal menyalin link.', { type: 'error' });
+      showToast(t('Gagal menyalin link.'), { type: 'error' });
     }
   };
 
@@ -100,8 +102,8 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
   const handleShareLink = async () => {
     try {
       await navigator.share({
-        title: 'Dengerin bareng di Suwwara',
-        text: `Gabung Jam-ku di Suwwara, kode ${roomId}`,
+        title: t('Dengerin bareng di Suwwara'),
+        text: t('Gabung Jam-ku di Suwwara, kode {code}', { code: roomId ?? '' }),
         url: shareLink,
       });
     } catch (error) {
@@ -122,7 +124,7 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
       if (snapshot) useQueueStore.setState(snapshot);
       setBusy(false);
       onClose();
-      showToast('Keluar dari Jam.');
+      showToast(t('Keluar dari Jam.'));
     }
   };
 
@@ -149,8 +151,8 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.sheet} onClick={stopPropagation}>
         <div className={styles.header}>
-          <span className={styles.title}>Jam</span>
-          <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Tutup">
+          <span className={styles.title}>{t('Jam')}</span>
+          <button type="button" className={styles.closeButton} onClick={onClose} aria-label={t('Tutup')}>
             <Icon name="close" size={18} />
           </button>
         </div>
@@ -158,25 +160,25 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
         {role === 'solo' ? (
           <div className={styles.body}>
             <p className={styles.description}>
-              Dengerin lagu bareng teman secara real-time. Semua orang yang gabung bisa nambah, hapus, atur ulang antrean, dan
-              kontrol play/pause/next/back sama-sama.
+              {t('Dengerin lagu bareng teman secara real-time. Semua orang yang gabung bisa nambah, hapus, atur ulang antrean, dan kontrol play/pause/next/back sama-sama.')}
             </p>
             <button type="button" className={styles.primaryButton} onClick={handleStart} disabled={busy}>
-              {busy ? 'Memulai...' : 'Mulai Jam'}
+              {busy ? t('Memulai...') : t('Mulai Jam')}
             </button>
 
             <div className={styles.divider}>
-              <span>atau</span>
+              <span>{t('atau')}</span>
             </div>
 
-            <p className={styles.joinLabel}>Sudah ada yang mulai Jam? Masukkan kodenya di sini, karena membuka link
-              share biasanya cuma menyalakan browser, bukan app ini.</p>
+            <p className={styles.joinLabel}>
+              {t('Sudah ada yang mulai Jam? Masukkan kodenya di sini, karena membuka link share biasanya cuma menyalakan browser, bukan app ini.')}
+            </p>
             <div className={styles.joinRow}>
               <input
                 type="text"
                 inputMode="text"
                 autoCapitalize="characters"
-                placeholder="KODE"
+                placeholder={t('KODE')}
                 className={styles.joinInput}
                 value={joinCode}
                 onChange={handleJoinCodeChange}
@@ -188,7 +190,7 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
                 onClick={handleJoinByCode}
                 disabled={busy || joinCode.length !== ROOM_CODE_LENGTH}
               >
-                Gabung
+                {t('Gabung')}
               </button>
             </div>
           </div>
@@ -198,25 +200,25 @@ export function JamSheet({ isOpen, onClose }: JamSheetProps) {
               <JamAvatars count={Math.max(memberCount, 1)} size={36} />
             </div>
             <div className={styles.roomCode}>{roomId}</div>
-            <p className={styles.memberCount}>{memberCount} orang dengerin bareng</p>
+            <p className={styles.memberCount}>{t('{n} orang dengerin bareng', { n: memberCount })}</p>
 
             <div className={styles.linkRow}>
               <span className={styles.linkText}>{shareLink}</span>
               {canShare && (
                 <button type="button" className={styles.copyButton} onClick={handleShareLink}>
-                  Bagikan
+                  {t('Bagikan')}
                 </button>
               )}
               <button type="button" className={styles.copyButton} onClick={handleCopyLink}>
-                Salin
+                {t('Salin')}
               </button>
             </div>
 
             <button type="button" className={styles.secondaryButton} onClick={handleLeave} disabled={busy}>
-              Keluar
+              {t('Keluar')}
             </button>
             <button type="button" className={styles.dangerButton} onClick={handleEndForEveryone} disabled={busy}>
-              {confirmEnd ? 'Ketuk lagi untuk mengakhiri' : 'Akhiri Jam untuk Semua'}
+              {confirmEnd ? t('Ketuk lagi untuk mengakhiri') : t('Akhiri Jam untuk Semua')}
             </button>
           </div>
         )}

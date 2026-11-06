@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import type { BrowseCategory } from '../../data/browseCategories';
+import { msg, useT } from '../../i18n/i18n';
 import { useRecentSearches } from '../../hooks/useRecentSearches';
 import { useUiStore } from '../../stores/uiStore';
 import { debounce } from '../../utils/debounce';
@@ -18,9 +19,12 @@ const SUGGESTIONS_DEBOUNCE_MS = 180;
 const MAX_SUGGESTIONS = 5;
 
 export function SearchView() {
+  const t = useT();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // The Indonesian message (msg), translated when shown: performSearch lives on in a debounce made once, so a `t`
+  // captured there would keep the language of the first render.
   const [error, setError] = useState<string | null>(null);
   const [artist, setArtist] = useState<ArtistHit | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -57,7 +61,7 @@ export function SearchView() {
       })
       .catch(() => {
         if (requestId !== requestIdRef.current) return;
-        setError('Gagal mencari lagu. Periksa koneksi internetmu.');
+        setError(msg('Gagal mencari lagu. Periksa koneksi internetmu.'));
       })
       .finally(() => {
         if (requestId !== requestIdRef.current) return;
@@ -104,8 +108,10 @@ export function SearchView() {
   };
 
   const handleCategorySelect = (category: BrowseCategory) => {
-    activeCategoryLabelRef.current = category.label;
-    setQuery(category.label);
+    // The label as shown, so the box reads the same as the tile that was tapped.
+    const label = t(category.label);
+    activeCategoryLabelRef.current = label;
+    setQuery(label);
     setHasCommitted(true);
     setSuggestions([]);
     runDebouncedSearch.cancel();
@@ -118,7 +124,7 @@ export function SearchView() {
         if (requestId === requestIdRef.current) setResults(songs);
       })
       .catch(() => {
-        if (requestId === requestIdRef.current) setError('Gagal memuat kategori. Periksa koneksi internetmu.');
+        if (requestId === requestIdRef.current) setError(msg('Gagal memuat kategori. Periksa koneksi internetmu.'));
       })
       .finally(() => {
         if (requestId === requestIdRef.current) setIsLoading(false);
@@ -146,7 +152,7 @@ export function SearchView() {
 
   return (
     <div className={styles.view}>
-      <h1 className={styles.pageTitle}>Cari</h1>
+      <h1 className={styles.pageTitle}>{t('Cari')}</h1>
       <div className={styles.searchAnchor}>
         <form className={styles.searchBox} onSubmit={handleSubmit}>
           <Icon name="search" size={18} />
@@ -155,7 +161,7 @@ export function SearchView() {
             className={styles.input}
             type="text"
             inputMode="search"
-            placeholder="Cari lagu, artis, atau album"
+            placeholder={t('Cari lagu, artis, atau album')}
             value={query}
             onChange={(event) => handleInputChange(event.target.value)}
             onFocus={() => setIsInputFocused(true)}
@@ -185,16 +191,16 @@ export function SearchView() {
         </div>
       )}
 
-      {!isLoading && error && <p className={styles.state}>{error}</p>}
+      {!isLoading && error && <p className={styles.state}>{t(error)}</p>}
 
       {!isLoading && !error && showBrowseState && (
         <div className={styles.browseState}>
           {recentSearches.items.length > 0 && (
             <div className={styles.recentSection}>
               <div className={styles.recentHeader}>
-                <span className={styles.sectionLabel}>Pencarian Terakhir</span>
+                <span className={styles.sectionLabel}>{t('Pencarian Terakhir')}</span>
                 <button type="button" className={styles.clearButton} onClick={recentSearches.clear}>
-                  Hapus semua
+                  {t('Hapus semua')}
                 </button>
               </div>
               <ul className={styles.recentList}>
@@ -208,7 +214,7 @@ export function SearchView() {
                       type="button"
                       className={styles.recentRemove}
                       onClick={() => recentSearches.remove(term)}
-                      aria-label={`Hapus "${term}" dari riwayat`}
+                      aria-label={t('Hapus "{term}" dari riwayat', { term })}
                     >
                       <Icon name="close" size={14} />
                     </button>
@@ -219,7 +225,7 @@ export function SearchView() {
           )}
 
           <div className={styles.recentSection}>
-            <span className={styles.sectionLabel}>Jelajahi</span>
+            <span className={styles.sectionLabel}>{t('Jelajahi')}</span>
             <BrowseCategoriesGrid onSelect={handleCategorySelect} />
           </div>
         </div>
@@ -230,7 +236,7 @@ export function SearchView() {
           <LazyImage images={artist.image} quality="150x150" alt="" className={styles.artistPhoto} />
           <span className={styles.artistText}>
             <span className={styles.artistName}>{artist.name}</span>
-            <span className={styles.artistHint}>Artis · Lihat profil</span>
+            <span className={styles.artistHint}>{t('Artis · Lihat profil')}</span>
           </span>
           <span className={styles.artistChevron} aria-hidden="true">
             <Icon name="chevron-left" size={18} />
@@ -239,7 +245,7 @@ export function SearchView() {
       )}
 
       {!isLoading && !error && !showBrowseState && results.length === 0 && (
-        <p className={styles.state}>Tidak ada hasil untuk &ldquo;{query}&rdquo;.</p>
+        <p className={styles.state}>{t('Tidak ada hasil untuk “{query}”.', { query })}</p>
       )}
 
       {!isLoading && !error && !showBrowseState && results.length > 0 && (

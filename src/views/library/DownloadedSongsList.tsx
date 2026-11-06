@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CollectionHero } from '../../components/CollectionHero/CollectionHero';
 import { SongRow, SongTable } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
+import { useT } from '../../i18n/i18n';
 import { downloadManager, type DownloadRecord } from '../../downloads/downloadManager';
 import { playSongList } from '../../playback/playSongList';
 import styles from './LibraryView.module.css';
@@ -14,6 +15,7 @@ import styles from './LibraryView.module.css';
  * useSongDownload inside that menu) is what makes a row disappear from this exact list the moment it's removed.
  */
 export function DownloadedSongsList() {
+  const t = useT();
   const [records, setRecords] = useState<DownloadRecord[] | null>(null);
 
   useEffect(() => {
@@ -35,9 +37,9 @@ export function DownloadedSongsList() {
 
   return (
     <>
-      <CollectionHero kind="Koleksi" title="Diunduh" songs={songs} images={songs[0]?.image ?? []} fallbackIcon="download" iconCover isLoading={records === null} />
+      <CollectionHero kind={t('Koleksi')} title={t('Diunduh')} songs={songs} images={songs[0]?.image ?? []} fallbackIcon="download" iconCover isLoading={records === null} />
       {records && records.length === 0 ? (
-        <p className={styles.empty}>Lagu yang kamu unduh untuk offline akan muncul di sini.</p>
+        <p className={styles.empty}>{t('Lagu yang kamu unduh untuk offline akan muncul di sini.')}</p>
       ) : (
         <SongTable>
           {songs.map((song, index) => (

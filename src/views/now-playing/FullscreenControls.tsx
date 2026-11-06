@@ -11,6 +11,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useUiStore } from '../../stores/uiStore';
 import { SeekBar } from './SeekBar';
 import styles from './FullscreenControls.module.css';
+import { useT } from '../../i18n/i18n';
 
 interface FullscreenControlsProps {
   song: Song;
@@ -33,6 +34,7 @@ interface FullscreenControlsProps {
  * renders the bar's contents.
  */
 export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay, onNext, onPrevious }: FullscreenControlsProps) {
+  const t = useT();
   const shuffle = useQueueStore((state) => state.shuffle);
   const repeatMode = useQueueStore((state) => state.repeatMode);
   const isLyricsOpen = useUiStore((state) => state.isLyricsOpen);
@@ -56,25 +58,25 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
             type="button"
             className={[styles.smallButton, shuffle ? styles.smallButtonActive : ''].join(' ')}
             onClick={toggleShuffle}
-            aria-label="Acak antrean"
+            aria-label={t('Acak antrean')}
             aria-pressed={shuffle}
           >
             <Icon name="shuffle" size={20} />
           </button>
-          <button type="button" className={styles.smallButton} onClick={onPrevious} aria-label="Lagu sebelumnya">
+          <button type="button" className={styles.smallButton} onClick={onPrevious} aria-label={t('Lagu sebelumnya')}>
             <Icon name="previous" size={20} />
           </button>
-          <button type="button" className={styles.playButton} onClick={onTogglePlay} aria-label={isPlaying ? 'Jeda' : 'Putar'}>
+          <button type="button" className={styles.playButton} onClick={onTogglePlay} aria-label={isPlaying ? t('Jeda') : t('Putar')}>
             <Icon name={isPlaying || isBuffering ? 'pause' : 'play'} size={20} />
           </button>
-          <button type="button" className={styles.smallButton} onClick={onNext} aria-label="Lagu berikutnya">
+          <button type="button" className={styles.smallButton} onClick={onNext} aria-label={t('Lagu berikutnya')}>
             <Icon name="next" size={20} />
           </button>
           <button
             type="button"
             className={[styles.smallButton, repeatMode !== 'off' ? styles.smallButtonActive : ''].join(' ')}
             onClick={cycleRepeat}
-            aria-label="Ubah mode ulang"
+            aria-label={t('Ubah mode ulang')}
           >
             <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={20} />
           </button>
@@ -89,7 +91,7 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
           type="button"
           className={[styles.iconButton, isLyricsOpen ? styles.iconButtonActive : ''].join(' ')}
           onClick={toggleLyrics}
-          aria-label="Tampilkan lirik"
+          aria-label={t('Tampilkan lirik')}
           aria-pressed={isLyricsOpen}
         >
           <Icon name="lyrics" size={20} />
@@ -104,7 +106,7 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
               value={Math.round(volume * 100)}
               onChange={(event) => setVolume(Number(event.target.value) / 100)}
               className={styles.volumeSlider}
-              aria-label="Volume"
+              aria-label={t('Volume')}
             />
           </div>
         )}

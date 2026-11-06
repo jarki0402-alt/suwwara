@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getCachedSongs } from '../../api/songCache';
+import { t, useLocale } from '../../i18n/i18n';
 import { loadHistory } from '../../recommendation/historyLog';
 import { profileReady } from '../../sync/profileReady';
 import { rankByPlays } from '../../recommendation/onRepeat';
-import { MOOD_TITLE, radioArtist, timeMixTitle } from '../../recommendation/smartMixes';
+import { moodTitle, radioArtist, timeMixTitle } from '../../recommendation/smartMixes';
 import type { GeneratedCollectionId } from '../../stores/uiStore';
 
 /** The chips above Home's mixes. "Untukmu" shows all of them. */
@@ -38,23 +39,23 @@ function card(id: GeneratedCollectionId, title: string, subtitle: string, filter
   return { id, title, subtitle, filters, color, shape };
 }
 
-/** Every mix Home can show right now, in shelf order. Cheap: titles only, no songs are fetched here. */
+/** Every mix Home can show right now, in shelf order, titled in the current language. Cheap: titles only, no songs are fetched here. */
 export function homeMixCards(now = new Date()): MixCard[] {
   const cards: MixCard[] = [
-    card('time-mix', timeMixTitle(now), 'Yang biasa kamu putar di jam seperti ini', ['chill']),
-    card('daily-discovery', 'Temuan Harian', 'Lagu baru untukmu hari ini', ['new']),
-    card('mood-focus', MOOD_TITLE.focus, 'Instrumental tenang untuk kerja dan belajar', ['focus']),
-    card('mood-chill', MOOD_TITLE.chill, 'Akustik dan lagu santai', ['chill']),
+    card('time-mix', timeMixTitle(now), t('Yang biasa kamu putar di jam seperti ini'), ['chill']),
+    card('daily-discovery', t('Temuan Harian'), t('Lagu baru untukmu hari ini'), ['new']),
+    card('mood-focus', moodTitle('focus'), t('Instrumental tenang untuk kerja dan belajar'), ['focus']),
+    card('mood-chill', moodTitle('chill'), t('Akustik dan lagu santai'), ['chill']),
   ];
   const artist = radioArtist();
-  if (artist) cards.push(card(`radio:${artist}`, `Radio ${artist}`, `Mirip ${artist} dan yang sering kamu putar`, ['chill'], 'radio'));
-  cards.push(card('weekly-discovery', 'Temuan Mingguan', 'Campuran dari riwayat putarmu', ['new']));
+  if (artist) cards.push(card(`radio:${artist}`, t('Radio {artist}', { artist }), t('Mirip {artist} dan yang sering kamu putar', { artist }), ['chill'], 'radio'));
+  cards.push(card('weekly-discovery', t('Temuan Mingguan'), t('Campuran dari riwayat putarmu'), ['new']));
   // Only once there is something to repeat on THIS device: the mix is built from the songs this device has seen
   // (no network), so history synced from another device names songs it cannot show yet, and the card opened empty.
   if (getCachedSongs(rankByPlays(loadHistory(), now.getTime(), 3)).length >= 3) {
-    cards.push(card('on-repeat', 'Sering Kamu Putar', 'Lagu favoritmu 30 hari terakhir', ['chill']));
+    cards.push(card('on-repeat', t('Sering Kamu Putar'), t('Lagu favoritmu 30 hari terakhir'), ['chill']));
   }
-  cards.push(card('viral-indonesia', 'Lagi Viral', 'Yang lagi ramai di Indonesia', ['new']));
+  cards.push(card('viral-indonesia', t('Lagi Viral'), t('Yang lagi ramai di Indonesia'), ['new']));
   return cards;
 }
 
@@ -68,18 +69,20 @@ export function coverLines(title: string): [string, string] {
 /**
  * homeMixCards, recomputed once this account's play history has arrived from the server: on a fresh device Home
  * shows before that sync, and the cards that depend on history (Radio of the top artist, Sering Kamu Putar) were
- * missing until the next visit.
+ * missing until the next visit. Also recomputed on a language switch: the cards carry their titles as text.
  */
 export function useHomeMixCards(): MixCard[] {
-  const [cards, setCards] = useState(() => homeMixCards());
+  const locale = useLocale();
+  const [historyVersion, setHistoryVersion] = useState(0);
   useEffect(() => {
     let cancelled = false;
     void profileReady().then(() => {
-      if (!cancelled) setCards(homeMixCards());
+      if (!cancelled) setHistoryVersion((version) => version + 1);
     });
     return () => {
       cancelled = true;
     };
   }, []);
-  return cards;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => homeMixCards(), [locale, historyVersion]);
 }

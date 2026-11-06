@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
+import { useT, type Translate } from '../../i18n/i18n';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { useUiStore, type GeneratedCollectionId } from '../../stores/uiStore';
 import { MixCover } from './HomeMixes';
@@ -16,10 +17,14 @@ type Tile =
   | { key: string; kind: 'playlist'; id: string; title: string; image: Parameters<typeof LazyImage>[0]['images'] | null }
   | { key: string; kind: 'mix'; card: MixCard };
 
-function mixCardFor(id: GeneratedCollectionId, cards: MixCard[]): MixCard {
+function mixCardFor(id: GeneratedCollectionId, cards: MixCard[], t: Translate): MixCard {
   const known = cards.find((card) => card.id === id);
   if (known) return known;
-  const name = id.startsWith('artist-mix:') ? `Mix ${id.slice('artist-mix:'.length)}` : id.startsWith('radio:') ? `Radio ${id.slice('radio:'.length)}` : 'Mix';
+  const name = id.startsWith('artist-mix:')
+    ? t('Mix {artist}', { artist: id.slice('artist-mix:'.length) })
+    : id.startsWith('radio:')
+      ? t('Radio {artist}', { artist: id.slice('radio:'.length) })
+      : 'Mix';
   return { id, title: name, subtitle: '', filters: [], color: '#7A3B2E', shape: '#F2B38A' };
 }
 
@@ -29,6 +34,7 @@ function mixCardFor(id: GeneratedCollectionId, cards: MixCard[]): MixCard {
  * never half empty. Two columns on a phone, three on desktop.
  */
 export function QuickTiles() {
+  const t = useT();
   const recent = useRecentCollections();
   const playlists = useLibraryStore((state) => state.playlists);
   const setView = useUiStore((state) => state.setView);
@@ -44,7 +50,7 @@ export function QuickTiles() {
       if (entry.type === 'liked') {
         if (seen.has('liked')) return;
         seen.add('liked');
-        out.push({ key: 'liked', kind: 'liked', title: 'Lagu Disukai' });
+        out.push({ key: 'liked', kind: 'liked', title: t('Lagu Disukai') });
       } else if (entry.type === 'playlist') {
         const playlist = playlists.find((item) => item.id === entry.id);
         const key = `playlist:${entry.id}`;
@@ -55,7 +61,7 @@ export function QuickTiles() {
         const key = `mix:${entry.id}`;
         if (seen.has(key)) return;
         seen.add(key);
-        out.push({ key, kind: 'mix', card: mixCardFor(entry.id, cards) });
+        out.push({ key, kind: 'mix', card: mixCardFor(entry.id, cards, t) });
       }
     };
     recent.forEach(add);
@@ -63,7 +69,7 @@ export function QuickTiles() {
     playlists.forEach((playlist) => add({ type: 'playlist', id: playlist.id }));
     cards.forEach((card) => add({ type: 'mix', id: card.id }));
     return out;
-  }, [recent, playlists, cards]);
+  }, [recent, playlists, cards, t]);
 
   useRequestMixArtwork(tiles.flatMap((tile) => (tile.kind === 'mix' ? [tile.card.id] : [])));
 
@@ -79,7 +85,7 @@ export function QuickTiles() {
   };
 
   return (
-    <section className={styles.grid} aria-label="Lanjutkan">
+    <section className={styles.grid} aria-label={t('Lanjutkan')}>
       {tiles.map((tile) => (
         <button key={tile.key} type="button" className={styles.tile} onClick={() => open(tile)}>
           <span className={styles.art}>

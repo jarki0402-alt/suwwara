@@ -3,6 +3,7 @@ import { historyClearedAt, loadHistory, mergeHistory, replaceHistory, type PlayE
 import { MIX_CHANGED_EVENT, readStoredMix as readWeekly, writeStoredMix as writeWeekly } from '../recommendation/weeklyDiscovery';
 import { readStored as readDaily, writeStored as writeDaily } from '../recommendation/dailyDiscovery';
 import { useHistoryStore } from '../stores/historyStore';
+import { setLanguageChoice, useLanguageStore, type LanguageChoice } from '../i18n/i18n';
 import { markProfileReady } from './profileReady';
 
 /**
@@ -10,13 +11,14 @@ import { markProfileReady } from './profileReady';
  * in step across an account (server/src/routes/profile.ts). Each sync sends this device's copy and adopts the merge the
  * server answers with, so it can be repeated at any time: on start, after a local change (debounced), when the app is
  * opened again, and every few minutes. Failures are silent; the next trigger retries. Device settings (cache limit, data
- * saver, volume) are deliberately not part of it.
+ * saver, volume) are deliberately not part of it. The language is: it is a choice about the person, not the device.
  */
 interface ProfileData {
   history: PlayEvent[];
   clearedAt: number;
   weekly: { weekKey: string; songs: unknown[] } | null;
   daily: { dayKey: string; songs: unknown[] } | null;
+  language: { choice: LanguageChoice; at: number } | null;
 }
 
 const PUSH_DEBOUNCE_MS = 4000;
@@ -29,8 +31,14 @@ let running = false;
 let again = false;
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 
+function localLanguage(): ProfileData['language'] {
+  const { choice, at } = useLanguageStore.getState();
+  // Never chosen on this device (at 0): send nothing, so the device language does not override a choice made elsewhere.
+  return at > 0 ? { choice, at } : null;
+}
+
 function local(): ProfileData {
-  return { history: loadHistory(), clearedAt: historyClearedAt(), weekly: readWeekly(), daily: readDaily() } as ProfileData;
+  return { history: loadHistory(), clearedAt: historyClearedAt(), weekly: readWeekly(), daily: readDaily(), language: localLanguage() } as ProfileData;
 }
 
 async function request(): Promise<ProfileData | null> {
@@ -62,6 +70,8 @@ function apply(remote: ProfileData): void {
       useHistoryStore.setState({ events: history });
     }
     if (remote.weekly && (!now.weekly || remote.weekly.weekKey > now.weekly.weekKey || (remote.weekly.weekKey === now.weekly.weekKey && JSON.stringify(remote.weekly) !== JSON.stringify(now.weekly)))) writeWeekly(remote.weekly as never);
+    const language = localLanguage();
+    if (remote.language && (!language || remote.language.at > language.at)) void setLanguageChoice(remote.language.choice, remote.language.at);
     if (remote.daily && (!now.daily || remote.daily.dayKey > now.daily.dayKey || (remote.daily.dayKey === now.daily.dayKey && JSON.stringify(remote.daily) !== JSON.stringify(now.daily)))) writeDaily(remote.daily as never);
   } finally {
     applying = false;
@@ -102,6 +112,9 @@ export function initProfileSync(): void {
 
   useHistoryStore.subscribe((state, previous) => {
     if (!applying && state.events !== previous.events) schedulePush();
+  });
+  useLanguageStore.subscribe((state, previous) => {
+    if (!applying && state.at !== previous.at) schedulePush();
   });
   window.addEventListener(MIX_CHANGED_EVENT, () => {
     if (!applying) schedulePush();

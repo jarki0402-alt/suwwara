@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { PlaylistNameDialog } from '../../components/PlaylistNameDialog/PlaylistNameDialog';
+import { useT } from '../../i18n/i18n';
 import { useLibraryStore } from '../../stores/libraryStore';
 import styles from './LibraryView.module.css';
 
@@ -10,6 +11,7 @@ interface PlaylistsListProps {
 }
 
 export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
+  const t = useT();
   const playlists = useLibraryStore((state) => state.playlists);
   const createPlaylist = useLibraryStore((state) => state.createPlaylist);
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -26,11 +28,11 @@ export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
         <div className={styles.createCardArt}>
           <Icon name="plus" size={22} />
         </div>
-        <span className={styles.cardTitle}>Playlist Baru</span>
+        <span className={styles.cardTitle}>{t('Playlist Baru')}</span>
         {/* Empty second line matching .cardSubtitle's height below a real playlist's
             song count — keeps both card shapes exactly the same total height. */}
         <span className={styles.cardSubtitle} aria-hidden="true">
-          &nbsp;
+          {'\u00a0'}
         </span>
       </button>
       {playlists.map((playlist) => (
@@ -43,14 +45,14 @@ export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
             )}
           </div>
           <span className={styles.cardTitle}>{playlist.name}</span>
-          <span className={styles.cardSubtitle}>{playlist.songs.length} lagu</span>
+          <span className={styles.cardSubtitle}>{t('{n} lagu', { n: playlist.songs.length })}</span>
         </button>
       ))}
 
       <PlaylistNameDialog
         isOpen={isCreateOpen}
-        title="Playlist Baru"
-        confirmLabel="Buat"
+        title={t('Playlist Baru')}
+        confirmLabel={t('Buat')}
         onConfirm={handleConfirmCreate}
         onClose={() => setCreateOpen(false)}
       />

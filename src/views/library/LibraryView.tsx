@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../../i18n/i18n';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { useUiStore } from '../../stores/uiStore';
 import { DownloadedSongsList } from './DownloadedSongsList';
@@ -10,6 +11,7 @@ import styles from './LibraryView.module.css';
 type Tab = 'liked' | 'playlists' | 'downloaded';
 
 export function LibraryView() {
+  const t = useT();
   const [tab, setTab] = useState<Tab>('liked');
   // Lifted to uiStore (not local state) so the desktop sidebar's playlist
   // list (BottomNav) can open a specific playlist's detail view directly.
@@ -24,28 +26,28 @@ export function LibraryView() {
 
   return (
     <div className={styles.view}>
-      <h1 className={styles.pageTitle}>Koleksi</h1>
+      <h1 className={styles.pageTitle}>{t('Koleksi')}</h1>
       <div className={styles.tabs}>
         <button
           type="button"
           className={[styles.tab, tab === 'liked' ? styles.tabActive : ''].join(' ')}
           onClick={() => setTab('liked')}
         >
-          Lagu Disukai
+          {t('Lagu Disukai')}
         </button>
         <button
           type="button"
           className={[styles.tab, tab === 'playlists' ? styles.tabActive : ''].join(' ')}
           onClick={() => setTab('playlists')}
         >
-          Playlist
+          {t('Playlist')}
         </button>
         <button
           type="button"
           className={[styles.tab, tab === 'downloaded' ? styles.tabActive : ''].join(' ')}
           onClick={() => setTab('downloaded')}
         >
-          Diunduh
+          {t('Diunduh')}
         </button>
       </div>
 

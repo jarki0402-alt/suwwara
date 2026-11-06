@@ -3,6 +3,7 @@ import { searchSongs } from '../api/endpoints/search';
 import { getSimilarSongs } from '../api/endpoints/similar';
 import { getCachedSongs } from '../api/songCache';
 import type { Song } from '../api/types';
+import { msg, t } from '../i18n/i18n';
 import { buildRadioQueue } from '../playback/playSongRadio';
 import { dayKey } from './dailyDiscovery';
 import { loadHistory, type PlayEvent } from './historyLog';
@@ -33,10 +34,17 @@ export function partOfDay(hour: number): PartOfDay {
   return 'malam';
 }
 
-const PART_LABEL: Record<PartOfDay, string> = { pagi: 'Pagi', siang: 'Siang', sore: 'Sore', malam: 'Malam' };
+// Whole titles rather than "Mix {part} Ini": English puts the part of the day first ("Tonight's Mix").
+const TIME_MIX_TITLE: Record<PartOfDay, string> = {
+  pagi: msg('Mix Pagi Ini'),
+  siang: msg('Mix Siang Ini'),
+  sore: msg('Mix Sore Ini'),
+  malam: msg('Mix Malam Ini'),
+};
 
+/** In the current language: called when the title is shown, never kept from an earlier language. */
 export function timeMixTitle(now = new Date()): string {
-  return `Mix ${PART_LABEL[partOfDay(now.getHours())]} Ini`;
+  return t(TIME_MIX_TITLE[partOfDay(now.getHours())]);
 }
 
 interface StoredMix {
@@ -148,7 +156,11 @@ function moodQueries(mood: Mood, artists: string[]): string[] {
   return [first ? `${first} akustik` : 'akustik indonesia', 'lagu santai akustik indonesia', second ? `${second} live acoustic` : 'lagu santai sore'];
 }
 
-export const MOOD_TITLE: Record<Mood, string> = { focus: 'Mix Fokus', chill: 'Mix Santai' };
+const MOOD_TITLE: Record<Mood, string> = { focus: msg('Mix Fokus'), chill: msg('Mix Santai') };
+
+export function moodTitle(mood: Mood): string {
+  return t(MOOD_TITLE[mood]);
+}
 
 export function getMoodMix(mood: Mood, now = new Date()): Promise<Song[]> {
   return cachedBuild(`mood-${mood}`, dayKey(now), async () => {

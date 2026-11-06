@@ -5,6 +5,7 @@ import { AddToPlaylistSheet } from '../../components/AddToPlaylistSheet/AddToPla
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { OptionsMenu } from '../../components/OptionsMenu/OptionsMenu';
+import { useT } from '../../i18n/i18n';
 import { playAtPosition, removeFromQueue, reorder } from '../../jam/jamQueueActions';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { useQueueStore } from '../../stores/queueStore';
@@ -25,6 +26,7 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
   { song, position, isActive, isDragging, style, onDragStart, onDragMove, onDragEnd },
   ref,
 ) {
+  const t = useT();
   const currentPosition = useQueueStore((state) => state.position);
   const isLiked = useLibraryStore((state) => state.isLiked(song.id));
   const toggleLike = useLibraryStore((state) => state.toggleLike);
@@ -57,7 +59,7 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        aria-label="Geser buat urutkan ulang"
+        aria-label={t('Geser buat urutkan ulang')}
       >
         <Icon name="grip" size={18} />
       </button>
@@ -70,7 +72,7 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
         </span>
       </button>
 
-      <button type="button" className={styles.iconButton} onClick={() => setAddToPlaylistOpen(true)} aria-label="Tambah ke playlist">
+      <button type="button" className={styles.iconButton} onClick={() => setAddToPlaylistOpen(true)} aria-label={t('Tambah ke playlist')}>
         <Icon name="plus" size={20} />
       </button>
 
@@ -79,20 +81,20 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
           {
             key: 'like',
             icon: isLiked ? 'heart-filled' : 'heart',
-            label: isLiked ? 'Batal Sukai' : 'Sukai Lagu',
+            label: isLiked ? t('Batal Sukai') : t('Sukai Lagu'),
             onClick: () => toggleLike(song),
           },
           {
             key: 'play-next',
             icon: 'next',
-            label: 'Putar Berikutnya',
+            label: t('Putar Berikutnya'),
             onClick: handlePlayNext,
             disabled: position === currentPosition,
           },
           {
             key: 'remove',
             icon: 'trash',
-            label: 'Hapus dari Antrean',
+            label: t('Hapus dari Antrean'),
             onClick: () => removeFromQueue(position),
             danger: true,
           },

@@ -1,3 +1,5 @@
+import { msg, t } from '../i18n/i18n';
+
 export type InstallPlatform = 'ios' | 'android' | 'desktop';
 
 export type InstallBrowser =
@@ -74,7 +76,7 @@ const BROWSER_NAME: Record<InstallBrowser, string> = {
   samsung: 'Samsung Internet',
   firefox: 'Firefox',
   opera: 'Opera',
-  other: 'browser ini',
+  other: msg('browser ini'),
 };
 
 const IN_APP_NAME: Record<InAppBrowser, string> = {
@@ -85,16 +87,17 @@ const IN_APP_NAME: Record<InAppBrowser, string> = {
   telegram: 'Telegram',
   line: 'LINE',
   twitter: 'X',
-  other: 'aplikasi ini',
+  other: msg('aplikasi ini'),
 };
 
+/** `label` is in the current language: call again after a language switch (InstallPage memoizes on `t`). */
 export function detectDevice(ua = navigator.userAgent): DetectedDevice {
   const ios = isIosDevice(ua);
   const platform: InstallPlatform = ios ? 'ios' : /android/i.test(ua) ? 'android' : 'desktop';
   const browser = detectBrowser(ua, ios);
   const inApp = detectInApp(ua);
   const device = platform === 'ios' ? (/ipad/i.test(ua) || /macintosh/i.test(ua) ? 'iPad' : 'iPhone') : platform === 'android' ? 'Android' : desktopName(ua);
-  const via = inApp ? `browser bawaan ${IN_APP_NAME[inApp]}` : BROWSER_NAME[browser];
+  const via = inApp ? t('browser bawaan {app}', { app: t(IN_APP_NAME[inApp]) }) : t(BROWSER_NAME[browser]);
   return { platform, browser, inApp, label: `${device} · ${via}` };
 }
 
@@ -103,7 +106,7 @@ function desktopName(ua: string) {
   if (/Windows/i.test(ua)) return 'Windows';
   if (/CrOS/i.test(ua)) return 'Chromebook';
   if (/Linux/i.test(ua)) return 'Linux';
-  return 'Komputer';
+  return t('Komputer');
 }
 
-export const inAppName = (inApp: InAppBrowser) => IN_APP_NAME[inApp];
+export const inAppName = (inApp: InAppBrowser) => t(IN_APP_NAME[inApp]);

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { getCachedSongs } from '../../api/songCache';
+import { useT } from '../../i18n/i18n';
 import { playSongRadio } from '../../playback/playSongRadio';
 import { useHistoryStore } from '../../stores/historyStore';
 import { HorizontalSongCard } from './HorizontalSongCard';
@@ -8,6 +9,7 @@ import { Shelf } from './Shelf';
 const MAX_ITEMS = 15;
 
 export function RecentlyPlayedSection() {
+  const t = useT();
   const events = useHistoryStore((state) => state.events);
 
   const songs = useMemo(() => {
@@ -24,9 +26,9 @@ export function RecentlyPlayedSection() {
 
   return (
     <Shelf
-      title="Baru Diputar"
-      hint="Lanjutkan mendengarkan dari trek terakhir"
-      emptyText={songs.length === 0 ? 'Lagu yang kamu putar akan muncul di sini.' : undefined}
+      title={t('Baru Diputar')}
+      hint={t('Lanjutkan mendengarkan dari trek terakhir')}
+      emptyText={songs.length === 0 ? t('Lagu yang kamu putar akan muncul di sini.') : undefined}
     >
       {songs.map((song) => (
         <HorizontalSongCard key={song.id} song={song} onClick={() => playSongRadio(song)} />

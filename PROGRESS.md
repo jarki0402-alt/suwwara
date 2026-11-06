@@ -25,7 +25,18 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
-## Perubahan terbaru · 2026-11-06 (tampilan segar: palet Bara, font judul baru, Liquid Glass lebih terasa)
+## Perubahan terbaru · 2026-11-06 (dua bahasa: Indonesia + Inggris)
+
+- **Sistem bahasa sendiri, tanpa library** ([src/i18n/i18n.ts](src/i18n/i18n.ts)): teks Indonesia di kode sekaligus jadi kunci (`t('Putar')`), gaya gettext, jadi komponen tetap terbaca seperti dulu. Komponen pakai `useT()` (ganti bahasa langsung re-render tanpa reload, musik tidak berhenti); kode di luar React pakai `t()`; label di konstanta modul ditandai `msg()`. Placeholder `{name}`, bentuk jamak Inggris lewat var `n`. Tanggal/angka lewat `intlLocale()`.
+- **Kamus Inggris** di [src/i18n/en/](src/i18n/en/) (per area) jadi chunk terpisah ±11,5KB gzip yang cuma diunduh pengguna bahasa Inggris; pengguna Indonesia tidak menanggung byte tambahan. Boot ([main.tsx](src/main.tsx)) menunggu kamus hanya kalau perlu, supaya tak berkedip setengah terjemah.
+- **Pengaturan → Tampilan → Bahasa** ([LanguageSetting.tsx](src/views/settings/LanguageSetting.tsx)): Otomatis (ikut bahasa perangkat: Inggris kalau bahasa utama perangkat Inggris, selain itu Indonesia) / Indonesia / English. Pilihan **ikut tersimpan di akun** (kolom `profiles.language`, pilihan terbaru menang; [profileMerge.ts](server/src/library/profileMerge.ts), [profileSync.ts](src/sync/profileSync.ts)). Perangkat yang belum pernah memilih tidak menimpa pilihan dari perangkat lain.
+- **Yang diterjemahkan**: semua tampilan (login, Beranda + nama mix, sapaan hari, Cari, Koleksi, pemutar, layar penuh, Jam, Connect, Pengaturan, halaman Install), toast & pesan error, termasuk pesan dari server (login gagal, terkunci N menit, sandi lemah) yang dipetakan di klien. **Tidak diterjemahkan**: judul lagu, artis, lirik, hasil pencarian YouTube (tetap wilayah Indonesia), dan konsol admin (sengaja Indonesia saja).
+- Error pemutaran yang disimpan tetap Indonesia (dicocokkan di logika & dikirim di laporan); cuma toast-nya yang diterjemahkan.
+- Dua teks Indonesia diganti supaya satu kata = satu arti: tombol layar penuh "Masuk/Keluar" jadi **"Nyalakan/Matikan"**, keluar akun jadi **"Keluar dari akun"**.
+- **Penjaga otomatis** ([tests/i18n/translations.test.ts](tests/i18n/translations.test.ts)): gagal kalau ada teks `t()`/`msg()` tanpa Inggris, teks JSX / `aria-label` / `placeholder` mentah yang belum diterjemahkan, `t()` dari template `${}`, placeholder hilang, atau terjemahan berbeda untuk kunci yang sama. Total 208 test.
+- Diverifikasi lewat Docker + Playwright: perangkat en-US langsung Inggris dari halaman login, ganti bahasa langsung tanpa reload, bertahan setelah reload, HP kedua (id-ID) ikut jadi Inggris lewat akun, tampilan Indonesia tanpa sisa teks Inggris.
+
+## Perubahan · 2026-11-06 (tampilan segar: palet Bara, font judul baru, Liquid Glass lebih terasa)
 
 Desain dari Claude Design (Ponsel + Laptop) diterapkan di atas fondasi yang sudah ada (sistem Liquid Glass, dock melayang, palet), tanpa mengubah alur pemutaran:
 

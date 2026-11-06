@@ -43,6 +43,18 @@ describe('mergeProfile', () => {
   });
 });
 
+describe('language', () => {
+  it('the newest choice wins, from either side; junk is dropped', () => {
+    const older = sanitizeProfile({ language: { choice: 'id', at: 100 } });
+    const newer = sanitizeProfile({ language: { choice: 'en', at: 200 } });
+    expect(mergeProfile(older, newer).language).toEqual({ choice: 'en', at: 200 });
+    expect(mergeProfile(newer, older).language).toEqual({ choice: 'en', at: 200 });
+    expect(mergeProfile(newer, sanitizeProfile({})).language).toEqual({ choice: 'en', at: 200 });
+    expect(sanitizeProfile({ language: { choice: 'fr', at: 1 } }).language).toBeNull();
+    expect(sanitizeProfile({ language: { choice: 'en', at: -1 } }).language).toBeNull();
+  });
+});
+
 describe('sanitizeProfile', () => {
   it('drops malformed events and mixes instead of storing them', () => {
     const clean = sanitizeProfile({
@@ -58,7 +70,7 @@ describe('sanitizeProfile', () => {
   });
 
   it('survives garbage', () => {
-    expect(sanitizeProfile(null)).toEqual({ history: [], clearedAt: 0, weekly: null, daily: null });
+    expect(sanitizeProfile(null)).toEqual({ history: [], clearedAt: 0, weekly: null, daily: null, language: null });
     expect(sanitizeProfile('nope').history).toEqual([]);
   });
 });

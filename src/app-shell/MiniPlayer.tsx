@@ -21,8 +21,10 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useUiStore } from '../stores/uiStore';
 import { SeekBar } from '../views/now-playing/SeekBar';
 import styles from './MiniPlayer.module.css';
+import { useT } from '../i18n/i18n';
 
 export function MiniPlayer() {
+  const t = useT();
   const openNowPlaying = useUiStore((state) => state.openNowPlaying);
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
   const closeConnectSheet = useUiStore((state) => state.closeConnectSheet);
@@ -106,7 +108,7 @@ export function MiniPlayer() {
       {...(isDesktop ? {} : glass)}
     >
       <div className={styles.progressTrack}>
-        <ProgressBar ariaLabel="Posisi lagu" ref={progressBarRef} compact />
+        <ProgressBar ariaLabel={t('Posisi lagu')} ref={progressBarRef} compact />
       </div>
 
       <div className={styles.infoGroup}>
@@ -118,7 +120,7 @@ export function MiniPlayer() {
             {remoteDevice && (
               <span className={styles.remoteLine}>
                 <Icon name="speaker" size={13} />
-                <span className={styles.remoteLineText}>Memutar di {remoteDevice.name}</span>
+                <span className={styles.remoteLineText}>{t('Memutar di {name}', { name: remoteDevice.name })}</span>
               </span>
             )}
           </span>
@@ -127,8 +129,8 @@ export function MiniPlayer() {
         {isRemote && (
           <button type="button" className={styles.hereButton} onClick={playHere}>
             <Icon name="play" size={12} />
-            <span className={styles.hereLong}>Putar di sini</span>
-            <span className={styles.hereShort}>Di sini</span>
+            <span className={styles.hereLong}>{t('Putar di sini')}</span>
+            <span className={styles.hereShort}>{t('Di sini')}</span>
           </button>
         )}
       </div>
@@ -141,7 +143,7 @@ export function MiniPlayer() {
             className={[styles.actionButton, styles.desktopOnly, 'glass-ripple-host', shuffle ? styles.actionButtonActive : ''].join(' ')}
             onClick={toggleShuffle}
             onPointerDown={shuffleRipple.onPointerDown}
-            aria-label="Acak antrean"
+            aria-label={t('Acak antrean')}
             aria-pressed={shuffle}
           >
             <Icon name="shuffle" size={20} />
@@ -152,7 +154,7 @@ export function MiniPlayer() {
             className={[styles.actionButton, styles.desktopOnly, 'glass-ripple-host'].join(' ')}
             onClick={handlePrevious}
             onPointerDown={prevRipple.onPointerDown}
-            aria-label="Lagu sebelumnya"
+            aria-label={t('Lagu sebelumnya')}
           >
             <Icon name="previous" size={20} />
           </button>
@@ -166,7 +168,7 @@ export function MiniPlayer() {
             className={[styles.actionButton, styles.playButton, 'glass-ripple-host'].join(' ')}
             onClick={handleTogglePlay}
             onPointerDown={playRipple.onPointerDown}
-            aria-label={isPlaying ? 'Jeda' : 'Putar'}
+            aria-label={isPlaying ? t('Jeda') : t('Putar')}
           >
             <Icon name={isPlaying || isBuffering ? 'pause' : 'play'} size={22} />
           </button>
@@ -176,7 +178,7 @@ export function MiniPlayer() {
             className={[styles.actionButton, styles.nextButton, 'glass-ripple-host'].join(' ')}
             onClick={handleNext}
             onPointerDown={nextRipple.onPointerDown}
-            aria-label="Lagu berikutnya"
+            aria-label={t('Lagu berikutnya')}
           >
             <Icon name="next" size={22} />
           </button>
@@ -186,7 +188,7 @@ export function MiniPlayer() {
             className={[styles.actionButton, styles.desktopOnly, 'glass-ripple-host', repeatMode !== 'off' ? styles.actionButtonActive : ''].join(' ')}
             onClick={cycleRepeat}
             onPointerDown={repeatRipple.onPointerDown}
-            aria-label="Ubah mode ulang"
+            aria-label={t('Ubah mode ulang')}
           >
             <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={20} />
           </button>
@@ -213,7 +215,7 @@ export function MiniPlayer() {
           className={[styles.iconButton, 'glass-ripple-host', isConnectSheetOpen || isControllingRemote ? styles.iconButtonActive : ''].join(' ')}
           onClick={isConnectSheetOpen ? closeConnectSheet : openConnectSheet}
           onPointerDown={connectRipple.onPointerDown}
-          aria-label="Perangkat"
+          aria-label={t('Perangkat')}
           aria-pressed={isConnectSheetOpen}
         >
           <Icon name="devices" size={20} />
@@ -224,7 +226,7 @@ export function MiniPlayer() {
           className={[styles.iconButton, 'glass-ripple-host', isLyricsOpen ? styles.iconButtonActive : ''].join(' ')}
           onClick={handleLyricsClick}
           onPointerDown={lyricsRipple.onPointerDown}
-          aria-label="Tampilkan lirik"
+          aria-label={t('Tampilkan lirik')}
           aria-pressed={isLyricsOpen}
         >
           <Icon name="lyrics" size={20} />
@@ -239,7 +241,7 @@ export function MiniPlayer() {
               value={Math.round(volume * 100)}
               onChange={(event) => setVolume(Number(event.target.value) / 100)}
               className={styles.volumeSlider}
-              aria-label="Volume"
+              aria-label={t('Volume')}
             />
           </div>
         )}
@@ -253,7 +255,7 @@ export function MiniPlayer() {
             enterFullscreen('view');
           }}
           onPointerDown={expandRipple.onPointerDown}
-          aria-label="Perbesar layar penuh"
+          aria-label={t('Perbesar layar penuh')}
         >
           <Icon name="expand" size={20} />
         </button>

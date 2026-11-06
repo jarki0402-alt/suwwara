@@ -1,4 +1,5 @@
 import { registerSW } from 'virtual:pwa-register';
+import { t } from '../i18n/i18n';
 import { usePlayerStore } from '../stores/playerStore';
 import { useUpdateStore, type UpdateStatus } from './updateStore';
 
@@ -232,12 +233,12 @@ export function initServiceWorker(showToast: ShowToastFn): void {
         applyUpdate(true);
         return;
       }
-      showToast('Versi baru Suwwara tersedia.', {
-        action: { label: 'Muat ulang', onClick: () => applyUpdate() },
+      showToast(t('Versi baru Suwwara tersedia.'), {
+        action: { label: t('Muat ulang'), onClick: () => applyUpdate() },
       });
     },
     onOfflineReady() {
-      showToast('Suwwara siap digunakan secara offline.');
+      showToast(t('Suwwara siap digunakan secara offline.'));
     },
   });
   applyWaitingUpdate = updateSW;

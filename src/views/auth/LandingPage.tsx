@@ -1,17 +1,19 @@
 import { useState, type FormEvent } from 'react';
 import { signIn, useAuthStore } from '../../auth/authStore';
 import { Icon, type IconName } from '../../components/Icon/Icon';
+import { msg, useT } from '../../i18n/i18n';
 import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import styles from './AuthScreens.module.css';
 
 const FEATURES: { icon: IconName; title: string; sub: string }[] = [
-  { icon: 'users', title: 'Dengerin bareng', sub: 'Satu antrean buat semua orang, dan siapa saja bisa ikut kontrol, langsung kerasa real-time.' },
-  { icon: 'devices', title: 'Kendalikan perangkat lain', sub: 'Lagi asyik di HP, mau lanjut di laptop? Tinggal pindahkan, tanpa scan apa pun.' },
-  { icon: 'refresh', title: 'Sama di mana saja', sub: 'Playlist, riwayat dengerin, sampai rekomendasi, semuanya ikut ke perangkat mana pun kamu buka.' },
+  { icon: 'users', title: msg('Dengerin bareng'), sub: msg('Satu antrean buat semua orang, dan siapa saja bisa ikut kontrol, langsung kerasa real-time.') },
+  { icon: 'devices', title: msg('Kendalikan perangkat lain'), sub: msg('Lagi asyik di HP, mau lanjut di laptop? Tinggal pindahkan, tanpa scan apa pun.') },
+  { icon: 'refresh', title: msg('Sama di mana saja'), sub: msg('Playlist, riwayat dengerin, sampai rekomendasi, semuanya ikut ke perangkat mana pun kamu buka.') },
 ];
 
 /** What a signed-out visitor sees: the app in three lines, and the sign-in form. There is no sign-up — accounts are made by the admin. */
 export function LandingPage() {
+  const t = useT();
   const offline = useAuthStore((state) => state.offline);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -43,17 +45,20 @@ export function LandingPage() {
             </span>
             Suwwara
           </span>
+          {/* One sentence for the translator, with the highlighted words in [brackets], since word order differs per language. */}
           <h1 className={styles.headline}>
-            Musikmu, <span>ke mana pun</span> kamu pergi.
+            {t('Musikmu, [ke mana pun] kamu pergi.')
+              .split(/\[(.*?)\]/)
+              .map((part, index) => (index % 2 === 1 ? <span key={index}>{part}</span> : part))}
           </h1>
         </section>
 
         <form className={styles.card} onSubmit={(event) => void handleSubmit(event)}>
-          <h2 className={styles.cardTitle}>Masuk</h2>
-          <p className={styles.cardSub}>Sudah dibuatkan akun? Masuk di sini.</p>
+          <h2 className={styles.cardTitle}>{t('Masuk')}</h2>
+          <p className={styles.cardSub}>{t('Sudah dibuatkan akun? Masuk di sini.')}</p>
 
           <label className={styles.field}>
-            <span className={styles.label}>Nama pengguna</span>
+            <span className={styles.label}>{t('Nama pengguna')}</span>
             <input
               className={styles.input}
               value={username}
@@ -67,7 +72,7 @@ export function LandingPage() {
           </label>
 
           <label className={styles.field}>
-            <span className={styles.label}>Kata sandi</span>
+            <span className={styles.label}>{t('Kata sandi')}</span>
             <span className={styles.inputWrap}>
               <input
                 className={styles.input}
@@ -78,7 +83,7 @@ export function LandingPage() {
                 required
               />
               <button type="button" className={styles.reveal} onClick={() => setReveal((value) => !value)}>
-                {reveal ? 'Sembunyikan' : 'Tampilkan'}
+                {reveal ? t('Sembunyikan') : t('Tampilkan')}
               </button>
             </span>
           </label>
@@ -88,7 +93,7 @@ export function LandingPage() {
               {error}
             </p>
           )}
-          {offline && !error && <p className={styles.notice}>Tidak ada koneksi ke server. Periksa internetmu.</p>}
+          {offline && !error && <p className={styles.notice}>{t('Tidak ada koneksi ke server. Periksa internetmu.')}</p>}
 
           <button
             ref={submitRipple.ref}
@@ -97,14 +102,14 @@ export function LandingPage() {
             onPointerDown={submitRipple.onPointerDown}
             disabled={busy || !username || !password}
           >
-            {busy ? 'Memeriksa…' : 'Masuk'}
+            {busy ? t('Memeriksa…') : t('Masuk')}
           </button>
-          <p className={styles.footnote}>Belum kebagian akun? Tinggal minta ke admin.</p>
+          <p className={styles.footnote}>{t('Belum kebagian akun? Tinggal minta ke admin.')}</p>
         </form>
 
         {/* After the form on a phone, so signing in never needs a scroll; beside the headline on desktop. */}
         <section className={styles.extras}>
-          <p className={styles.lead}>Bebas iklan, dengerin bareng orang-orang terdekat, dan lanjut persis dari titik terakhir, di HP, laptop, atau di mana saja.</p>
+          <p className={styles.lead}>{t('Bebas iklan, dengerin bareng orang-orang terdekat, dan lanjut persis dari titik terakhir, di HP, laptop, atau di mana saja.')}</p>
           <ul className={styles.features}>
             {FEATURES.map((feature) => (
               <li key={feature.title} className={styles.feature}>
@@ -112,8 +117,8 @@ export function LandingPage() {
                   <Icon name={feature.icon} size={18} />
                 </span>
                 <span className={styles.featureText}>
-                  <span className={styles.featureTitle}>{feature.title}</span>
-                  <span className={styles.featureSub}>{feature.sub}</span>
+                  <span className={styles.featureTitle}>{t(feature.title)}</span>
+                  <span className={styles.featureSub}>{t(feature.sub)}</span>
                 </span>
               </li>
             ))}

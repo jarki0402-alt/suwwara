@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useT } from '../../i18n/i18n';
 import { Icon, type IconName } from '../Icon/Icon';
 import styles from './OptionsMenu.module.css';
 
@@ -36,7 +37,8 @@ const EDGE_GAP = 8;
  * below, stays inside the window horizontally, and closes on scroll/resize (a fixed popover would otherwise stay
  * behind while the page moves under it).
  */
-export function OptionsMenu({ items, ariaLabel = 'Opsi lainnya', header, triggerClassName }: OptionsMenuProps) {
+export function OptionsMenu({ items, ariaLabel, header, triggerClassName }: OptionsMenuProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -84,7 +86,7 @@ export function OptionsMenu({ items, ariaLabel = 'Opsi lainnya', header, trigger
           event.stopPropagation();
           setOpen((value) => !value);
         }}
-        aria-label={ariaLabel}
+        aria-label={ariaLabel ?? t('Opsi lainnya')}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -101,7 +103,7 @@ export function OptionsMenu({ items, ariaLabel = 'Opsi lainnya', header, trigger
             // Clicks inside a portal still bubble to the React parent (a song row): keep them from playing the song.
             onClick={(event) => event.stopPropagation()}
           >
-            <button type="button" className={styles.backdrop} onClick={() => setOpen(false)} aria-label="Tutup menu" />
+            <button type="button" className={styles.backdrop} onClick={() => setOpen(false)} aria-label={t('Tutup menu')} />
             <div ref={menuRef} className={styles.menu} role="menu" style={{ top: 0, left: 0, visibility: window.matchMedia(PHONE_QUERY).matches ? 'visible' : 'hidden' }}>
               {header && <div className={styles.header}>{header}</div>}
               {visibleItems.map((item) => (

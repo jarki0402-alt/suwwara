@@ -3,6 +3,7 @@ import { CollectionHero } from '../../components/CollectionHero/CollectionHero';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import { SongRow } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
+import { useT } from '../../i18n/i18n';
 import { playSongList } from '../../playback/playSongList';
 import { useUiStore } from '../../stores/uiStore';
 import styles from './GeneratedCollectionView.module.css';
@@ -29,6 +30,7 @@ interface GeneratedCollectionViewProps {
  * PlaylistDetail so both read as the same kind of screen.
  */
 export function GeneratedCollectionView({ title, description, kind, songs, cover, isLoading, onBack, artistName }: GeneratedCollectionViewProps) {
+  const t = useT();
   const openArtist = useUiStore((state) => state.openArtist);
   const images = cover && cover.length > 0 ? cover : (songs[0]?.image ?? []);
 
@@ -54,7 +56,7 @@ export function GeneratedCollectionView({ title, description, kind, songs, cover
             ))}
           </div>
         ) : songs.length === 0 ? (
-          <p className={styles.empty}>Belum cukup data untuk bagian ini. Coba dengarkan beberapa lagu dulu.</p>
+          <p className={styles.empty}>{t('Belum cukup data untuk bagian ini. Coba dengarkan beberapa lagu dulu.')}</p>
         ) : (
           songs.map((song, index) => (
             <SongRow key={song.id} song={song} onClick={() => playSongList(songs, index)} trailing={<SongRowActions song={song} />} />

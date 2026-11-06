@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../../components/Icon/Icon';
+import { useT } from '../../i18n/i18n';
 import styles from './Shelf.module.css';
 
 interface ShelfProps {
@@ -17,6 +18,7 @@ interface ShelfProps {
  * so on desktop the heading also carries two arrows (hidden while everything already fits).
  */
 export function Shelf({ title, hint, emptyText, className, children }: ShelfProps) {
+  const t = useT();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScroll, setCanScroll] = useState({ back: false, forward: false });
 
@@ -51,7 +53,7 @@ export function Shelf({ title, hint, emptyText, className, children }: ShelfProp
         </div>
         {(canScroll.back || canScroll.forward) && (
           <div className={styles.arrows}>
-            <button type="button" className={styles.arrow} onClick={() => scrollByPage(-1)} disabled={!canScroll.back} aria-label="Geser ke kiri">
+            <button type="button" className={styles.arrow} onClick={() => scrollByPage(-1)} disabled={!canScroll.back} aria-label={t('Geser ke kiri')}>
               <Icon name="chevron-left" size={16} />
             </button>
             <button
@@ -59,7 +61,7 @@ export function Shelf({ title, hint, emptyText, className, children }: ShelfProp
               className={[styles.arrow, styles.arrowForward].join(' ')}
               onClick={() => scrollByPage(1)}
               disabled={!canScroll.forward}
-              aria-label="Geser ke kanan"
+              aria-label={t('Geser ke kanan')}
             >
               <Icon name="chevron-left" size={16} />
             </button>

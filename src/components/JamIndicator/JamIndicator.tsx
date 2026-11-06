@@ -6,6 +6,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { Icon } from '../Icon/Icon';
 import { useToast } from '../Toast/ToastProvider';
 import styles from './JamIndicator.module.css';
+import { useT } from '../../i18n/i18n';
 
 /**
  * The people in the room as overlapping avatars. The server only tells us HOW MANY are listening, not who, so these are
@@ -35,6 +36,7 @@ export function JamAvatars({ count, size = 28, max = 4 }: { count: number; size?
  * and the pinned one steps aside instead of covering the avatar.
  */
 export function JamPill({ inline = false }: { inline?: boolean }) {
+  const t = useT();
   const jam = useJamStatus();
   const openJamSheet = useUiStore((state) => state.openJamSheet);
   const onHomeHeader = useUiStore((state) => state.currentView === 'home' && state.detailStack.length === 0 && state.openedCollectionId === null);
@@ -45,12 +47,12 @@ export function JamPill({ inline = false }: { inline?: boolean }) {
       type="button"
       className={[styles.pill, inline ? styles.pillInline : '', jam.live ? '' : styles.pillWarn].join(' ')}
       onClick={openJamSheet}
-      aria-label={`${jam.summary}. Ketuk untuk mengelola.`}
+      aria-label={t('{summary}. Ketuk untuk mengelola.', { summary: jam.summary })}
     >
       {jam.live ? (
         <>
           <JamAvatars count={jam.count} size={20} max={3} />
-          <span className={styles.pillLabel}>Jam</span>
+          <span className={styles.pillLabel}>{t('Jam')}</span>
         </>
       ) : (
         <>
@@ -68,6 +70,7 @@ export function JamPill({ inline = false }: { inline?: boolean }) {
  * (full link, leave, end). Hidden on phones (see JamPill).
  */
 export function JamSidebarCard() {
+  const t = useT();
   const jam = useJamStatus();
   const roomId = useJamStore((state) => state.roomId);
   const openJamSheet = useUiStore((state) => state.openJamSheet);
@@ -76,8 +79,8 @@ export function JamSidebarCard() {
 
   const handleInvite = async () => {
     if (!roomId) return;
-    if (await copyJamLink(roomId)) showToast('Link Jam disalin. Kirim ke temanmu.');
-    else showToast('Gagal menyalin link.', { type: 'error' });
+    if (await copyJamLink(roomId)) showToast(t('Link Jam disalin. Kirim ke temanmu.'));
+    else showToast(t('Gagal menyalin link.'), { type: 'error' });
   };
 
   return (
@@ -88,7 +91,7 @@ export function JamSidebarCard() {
         </span>
         <span className={styles.cardHeadText}>
           <span className={styles.cardTitleRow}>
-            <span className={styles.cardTitle}>Jam</span>
+            <span className={styles.cardTitle}>{t('Jam')}</span>
             <span className={styles.cardRole}>{jam.roleLabel}</span>
           </span>
           <span className={styles.cardStatus}>
@@ -106,10 +109,10 @@ export function JamSidebarCard() {
       <div className={styles.cardActions}>
         <button type="button" className={styles.cardPrimary} onClick={() => void handleInvite()}>
           <Icon name="share" size={14} />
-          Undang
+          {t('Undang')}
         </button>
         <button type="button" className={styles.cardSecondary} onClick={openJamSheet}>
-          Kelola
+          {t('Kelola')}
         </button>
       </div>
     </section>

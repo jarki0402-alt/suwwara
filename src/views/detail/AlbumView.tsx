@@ -4,6 +4,7 @@ import { LazyImage } from '../../components/Image/LazyImage';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
 import { SongRow } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
+import { useT } from '../../i18n/i18n';
 import { playSongList } from '../../playback/playSongList';
 import { useUiStore, type DetailRoute } from '../../stores/uiStore';
 import styles from './Detail.module.css';
@@ -20,13 +21,14 @@ function shuffled<T>(items: T[]): T[] {
 }
 
 export function AlbumView({ route }: { route: Extract<DetailRoute, { type: 'album' }> }) {
+  const t = useT();
   const closeDetail = useUiStore((state) => state.closeDetail);
   const openArtist = useUiStore((state) => state.openArtist);
   const page = useLoaded<AlbumPageData>(route.albumId, () => getAlbumPage(route.albumId));
 
   const back = (
     <div className={styles.albumBackRow}>
-      <button type="button" className={styles.roundButton} onClick={closeDetail} aria-label="Kembali">
+      <button type="button" className={styles.roundButton} onClick={closeDetail} aria-label={t('Kembali')}>
         <Icon name="chevron-left" size={18} />
       </button>
     </div>
@@ -52,7 +54,7 @@ export function AlbumView({ route }: { route: Extract<DetailRoute, { type: 'albu
     return (
       <div className={styles.view}>
         <div className={styles.albumHeader}>{back}</div>
-        <p className={styles.status}>Album ini belum bisa dimuat. Coba lagi sebentar lagi.</p>
+        <p className={styles.status}>{t('Album ini belum bisa dimuat. Coba lagi sebentar lagi.')}</p>
       </div>
     );
   }
@@ -67,13 +69,13 @@ export function AlbumView({ route }: { route: Extract<DetailRoute, { type: 'albu
         <button type="button" className={styles.albumArtist} onClick={() => openArtist({ artistId: album.artistId, name: album.artist })}>
           {album.artist}
         </button>
-        <span className={styles.albumMeta}>{[album.year, `${album.songs.length} lagu`].filter(Boolean).join(' · ')}</span>
+        <span className={styles.albumMeta}>{[album.year, t('{n} lagu', { n: album.songs.length })].filter(Boolean).join(' · ')}</span>
         {album.songs.length > 0 && (
           <div className={styles.actions}>
-            <button type="button" className={styles.playButton} onClick={() => playSongList(album.songs, 0)} aria-label={`Putar ${album.name}`}>
+            <button type="button" className={styles.playButton} onClick={() => playSongList(album.songs, 0)} aria-label={t('Putar {name}', { name: album.name })}>
               <Icon name="play" size={24} />
             </button>
-            <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffled(album.songs), 0)} aria-label="Putar acak">
+            <button type="button" className={styles.roundButton} onClick={() => playSongList(shuffled(album.songs), 0)} aria-label={t('Putar acak')}>
               <Icon name="shuffle" size={22} />
             </button>
           </div>

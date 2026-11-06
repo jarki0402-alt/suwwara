@@ -3,6 +3,7 @@ import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import { cycleRepeat, toggleShuffle } from '../../jam/jamQueueActions';
 import { useQueueStore } from '../../stores/queueStore';
 import styles from './PlayerControls.module.css';
+import { useT } from '../../i18n/i18n';
 
 interface PlayerControlsProps {
   isPlaying: boolean;
@@ -13,6 +14,7 @@ interface PlayerControlsProps {
 }
 
 export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, onPrevious }: PlayerControlsProps) {
+  const t = useT();
   const shuffle = useQueueStore((state) => state.shuffle);
   const repeatMode = useQueueStore((state) => state.repeatMode);
   const shuffleRipple = useBubbleRipple<HTMLButtonElement>();
@@ -29,7 +31,7 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
         className={[styles.sideButton, 'glass-ripple-host', shuffle ? styles.sideButtonActive : ''].join(' ')}
         onClick={toggleShuffle}
         onPointerDown={shuffleRipple.onPointerDown}
-        aria-label="Acak antrean"
+        aria-label={t('Acak antrean')}
         aria-pressed={shuffle}
       >
         <Icon name="shuffle" size={24} />
@@ -43,7 +45,7 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
           className={[styles.transportButton, 'glass-ripple-host'].join(' ')}
           onClick={onPrevious}
           onPointerDown={prevRipple.onPointerDown}
-          aria-label="Lagu sebelumnya"
+          aria-label={t('Lagu sebelumnya')}
         >
           <Icon name="previous" size={28} />
         </button>
@@ -53,7 +55,7 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
           className={[styles.playButton, 'glass-ripple-host'].join(' ')}
           onClick={onTogglePlay}
           onPointerDown={playRipple.onPointerDown}
-          aria-label={isPlaying ? 'Jeda' : 'Putar'}
+          aria-label={isPlaying ? t('Jeda') : t('Putar')}
         >
           {/* Buffering is functionally treated as 'Pause' visually so it doesn't look like an error or lag */}
           <Icon name={isPlaying || isBuffering ? 'pause' : 'play'} size={28} />
@@ -64,7 +66,7 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
           className={[styles.transportButton, 'glass-ripple-host'].join(' ')}
           onClick={onNext}
           onPointerDown={nextRipple.onPointerDown}
-          aria-label="Lagu berikutnya"
+          aria-label={t('Lagu berikutnya')}
         >
           <Icon name="next" size={28} />
         </button>
@@ -76,7 +78,7 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
         className={[styles.sideButton, 'glass-ripple-host', repeatMode !== 'off' ? styles.sideButtonActive : ''].join(' ')}
         onClick={cycleRepeat}
         onPointerDown={repeatRipple.onPointerDown}
-        aria-label="Ubah mode ulang"
+        aria-label={t('Ubah mode ulang')}
       >
         <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={24} />
         <span className={styles.activeDot} aria-hidden="true" />

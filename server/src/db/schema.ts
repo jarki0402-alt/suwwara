@@ -118,6 +118,8 @@ create table if not exists profiles (
   daily jsonb,
   updated_at timestamptz not null default now()
 );
+-- Pengaturan → Bahasa, synced like the rest of the profile (2026-11).
+alter table profiles add column if not exists language jsonb;
 
 -- Bandwidth per account per day: bytes the backend sent as audio, and how many audio requests. Counts only; never WHAT
 -- was played. Flushed from memory once a minute (metrics/usage.ts) and pruned after 400 days.

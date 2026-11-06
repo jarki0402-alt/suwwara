@@ -3,6 +3,7 @@ import { useToast } from '../components/Toast/ToastProvider';
 import { useJamStore } from '../stores/jamStore';
 import { useQueueStore } from '../stores/queueStore';
 import { isRoomGone, joinRoom, openJamStream } from './jamClient';
+import { t } from '../i18n/i18n';
 
 // role/roomId are persisted (see jamStore.ts) so a PWA the OS reloaded in the background reconnects to the same room on
 // its own. The app leaves a Jam by itself ONLY when the server says the room is gone (404, see isRoomGone): it used to
@@ -65,7 +66,7 @@ export function useJamSync() {
         (error: unknown) => {
           if (disposed) return false;
           if (isRoomGone(error)) {
-            leaveJam('Jam sudah berakhir atau room-nya sudah tidak ada.', 'error');
+            leaveJam(t('Jam sudah berakhir atau room-nya sudah tidak ada.'), 'error');
             return false;
           }
           return true;
@@ -127,7 +128,7 @@ export function useJamSync() {
           clearTimeout(retryTimer);
           const snapshot = useJamStore.getState().exitJam();
           if (snapshot) useQueueStore.setState(snapshot);
-          showToast('Jam sudah diakhiri.');
+          showToast(t('Jam sudah diakhiri.'));
         },
       });
       source = stream;

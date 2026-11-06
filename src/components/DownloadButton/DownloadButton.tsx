@@ -1,15 +1,16 @@
 import type { MouseEvent } from 'react';
 import type { Song } from '../../api/types';
+import { msg, useT } from '../../i18n/i18n';
 import { useToast } from '../Toast/ToastProvider';
 import { useSongDownload } from '../../downloads/useSongDownload';
 import { Icon } from '../Icon/Icon';
 import styles from './DownloadButton.module.css';
 
 const LABEL: Record<string, string> = {
-  checking: 'Memeriksa status unduhan',
-  none: 'Unduh untuk offline',
-  downloading: 'Mengunduh',
-  downloaded: 'Hapus unduhan',
+  checking: msg('Memeriksa status unduhan'),
+  none: msg('Unduh untuk offline'),
+  downloading: msg('Mengunduh'),
+  downloaded: msg('Hapus unduhan'),
 };
 
 /**
@@ -19,6 +20,7 @@ const LABEL: Record<string, string> = {
  * reflected instantly wherever else the same song shows up.
  */
 export function DownloadButton({ song, size = 20 }: { song: Song; size?: number }) {
+  const t = useT();
   const { status, toggle } = useSongDownload(song);
   const { showToast } = useToast();
 
@@ -27,12 +29,12 @@ export function DownloadButton({ song, size = 20 }: { song: Song; size?: number 
     if (status === 'checking' || status === 'downloading') return;
     void toggle().then((result) => {
       if (result.ok) return;
-      showToast(result.reason === 'quota' ? 'Batas unduhan sudah penuh. Hapus lagu lama di Pengaturan dulu.' : 'Gagal mengunduh lagu ini.');
+      showToast(result.reason === 'quota' ? t('Batas unduhan sudah penuh. Hapus lagu lama di Pengaturan dulu.') : t('Gagal mengunduh lagu ini.'));
     });
   };
 
   return (
-    <button type="button" className={styles.button} onClick={handleClick} aria-label={LABEL[status]} disabled={status === 'checking'}>
+    <button type="button" className={styles.button} onClick={handleClick} aria-label={t(LABEL[status])} disabled={status === 'checking'}>
       <Icon
         name={status === 'downloading' ? 'spinner' : status === 'downloaded' ? 'check' : 'download'}
         size={size}

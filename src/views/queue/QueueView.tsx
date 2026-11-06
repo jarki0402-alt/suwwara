@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Icon } from '../../components/Icon/Icon';
+import { msg, useT } from '../../i18n/i18n';
 import { cycleRepeat, reorder, toggleShuffle } from '../../jam/jamQueueActions';
 import { useQueueStore } from '../../stores/queueStore';
 import { useUiStore } from '../../stores/uiStore';
@@ -7,12 +8,13 @@ import { QueueItem } from './QueueItem';
 import styles from './QueueView.module.css';
 
 const REPEAT_LABEL: Record<'off' | 'all' | 'one', string> = {
-  off: 'Ulang',
-  all: 'Ulang Semua',
-  one: 'Ulang Satu',
+  off: msg('Ulang'),
+  all: msg('Ulang Semua'),
+  one: msg('Ulang Satu'),
 };
 
 export function QueueView() {
+  const t = useT();
   const queue = useQueueStore((state) => state.queue);
   const order = useQueueStore((state) => state.order);
   const position = useQueueStore((state) => state.position);
@@ -83,8 +85,8 @@ export function QueueView() {
   return (
     <div className={styles.view}>
       <div className={styles.header}>
-        <span className={styles.title}>Antrean Putar</span>
-        <button type="button" className={styles.closeButton} onClick={closeQueue} aria-label="Tutup antrean">
+        <span className={styles.title}>{t('Antrean Putar')}</span>
+        <button type="button" className={styles.closeButton} onClick={closeQueue} aria-label={t('Tutup antrean')}>
           <Icon name="close" size={18} />
         </button>
       </div>
@@ -96,7 +98,7 @@ export function QueueView() {
           onClick={toggleShuffle}
         >
           <Icon name="shuffle" size={16} />
-          Acak
+          {t('Acak')}
         </button>
         <button
           type="button"
@@ -104,12 +106,12 @@ export function QueueView() {
           onClick={cycleRepeat}
         >
           <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={16} />
-          {REPEAT_LABEL[repeatMode]}
+          {t(REPEAT_LABEL[repeatMode])}
         </button>
       </div>
 
       {visibleOrder.length === 0 ? (
-        <p className={styles.empty}>Antrean kosong.</p>
+        <p className={styles.empty}>{t('Antrean kosong.')}</p>
       ) : (
         <div className={styles.list}>
           {visibleOrder.map((queueIndex, pos) => {

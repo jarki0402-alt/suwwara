@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '../../i18n/i18n';
 import { Modal } from '../Modal/Modal';
 import modal from '../Modal/Modal.module.css';
 
@@ -14,6 +15,7 @@ interface PlaylistNameDialogProps {
 
 /** Replaces `window.prompt` for playlist create/rename, in the app's own popup shell (Modal). */
 export function PlaylistNameDialog({ isOpen, title, confirmLabel, initialValue = '', onConfirm, onClose }: PlaylistNameDialogProps) {
+  const t = useT();
   const [name, setName] = useState(initialValue);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,13 +44,13 @@ export function PlaylistNameDialog({ isOpen, title, confirmLabel, initialValue =
           className={modal.input}
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="Nama playlist"
+          placeholder={t('Nama playlist')}
           maxLength={80}
-          aria-label="Nama playlist"
+          aria-label={t('Nama playlist')}
         />
         <div className={modal.actions}>
           <button type="button" className={[modal.button, modal.buttonQuiet].join(' ')} onClick={onClose}>
-            Batal
+            {t('Batal')}
           </button>
           <button type="submit" className={[modal.button, modal.buttonPrimary].join(' ')} disabled={trimmed.length === 0}>
             {confirmLabel}

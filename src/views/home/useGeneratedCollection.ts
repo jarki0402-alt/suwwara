@@ -1,69 +1,86 @@
 import { useEffect, useState } from 'react';
 import type { ImageVariant, Song } from '../../api/types';
+import { msg, useT, type Translate } from '../../i18n/i18n';
 import { getDailyDiscoveryMix } from '../../recommendation/dailyDiscovery';
 import { getOnRepeatMix } from '../../recommendation/onRepeat';
 import { getTrendingSongsIndonesia } from '../../recommendation/trendingChart';
 import { getArtistMixByName } from '../../recommendation/topArtistMix';
 import { getWeeklyDiscoveryMix } from '../../recommendation/weeklyDiscovery';
-import { getArtistRadio, getMoodMix, getTimeMix, MOOD_TITLE, timeMixTitle } from '../../recommendation/smartMixes';
+import { getArtistRadio, getMoodMix, getTimeMix, timeMixTitle } from '../../recommendation/smartMixes';
 import type { GeneratedCollectionId } from '../../stores/uiStore';
 
 const ARTIST_MIX_PREFIX = 'artist-mix:';
 const RADIO_PREFIX = 'radio:';
 
-const STATIC_META: Partial<Record<string, { title: string; description: string; fetch: () => Promise<Song[]> }>> = {
+type Meta = { title: string; description: string; fetch: () => Promise<Song[]> };
+
+// Titles and descriptions are marked Indonesian (msg) and translated where they are shown, so an open mix follows a
+// language switch instead of keeping the text of the language it was opened in.
+const STATIC_META: Partial<Record<string, Meta>> = {
   'weekly-discovery': {
-    title: 'Temuan Mingguan',
-    description: 'Campuran lagu berdasarkan riwayat putarmu, diperbarui tiap minggu.',
+    title: msg('Temuan Mingguan'),
+    description: msg('Campuran lagu berdasarkan riwayat putarmu, diperbarui tiap minggu.'),
     fetch: getWeeklyDiscoveryMix,
   },
   'daily-discovery': {
-    title: 'Temuan Harian',
-    description: 'Lagu baru untukmu hari ini, beda dari Temuan Mingguan dan dari yang baru saja kamu dengarkan.',
+    title: msg('Temuan Harian'),
+    description: msg('Lagu baru untukmu hari ini, beda dari Temuan Mingguan dan dari yang baru saja kamu dengarkan.'),
     fetch: getDailyDiscoveryMix,
   },
   'on-repeat': {
-    title: 'Sering Kamu Putar',
-    description: 'Lagu yang paling sering kamu putar dalam 30 hari terakhir.',
+    title: msg('Sering Kamu Putar'),
+    description: msg('Lagu yang paling sering kamu putar dalam 30 hari terakhir.'),
     fetch: getOnRepeatMix,
   },
   'viral-indonesia': {
-    title: 'Lagi Viral di Indonesia',
-    description: 'Lagu-lagu yang lagi ramai diputar di Indonesia sekarang.',
+    title: msg('Lagi Viral di Indonesia'),
+    description: msg('Lagu-lagu yang lagi ramai diputar di Indonesia sekarang.'),
     fetch: () => getTrendingSongsIndonesia(30),
   },
   'mood-focus': {
-    title: MOOD_TITLE.focus,
-    description: 'Instrumental yang tenang untuk kerja dan belajar, diperbarui tiap hari.',
+    title: msg('Mix Fokus'),
+    description: msg('Instrumental yang tenang untuk kerja dan belajar, diperbarui tiap hari.'),
     fetch: () => getMoodMix('focus'),
   },
   'mood-chill': {
-    title: MOOD_TITLE.chill,
-    description: 'Akustik dan lagu santai, dicampur dengan artis yang sering kamu dengar.',
+    title: msg('Mix Santai'),
+    description: msg('Akustik dan lagu santai, dicampur dengan artis yang sering kamu dengar.'),
     fetch: () => getMoodMix('chill'),
   },
   // 'artist-mix:{name}', 'radio:{name}' and 'time-mix' are handled separately below: their title depends on the
   // artist in the id or on the time of day.
 };
 
-/** Title, description and songs of the ids whose meta is not fixed. */
-function dynamicMeta(collectionId: string): { title: string; description: string; fetch: () => Promise<Song[]> } | null {
-  if (collectionId === 'time-mix') {
-    return {
-      title: timeMixTitle(),
-      description: 'Lagu yang biasa kamu putar di jam seperti ini, dicampur yang mirip. Berganti mengikuti waktu.',
-      fetch: () => getTimeMix(),
-    };
-  }
+/** Songs of the ids whose meta is not fixed. */
+function dynamicFetch(collectionId: string): (() => Promise<Song[]>) | null {
+  if (collectionId === 'time-mix') return () => getTimeMix();
   if (collectionId.startsWith(RADIO_PREFIX)) {
     const artistName = collectionId.slice(RADIO_PREFIX.length);
-    return {
-      title: `Radio ${artistName}`,
-      description: `Lagu-lagu yang mirip dengan ${artistName}, diperbarui tiap hari.`,
-      fetch: () => getArtistRadio(artistName),
-    };
+    return () => getArtistRadio(artistName);
   }
   return null;
+}
+
+function fetcherFor(collectionId: string): (() => Promise<Song[]>) | null {
+  return STATIC_META[collectionId]?.fetch ?? dynamicFetch(collectionId);
+}
+
+/** Title and description of a generated collection, in the current language. */
+function collectionText(collectionId: string, t: Translate): { title: string; description: string } {
+  const fixed = STATIC_META[collectionId];
+  if (fixed) return { title: t(fixed.title), description: t(fixed.description) };
+  if (collectionId === 'time-mix') {
+    return { title: timeMixTitle(), description: t('Lagu yang biasa kamu putar di jam seperti ini, dicampur yang mirip. Berganti mengikuti waktu.') };
+  }
+  if (collectionId.startsWith(RADIO_PREFIX)) {
+    const artist = collectionId.slice(RADIO_PREFIX.length);
+    return { title: t('Radio {artist}', { artist }), description: t('Lagu-lagu yang mirip dengan {artist}, diperbarui tiap hari.', { artist }) };
+  }
+  if (collectionId.startsWith(ARTIST_MIX_PREFIX)) {
+    const artist = collectionId.slice(ARTIST_MIX_PREFIX.length);
+    return { title: t('Mix {artist}', { artist }), description: t('Lagu-lagu populer {artist} dan yang mirip dengannya.', { artist }) };
+  }
+  return { title: '', description: '' };
 }
 
 /** The songs of any generated collection, for what needs them without opening it (the Home covers). */
@@ -72,13 +89,12 @@ export async function fetchCollectionSongs(collectionId: GeneratedCollectionId):
     const result = await getArtistMixByName(collectionId.slice(ARTIST_MIX_PREFIX.length));
     return result?.songs ?? [];
   }
-  const meta = STATIC_META[collectionId] ?? dynamicMeta(collectionId);
-  return meta ? meta.fetch() : [];
+  const load = fetcherFor(collectionId);
+  return load ? load() : [];
 }
 
 export function useGeneratedCollection(collectionId: GeneratedCollectionId | null) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const t = useT();
   const [songs, setSongs] = useState<Song[]>([]);
   const [image, setImage] = useState<ImageVariant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,8 +108,6 @@ export function useGeneratedCollection(collectionId: GeneratedCollectionId | nul
 
     if (collectionId.startsWith(ARTIST_MIX_PREFIX)) {
       const artistName = collectionId.slice(ARTIST_MIX_PREFIX.length);
-      setTitle(`Mix ${artistName}`);
-      setDescription(`Lagu-lagu populer ${artistName} dan yang mirip dengannya.`);
       getArtistMixByName(artistName)
         .then((result) => {
           if (cancelled || !result) return;
@@ -105,12 +119,9 @@ export function useGeneratedCollection(collectionId: GeneratedCollectionId | nul
           if (!cancelled) setIsLoading(false);
         });
     } else {
-      const meta = STATIC_META[collectionId] ?? dynamicMeta(collectionId);
-      if (!meta) return;
-      setTitle(meta.title);
-      setDescription(meta.description);
-      meta
-        .fetch()
+      const load = fetcherFor(collectionId);
+      if (!load) return;
+      load()
         .then((result) => {
           if (!cancelled) setSongs(result);
         })
@@ -126,5 +137,5 @@ export function useGeneratedCollection(collectionId: GeneratedCollectionId | nul
   }, [collectionId]);
 
   if (!collectionId) return null;
-  return { title, description, songs, image, isLoading };
+  return { ...collectionText(collectionId, t), songs, image, isLoading };
 }

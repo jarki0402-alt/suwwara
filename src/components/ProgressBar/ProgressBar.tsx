@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef, useState, type PointerEvent } from 'react';
+import { useT } from '../../i18n/i18n';
 import styles from './ProgressBar.module.css';
 
 export interface ProgressBarHandle {
@@ -18,6 +19,7 @@ export const ProgressBar = forwardRef<ProgressBarHandle, ProgressBarProps>(funct
   { onSeekFraction, ariaLabel, compact },
   ref,
 ) {
+  const t = useT();
   const trackRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -75,7 +77,7 @@ export const ProgressBar = forwardRef<ProgressBarHandle, ProgressBarProps>(funct
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       role="slider"
-      aria-label={ariaLabel ?? 'Posisi lagu'}
+      aria-label={ariaLabel ?? t('Posisi lagu')}
       aria-valuemin={0}
       aria-valuemax={100}
     >

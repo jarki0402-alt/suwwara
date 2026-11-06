@@ -1,11 +1,13 @@
 import type { MouseEvent } from 'react';
 import type { Song } from '../../api/types';
+import { useT } from '../../i18n/i18n';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { Icon } from '../Icon/Icon';
 import styles from './LikeButton.module.css';
 
 /** `size` is the icon's; 20 is the app's standard control icon (same as ⋯ beside it), 24 for the big Now Playing sheet. */
 export function LikeButton({ song, size = 20 }: { song: Song; size?: number }) {
+  const t = useT();
   const isLiked = useLibraryStore((state) => state.isLiked(song.id));
   const toggleLike = useLibraryStore((state) => state.toggleLike);
 
@@ -15,7 +17,7 @@ export function LikeButton({ song, size = 20 }: { song: Song; size?: number }) {
   };
 
   return (
-    <button type="button" className={styles.button} onClick={handleClick} aria-label={isLiked ? 'Hapus dari lagu disukai' : 'Tambahkan ke lagu disukai'}>
+    <button type="button" className={styles.button} onClick={handleClick} aria-label={isLiked ? t('Hapus dari lagu disukai') : t('Tambahkan ke lagu disukai')}>
       <Icon name={isLiked ? 'heart-filled' : 'heart'} size={size} className={isLiked ? styles.liked : undefined} />
     </button>
   );

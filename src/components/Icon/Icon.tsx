@@ -27,6 +27,7 @@ export type IconName =
   | 'refresh'
   | 'pulse'
   | 'theme'
+  | 'language'
   | 'grip'
   | 'clock'
   | 'database'
@@ -178,6 +179,14 @@ function IconPaths({ name }: { name: IconName }) {
           <line x1="1" y1="14" x2="7" y2="14" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
           <line x1="9" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
           <line x1="17" y1="16" x2="23" y2="16" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </>
+      );
+    case 'language':
+      // A globe: the usual sign for "language", drawn in the same 2px outline as the other settings icons.
+      return (
+        <>
+          <circle cx="12" cy="12" r="9" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" stroke="currentColor" fill="none" strokeWidth={2} strokeLinejoin="round" />
         </>
       );
     case 'theme':

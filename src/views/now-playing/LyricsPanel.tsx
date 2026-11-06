@@ -6,6 +6,7 @@ import { resolveLyrics, type LyricsResult } from '../../lyrics/lyricsResolver';
 import { useLyricsSync } from '../../lyrics/useLyricsSync';
 import { useJamStore } from '../../stores/jamStore';
 import styles from './LyricsPanel.module.css';
+import { useT } from '../../i18n/i18n';
 
 /** Same jam-or-solo branch SeekBar's own handleSeekFraction uses — a line tap is just another way to seek. */
 function seekTo(positionSec: number): void {
@@ -65,6 +66,7 @@ const AUTO_RETRY_MS = 3000;
  * and scroll position alike — instead of carrying the previous song's over.
  */
 function LyricsBody({ song, isFullscreen }: { song: Song; isFullscreen: boolean }) {
+  const t = useT();
   const [state, setState] = useState<LyricsState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const activeLineElementRef = useRef<HTMLParagraphElement | null>(null);
@@ -111,12 +113,12 @@ function LyricsBody({ song, isFullscreen }: { song: Song; isFullscreen: boolean 
     container.scrollTo({ top: Math.max(target, 0), behavior: 'smooth' });
   }, [activeIndex]);
 
-  if (state.status === 'loading') return <div className={styles.state}>Memuat lirik...</div>;
+  if (state.status === 'loading') return <div className={styles.state}>{t('Memuat lirik...')}</div>;
   if (state.status === 'error') {
     return (
       <div className={styles.state}>
         <div className={styles.stateStack}>
-          <span>Lirik belum bisa dimuat.</span>
+          <span>{t('Lirik belum bisa dimuat.')}</span>
           <button
             type="button"
             className={styles.retryButton}
@@ -125,21 +127,21 @@ function LyricsBody({ song, isFullscreen }: { song: Song; isFullscreen: boolean 
               setAttempt((value) => value + 1);
             }}
           >
-            Coba lagi
+            {t('Coba lagi')}
           </button>
         </div>
       </div>
     );
   }
 
-  if (result?.type === 'instrumental') return <div className={styles.state}>Lagu instrumental, tidak ada lirik.</div>;
-  if (!result || result.type === 'none') return <div className={styles.state}>Lirik belum tersedia untuk lagu ini.</div>;
+  if (result?.type === 'instrumental') return <div className={styles.state}>{t('Lagu instrumental, tidak ada lirik.')}</div>;
+  if (!result || result.type === 'none') return <div className={styles.state}>{t('Lirik belum tersedia untuk lagu ini.')}</div>;
 
   if (result.type === 'plain') {
     return (
       <div className={[styles.plainWrapper, isFullscreen ? styles.plainWrapperFullscreen : ''].join(' ')}>
         <pre className={[styles.plainText, isFullscreen ? styles.plainTextFullscreen : ''].join(' ')}>{result.text}</pre>
-        <p className={styles.plainNote}>Tanpa penanda waktu · {result.source === 'ytmusic' ? 'YouTube Music' : 'LRCLIB'}</p>
+        <p className={styles.plainNote}>{t('Tanpa penanda waktu · {source}', { source: result.source === 'ytmusic' ? 'YouTube Music' : 'LRCLIB' })}</p>
       </div>
     );
   }

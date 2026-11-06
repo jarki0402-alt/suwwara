@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { checkForUpdate, applyUpdate } from '../../pwa/registerSW';
 import { useUpdateStore } from '../../pwa/updateStore';
+import { intlLocale, useT } from '../../i18n/i18n';
 import { usePlayerStore } from '../../stores/playerStore';
 import { SettingsRow } from './SettingsRow';
 import styles from './SettingsView.module.css';
 
-const time = (ms: number) => new Date(ms).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+const time = (ms: number) => new Date(ms).toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' });
 
 /**
  * "Cek pembaruan" — the new-version toast disappears after a few seconds, so this is the place that always knows:
  * it reports the state (checking / latest / available / failed) and stays that way until the update is applied.
  */
 export function UpdateRow() {
+  const t = useT();
   const status = useUpdateStore((state) => state.status);
   const checkedAt = useUpdateStore((state) => state.checkedAt);
   const isPlaying = usePlayerStore((state) => state.currentSongId !== null);
@@ -21,25 +23,25 @@ export function UpdateRow() {
   const [applying, setApplying] = useState(false);
 
   const subtitle = applying
-    ? 'Memuat ulang…'
+    ? t('Memuat ulang…')
     : (() => {
         switch (status) {
           case 'checking':
-            return 'Memeriksa versi terbaru…';
+            return t('Memeriksa versi terbaru…');
           case 'available':
-            return isPlaying ? 'Versi baru tersedia. Memuat ulang menghentikan lagu sebentar.' : 'Versi baru tersedia.';
+            return isPlaying ? t('Versi baru tersedia. Memuat ulang menghentikan lagu sebentar.') : t('Versi baru tersedia.');
           case 'latest':
-            return `Sudah versi terbaru${checkedAt ? ` · diperiksa ${time(checkedAt)}` : ''}`;
+            return checkedAt ? t('Sudah versi terbaru · diperiksa {time}', { time: time(checkedAt) }) : t('Sudah versi terbaru');
           case 'error':
-            return 'Belum bisa memeriksa. Periksa koneksi, lalu coba lagi.';
+            return t('Belum bisa memeriksa. Periksa koneksi, lalu coba lagi.');
           case 'unsupported':
-            return 'Pembaruan otomatis tidak aktif di sini (hanya di versi terpasang).';
+            return t('Pembaruan otomatis tidak aktif di sini (hanya di versi terpasang).');
           default:
-            return `Versi ${__APP_BUILD__}`;
+            return t('Versi {version}', { version: __APP_BUILD__ });
         }
       })();
 
-  const label = applying ? 'Memperbarui…' : status === 'available' ? 'Perbarui' : status === 'checking' ? 'Memeriksa…' : status === 'idle' ? 'Periksa' : 'Periksa lagi';
+  const label = applying ? t('Memperbarui…') : status === 'available' ? t('Perbarui') : status === 'checking' ? t('Memeriksa…') : status === 'idle' ? t('Periksa') : t('Periksa lagi');
 
   const handleApply = () => {
     setApplying(true); // the page reloads shortly after this — no need to ever set it back to false
@@ -48,11 +50,11 @@ export function UpdateRow() {
 
   return (
     <div className={styles.section}>
-      <span className={styles.sectionTitle}>Aplikasi</span>
+      <span className={styles.sectionTitle}>{t('Aplikasi')}</span>
       <div className={styles.card}>
         <SettingsRow
           icon="refresh"
-          title={status === 'available' ? 'Pembaruan tersedia' : 'Cek pembaruan'}
+          title={status === 'available' ? t('Pembaruan tersedia') : t('Cek pembaruan')}
           subtitle={subtitle}
           onClick={applying || status === 'checking' ? undefined : status === 'available' ? handleApply : () => void checkForUpdate()}
           control={<span className={status === 'available' ? styles.linkButtonStrong : styles.linkButton}>{label}</span>}

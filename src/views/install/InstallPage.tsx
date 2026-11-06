@@ -3,16 +3,25 @@ import { encode } from 'uqr';
 import { Icon, type IconName } from '../../components/Icon/Icon';
 import { detectDevice, inAppName, isRunningInstalled, type DetectedDevice, type InstallPlatform } from '../../pwa/detectPlatform';
 import { promptInstall as askInstall } from '../../pwa/installPrompt';
+import { msg, useT } from '../../i18n/i18n';
 import { useInstallPrompt } from '../../pwa/useInstallPrompt';
 import styles from './InstallPage.module.css';
 
 const TABS: { platform: InstallPlatform; label: string }[] = [
   { platform: 'ios', label: 'iPhone / iPad' },
   { platform: 'android', label: 'Android' },
-  { platform: 'desktop', label: 'Komputer' },
+  { platform: 'desktop', label: msg('Komputer') },
 ];
 
 type Step = { icon?: IconName; text: ReactNode };
+
+/**
+ * A step is one sentence for the translator, with the menu and button names in **double asterisks**: they are shown
+ * bold, and word order differs per language, so they can't be glued in from outside the sentence.
+ */
+function rich(text: string): ReactNode {
+  return text.split(/\*\*(.*?)\*\*/).map((part, index) => (index % 2 === 1 ? <b key={index}>{part}</b> : part));
+}
 
 /**
  * Public (no sign-in) install guide at /install: detects the device and browser, offers the
@@ -22,7 +31,10 @@ type Step = { icon?: IconName; text: ReactNode };
  * that case comes first with the way out.
  */
 export default function InstallPage() {
-  const device = useMemo(() => detectDevice(), []);
+  const t = useT();
+  // On `t` so the device label ("browser bawaan WhatsApp") follows a language switch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const device = useMemo(() => detectDevice(), [t]);
   const [tab, setTab] = useState<InstallPlatform>(device.platform);
   const { canInstall } = useInstallPrompt();
   const [justInstalled, setJustInstalled] = useState(false);
@@ -38,24 +50,24 @@ export default function InstallPage() {
       <div className={styles.column}>
         <header className={styles.header}>
           <img src="/icons/icon-192.png" alt="" className={styles.appIcon} />
-          <h1 className={styles.title}>Pasang Suwwara</h1>
-          <p className={styles.lead}>Buka langsung dari layar utama, layar penuh tanpa bar browser, dan lebih cepat.</p>
-          <span className={styles.detected}>Terdeteksi: {device.label}</span>
+          <h1 className={styles.title}>{t('Pasang Suwwara')}</h1>
+          <p className={styles.lead}>{t('Buka langsung dari layar utama, layar penuh tanpa bar browser, dan lebih cepat.')}</p>
+          <span className={styles.detected}>{t('Terdeteksi: {device}', { device: device.label })}</span>
         </header>
 
         {installed ? (
           <section className={styles.card}>
-            <p className={styles.cardTitle}>Suwwara sudah terpasang</p>
-            <p className={styles.muted}>Buka dari layar utama atau daftar aplikasimu.</p>
+            <p className={styles.cardTitle}>{t('Suwwara sudah terpasang')}</p>
+            <p className={styles.muted}>{t('Buka dari layar utama atau daftar aplikasimu.')}</p>
             <a className={styles.primaryButton} href="/">
-              Buka Suwwara
+              {t('Buka Suwwara')}
             </a>
           </section>
         ) : (
           <>
             {device.inApp && tab === device.platform && <InAppNotice device={device} installUrl={installUrl} />}
 
-            <div className={styles.tabs} role="tablist" aria-label="Pilih perangkat">
+            <div className={styles.tabs} role="tablist" aria-label={t('Pilih perangkat')}>
               {TABS.map((item) => (
                 <button
                   key={item.platform}
@@ -65,7 +77,7 @@ export default function InstallPage() {
                   className={[styles.tab, tab === item.platform ? styles.tabActive : ''].join(' ')}
                   onClick={() => setTab(item.platform)}
                 >
-                  {item.label}
+                  {t(item.label)}
                 </button>
               ))}
             </div>
@@ -77,7 +89,7 @@ export default function InstallPage() {
         )}
 
         <a className={styles.continueLink} href="/">
-          Lanjut ke Suwwara di browser
+          {t('Lanjut ke Suwwara di browser')}
         </a>
       </div>
     </div>
@@ -105,36 +117,37 @@ function Steps({ steps }: { steps: Step[] }) {
 }
 
 function InAppNotice({ device, installUrl }: { device: DetectedDevice; installUrl: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(installUrl);
       setCopied(true);
     } catch {
-      window.prompt('Salin tautan ini:', installUrl);
+      window.prompt(t('Salin tautan ini:'), installUrl);
     }
   };
   // Android can hand the page straight to Chrome; iOS in-app browsers only offer it from their own menu.
   const chromeIntent = `intent://${window.location.host}/install#Intent;scheme=https;package=com.android.chrome;end`;
-  const app = device.inApp ? inAppName(device.inApp) : 'aplikasi ini';
+  const app = device.inApp ? inAppName(device.inApp) : t('aplikasi ini');
 
   return (
     <section className={[styles.card, styles.warningCard].join(' ')}>
-      <p className={styles.cardTitle}>Buka di {device.platform === 'ios' ? 'Safari' : 'Chrome'} dulu</p>
+      <p className={styles.cardTitle}>{t('Buka di {browser} dulu', { browser: device.platform === 'ios' ? 'Safari' : 'Chrome' })}</p>
       <p className={styles.muted}>
-        Halaman ini terbuka di browser bawaan {app}, yang tidak bisa memasang aplikasi.
+        {t('Halaman ini terbuka di browser bawaan {app}, yang tidak bisa memasang aplikasi.', { app })}{' '}
         {device.platform === 'ios'
-          ? ' Ketuk ikon ⋯ atau kompas di pojok layar, lalu pilih "Buka di Safari".'
-          : ' Ketuk tombol di bawah, atau buka menu ⋮ lalu pilih "Buka di Chrome".'}
+          ? t('Ketuk ikon ⋯ atau kompas di pojok layar, lalu pilih "Buka di Safari".')
+          : t('Ketuk tombol di bawah, atau buka menu ⋮ lalu pilih "Buka di Chrome".')}
       </p>
       <div className={styles.buttonRow}>
         {device.platform === 'android' && (
           <a className={styles.primaryButton} href={chromeIntent}>
-            Buka di Chrome
+            {t('Buka di Chrome')}
           </a>
         )}
         <button type="button" className={styles.secondaryButton} onClick={copy}>
-          {copied ? 'Tautan disalin' : 'Salin tautan'}
+          {copied ? t('Tautan disalin') : t('Salin tautan')}
         </button>
       </div>
     </section>
@@ -142,81 +155,72 @@ function InAppNotice({ device, installUrl }: { device: DetectedDevice; installUr
 }
 
 function IosGuide({ device }: { device: DetectedDevice }) {
+  const t = useT();
   const isIPad = device.label.startsWith('iPad');
   const safari: Step[] = [
-    { text: <>Ketuk tombol <b>Bagikan</b> {isIPad ? 'di kanan atas' : 'di bar bawah Safari'}</>, icon: 'share' },
-    {
-      text: (
-        <>
-          Gulir ke bawah dan pilih <b>Tambah ke Layar Utama</b>. Tidak terlihat? Ketuk <b>Lainnya</b> (⋯) dulu
-        </>
-      ),
-      icon: 'plus',
-    },
-    { text: <>Pastikan <b>Buka sebagai App Web</b> menyala, lalu ketuk <b>Tambah</b> di kanan atas</> },
+    { text: rich(isIPad ? t('Ketuk tombol **Bagikan** di kanan atas') : t('Ketuk tombol **Bagikan** di bar bawah Safari')), icon: 'share' },
+    { text: rich(t('Gulir ke bawah dan pilih **Tambah ke Layar Utama**. Tidak terlihat? Ketuk **Lainnya** (⋯) dulu')), icon: 'plus' },
+    { text: rich(t('Pastikan **Buka sebagai App Web** menyala, lalu ketuk **Tambah** di kanan atas')) },
   ];
   const otherBrowser: Step[] = [
     {
       text:
-        device.browser === 'chrome' ? (
-          <>Ketuk tombol <b>Bagikan</b> di address bar (kanan atas)</>
-        ) : (
-          <>Buka menu browser, lalu pilih <b>Bagikan</b></>
-        ),
+        device.browser === 'chrome' ? rich(t('Ketuk tombol **Bagikan** di address bar (kanan atas)')) : rich(t('Buka menu browser, lalu pilih **Bagikan**')),
       icon: 'share',
     },
-    { text: <>Pilih <b>Tambah ke Layar Utama</b></>, icon: 'plus' },
-    { text: <>Ketuk <b>Tambah</b></> },
+    { text: rich(t('Pilih **Tambah ke Layar Utama**')), icon: 'plus' },
+    { text: rich(t('Ketuk **Tambah**')) },
   ];
   const showOther = device.platform === 'ios' && device.browser !== 'safari' && !device.inApp;
 
   return (
     <section className={styles.card}>
-      <p className={styles.cardTitle}>{showOther ? `Pasang dari ${device.label.split(' · ')[1]}` : 'Pasang dari Safari'}</p>
+      <p className={styles.cardTitle}>{showOther ? t('Pasang dari {browser}', { browser: device.label.split(' · ')[1] }) : t('Pasang dari Safari')}</p>
       <Steps steps={showOther ? otherBrowser : safari} />
       <p className={styles.note}>
         {showOther
-          ? 'Tidak ada "Tambah ke Layar Utama"? iOS versi lama hanya bisa memasang dari Safari. Buka halaman ini di Safari.'
-          : 'iPhone tidak punya tombol install otomatis untuk aplikasi web, jadi pemasangannya lewat menu Bagikan.'}
+          ? t('Tidak ada "Tambah ke Layar Utama"? iOS versi lama hanya bisa memasang dari Safari. Buka halaman ini di Safari.')
+          : t('iPhone tidak punya tombol install otomatis untuk aplikasi web, jadi pemasangannya lewat menu Bagikan.')}
       </p>
     </section>
   );
 }
 
 function AndroidGuide({ device, canInstall, onInstall }: { device: DetectedDevice; canInstall: boolean; onInstall: () => void }) {
+  const t = useT();
   const steps: Step[] =
     device.browser === 'samsung'
       ? [
-          { text: <>Ketuk menu <b>≡</b> di bar bawah</> },
-          { text: <>Pilih <b>Tambahkan halaman ke</b>, lalu <b>Layar utama</b></>, icon: 'plus' },
-          { text: <>Ketuk <b>Tambah</b></> },
+          { text: rich(t('Ketuk menu **≡** di bar bawah')) },
+          { text: rich(t('Pilih **Tambahkan halaman ke**, lalu **Layar utama**')), icon: 'plus' },
+          { text: rich(t('Ketuk **Tambah**')) },
         ]
       : device.browser === 'firefox'
         ? [
-            { text: <>Ketuk menu <b>⋮</b></>, icon: 'more' },
-            { text: <>Pilih <b>Instal</b> (atau <b>Tambahkan ke layar utama</b>)</>, icon: 'download' },
-            { text: <>Konfirmasi dengan <b>Tambah</b></> },
+            { text: rich(t('Ketuk menu **⋮**')), icon: 'more' },
+            { text: rich(t('Pilih **Instal** (atau **Tambahkan ke layar utama**)')), icon: 'download' },
+            { text: rich(t('Konfirmasi dengan **Tambah**')) },
           ]
         : [
-            { text: <>Ketuk menu <b>⋮</b> di kanan atas</>, icon: 'more' },
-            { text: <>Pilih <b>Instal aplikasi</b> (atau <b>Tambahkan ke layar utama</b>)</>, icon: 'download' },
-            { text: <>Ketuk <b>Instal</b></> },
+            { text: rich(t('Ketuk menu **⋮** di kanan atas')), icon: 'more' },
+            { text: rich(t('Pilih **Instal aplikasi** (atau **Tambahkan ke layar utama**)')), icon: 'download' },
+            { text: rich(t('Ketuk **Instal**')) },
           ];
 
   return (
     <section className={styles.card}>
       {canInstall ? (
         <>
-          <p className={styles.cardTitle}>Siap dipasang</p>
-          <p className={styles.muted}>Satu ketukan, lalu Suwwara ada di layar utama dan daftar aplikasimu.</p>
+          <p className={styles.cardTitle}>{t('Siap dipasang')}</p>
+          <p className={styles.muted}>{t('Satu ketukan, lalu Suwwara ada di layar utama dan daftar aplikasimu.')}</p>
           <button type="button" className={styles.primaryButton} onClick={onInstall}>
             <Icon name="download" size={18} />
-            Pasang Suwwara
+            {t('Pasang Suwwara')}
           </button>
-          <p className={styles.dividerLabel}>atau lewat menu browser</p>
+          <p className={styles.dividerLabel}>{t('atau lewat menu browser')}</p>
         </>
       ) : (
-        <p className={styles.cardTitle}>Pasang lewat menu browser</p>
+        <p className={styles.cardTitle}>{t('Pasang lewat menu browser')}</p>
       )}
       <Steps steps={steps} />
     </section>
@@ -234,29 +238,30 @@ function DesktopGuide({
   onInstall: () => void;
   installUrl: string;
 }) {
+  const t = useT();
   const manual: Record<string, { title: string; steps: Step[] }> = {
     chrome: {
-      title: 'Pasang dari Chrome',
+      title: t('Pasang dari Chrome'),
       steps: [
-        { text: <>Klik ikon <b>Instal</b> di ujung kanan address bar</>, icon: 'download' },
-        { text: <>Atau buka menu <b>⋮</b> → <b>Transmisikan, simpan, dan bagikan</b> → <b>Instal halaman sebagai aplikasi</b></>, icon: 'more' },
-        { text: <>Klik <b>Instal</b>. Setelah terpasang, Chrome menampilkan tombol <b>Buka di aplikasi</b> di address bar</> },
+        { text: rich(t('Klik ikon **Instal** di ujung kanan address bar')), icon: 'download' },
+        { text: rich(t('Atau buka menu **⋮** → **Transmisikan, simpan, dan bagikan** → **Instal halaman sebagai aplikasi**')), icon: 'more' },
+        { text: rich(t('Klik **Instal**. Setelah terpasang, Chrome menampilkan tombol **Buka di aplikasi** di address bar')) },
       ],
     },
     edge: {
-      title: 'Pasang dari Edge',
+      title: t('Pasang dari Edge'),
       steps: [
-        { text: <>Buka menu <b>⋯</b> di kanan atas</>, icon: 'more' },
-        { text: <>Pilih <b>Aplikasi</b> → <b>Instal situs ini sebagai aplikasi</b></>, icon: 'download' },
-        { text: <>Klik <b>Instal</b></> },
+        { text: rich(t('Buka menu **⋯** di kanan atas')), icon: 'more' },
+        { text: rich(t('Pilih **Aplikasi** → **Instal situs ini sebagai aplikasi**')), icon: 'download' },
+        { text: rich(t('Klik **Instal**')) },
       ],
     },
     safari: {
-      title: 'Pasang dari Safari (macOS Sonoma ke atas)',
+      title: t('Pasang dari Safari (macOS Sonoma ke atas)'),
       steps: [
-        { text: <>Buka menu <b>File</b> di bar atas</> },
-        { text: <>Pilih <b>Tambahkan ke Dock</b></>, icon: 'plus' },
-        { text: <>Klik <b>Tambah</b></> },
+        { text: rich(t('Buka menu **File** di bar atas')) },
+        { text: rich(t('Pilih **Tambahkan ke Dock**')), icon: 'plus' },
+        { text: rich(t('Klik **Tambah**')) },
       ],
     },
   };
@@ -267,11 +272,11 @@ function DesktopGuide({
       <section className={styles.card}>
         {canInstall ? (
           <>
-            <p className={styles.cardTitle}>Siap dipasang di komputer ini</p>
-            <p className={styles.muted}>Suwwara jadi aplikasi sendiri: jendela terpisah, ada di Dock/taskbar.</p>
+            <p className={styles.cardTitle}>{t('Siap dipasang di komputer ini')}</p>
+            <p className={styles.muted}>{t('Suwwara jadi aplikasi sendiri: jendela terpisah, ada di Dock/taskbar.')}</p>
             <button type="button" className={styles.primaryButton} onClick={onInstall}>
               <Icon name="download" size={18} />
-              Pasang Suwwara
+              {t('Pasang Suwwara')}
             </button>
           </>
         ) : guide ? (
@@ -281,10 +286,11 @@ function DesktopGuide({
           </>
         ) : (
           <>
-            <p className={styles.cardTitle}>Buka di Chrome atau Edge</p>
+            <p className={styles.cardTitle}>{t('Buka di Chrome atau Edge')}</p>
             <p className={styles.muted}>
-              {device.browser === 'firefox' ? 'Firefox' : 'Browser ini'} belum bisa memasang aplikasi web. Buka halaman ini di Chrome atau Edge
-              untuk memasang Suwwara.
+              {device.browser === 'firefox'
+                ? t('Firefox belum bisa memasang aplikasi web. Buka halaman ini di Chrome atau Edge untuk memasang Suwwara.')
+                : t('Browser ini belum bisa memasang aplikasi web. Buka halaman ini di Chrome atau Edge untuk memasang Suwwara.')}
             </p>
           </>
         )}
@@ -292,8 +298,8 @@ function DesktopGuide({
       <section className={[styles.card, styles.qrCard].join(' ')}>
         <QrCode value={installUrl} />
         <div>
-          <p className={styles.cardTitle}>Pasang di HP</p>
-          <p className={styles.muted}>Scan QR ini dengan kamera HP untuk membuka halaman ini di sana.</p>
+          <p className={styles.cardTitle}>{t('Pasang di HP')}</p>
+          <p className={styles.muted}>{t('Scan QR ini dengan kamera HP untuk membuka halaman ini di sana.')}</p>
         </div>
       </section>
     </>
@@ -302,10 +308,11 @@ function DesktopGuide({
 
 // Drawn from uqr's module matrix as one SVG path — no canvas, no innerHTML, no network.
 function QrCode({ value }: { value: string }) {
+  const t = useT();
   const { size: box, data } = useMemo(() => encode(value, { ecc: 'M', border: 2 }), [value]);
   const path = data.flatMap((row, y) => row.map((on, x) => (on ? `M${x} ${y}h1v1h-1z` : ''))).join('');
   return (
-    <svg className={styles.qr} viewBox={`0 0 ${box} ${box}`} shapeRendering="crispEdges" role="img" aria-label={`QR code ke ${value}`}>
+    <svg className={styles.qr} viewBox={`0 0 ${box} ${box}`} shapeRendering="crispEdges" role="img" aria-label={t('QR code ke {url}', { url: value })}>
       <rect width={box} height={box} fill="#fff" />
       <path d={path} fill="#000" />
     </svg>

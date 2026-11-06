@@ -5,6 +5,7 @@ import { downloadManager } from '../../downloads/downloadManager';
 import { useSongDownload } from '../../downloads/useSongDownload';
 import { enqueueSong } from '../../playback/enqueueSong';
 import { playSongRadio } from '../../playback/playSongRadio';
+import { useT } from '../../i18n/i18n';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { useUiStore } from '../../stores/uiStore';
 import { AddToPlaylistSheet } from '../AddToPlaylistSheet/AddToPlaylistSheet';
@@ -30,6 +31,7 @@ interface SongMenuProps {
  * play next / add to queue, like, add to playlist (or remove from this one), song radio, go to artist / album, share.
  */
 export function SongMenu({ song, onRemoveFromPlaylist, onRemoveFromQueue }: SongMenuProps) {
+  const t = useT();
   const isLiked = useLibraryStore((state) => state.isLiked(song.id));
   const toggleLike = useLibraryStore((state) => state.toggleLike);
   const openArtist = useUiStore((state) => state.openArtist);
@@ -42,10 +44,10 @@ export function SongMenu({ song, onRemoveFromPlaylist, onRemoveFromQueue }: Song
     const wasDownloaded = downloadStatus === 'downloaded';
     const result = await toggleDownload();
     if (!result.ok) {
-      showToast(result.reason === 'quota' ? 'Batas unduhan sudah penuh. Hapus lagu lama di Pengaturan dulu.' : 'Gagal mengunduh lagu ini.');
+      showToast(result.reason === 'quota' ? t('Batas unduhan sudah penuh. Hapus lagu lama di Pengaturan dulu.') : t('Gagal mengunduh lagu ini.'));
       return;
     }
-    showToast(wasDownloaded ? 'Unduhan dihapus.' : 'Lagu diunduh untuk offline.');
+    showToast(wasDownloaded ? t('Unduhan dihapus.') : t('Lagu diunduh untuk offline.'));
   };
 
   const artists = song.artists.primary.filter((artist, index, all) => all.findIndex((other) => other.name === artist.name) === index).slice(0, MAX_ARTIST_ENTRIES);
@@ -64,22 +66,22 @@ export function SongMenu({ song, onRemoveFromPlaylist, onRemoveFromQueue }: Song
     }
     try {
       await navigator.clipboard.writeText(url);
-      showToast('Tautan lagu disalin.');
+      showToast(t('Tautan lagu disalin.'));
     } catch {
-      showToast('Tautan tidak bisa disalin di perangkat ini.');
+      showToast(t('Tautan tidak bisa disalin di perangkat ini.'));
     }
   };
 
   const enqueue = (where: 'next' | 'end') => {
     const result = enqueueSong(song, where);
-    if (result === 'playing') showToast('Diputar sekarang.');
-    else showToast(where === 'next' ? 'Akan diputar setelah lagu ini.' : 'Ditambahkan ke antrean.');
+    if (result === 'playing') showToast(t('Diputar sekarang.'));
+    else showToast(where === 'next' ? t('Akan diputar setelah lagu ini.') : t('Ditambahkan ke antrean.'));
   };
 
   return (
     <>
       <OptionsMenu
-        ariaLabel={`Opsi untuk ${song.name}`}
+        ariaLabel={t('Opsi untuk {name}', { name: song.name })}
         header={
           <div className={styles.head}>
             <LazyImage images={song.image} quality="150x150" alt="" className={styles.headArt} />
@@ -90,37 +92,37 @@ export function SongMenu({ song, onRemoveFromPlaylist, onRemoveFromQueue }: Song
           </div>
         }
         items={[
-          { key: 'play-next', icon: 'play-next', label: 'Putar Selanjutnya', onClick: () => enqueue('next') },
-          { key: 'queue', icon: 'queue', label: 'Tambah ke Antrean', onClick: () => enqueue('end') },
+          { key: 'play-next', icon: 'play-next', label: t('Putar Selanjutnya'), onClick: () => enqueue('next') },
+          { key: 'queue', icon: 'queue', label: t('Tambah ke Antrean'), onClick: () => enqueue('end') },
           {
             key: 'like',
             icon: isLiked ? 'heart-filled' : 'heart',
-            label: isLiked ? 'Hapus dari Lagu Disukai' : 'Simpan ke Lagu Disukai',
+            label: isLiked ? t('Hapus dari Lagu Disukai') : t('Simpan ke Lagu Disukai'),
             onClick: () => {
               toggleLike(song);
-              showToast(isLiked ? 'Dihapus dari Lagu Disukai.' : 'Disimpan ke Lagu Disukai.');
+              showToast(isLiked ? t('Dihapus dari Lagu Disukai.') : t('Disimpan ke Lagu Disukai.'));
             },
             separatorBefore: true,
           },
-          { key: 'playlist', icon: 'plus', label: 'Tambah ke Playlist', onClick: () => setPlaylistOpen(true) },
+          { key: 'playlist', icon: 'plus', label: t('Tambah ke Playlist'), onClick: () => setPlaylistOpen(true) },
           downloadManager.isSupported && {
             key: 'download',
             icon: downloadStatus === 'downloaded' ? 'check' : 'download',
-            label: downloadStatus === 'downloading' ? 'Mengunduh…' : downloadStatus === 'downloaded' ? 'Hapus Unduhan' : 'Unduh untuk Offline',
+            label: downloadStatus === 'downloading' ? t('Mengunduh…') : downloadStatus === 'downloaded' ? t('Hapus Unduhan') : t('Unduh untuk Offline'),
             onClick: () => void handleDownloadToggle(),
             disabled: downloadStatus === 'checking' || downloadStatus === 'downloading',
           },
-          onRemoveFromPlaylist && { key: 'remove', icon: 'trash', label: 'Hapus dari Playlist Ini', onClick: onRemoveFromPlaylist, danger: true },
-          onRemoveFromQueue && { key: 'remove-queue', icon: 'trash', label: 'Hapus dari Antrean', onClick: onRemoveFromQueue, danger: true },
-          { key: 'radio', icon: 'radio', label: 'Buka Radio Lagu', onClick: () => playSongRadio(song), separatorBefore: true },
+          onRemoveFromPlaylist && { key: 'remove', icon: 'trash', label: t('Hapus dari Playlist Ini'), onClick: onRemoveFromPlaylist, danger: true },
+          onRemoveFromQueue && { key: 'remove-queue', icon: 'trash', label: t('Hapus dari Antrean'), onClick: onRemoveFromQueue, danger: true },
+          { key: 'radio', icon: 'radio', label: t('Buka Radio Lagu'), onClick: () => playSongRadio(song), separatorBefore: true },
           ...artists.map((artist, index) => ({
             key: `artist-${index}`,
             icon: 'artist' as const,
-            label: artists.length > 1 ? `Lihat Artis · ${artist.name}` : 'Lihat Artis',
+            label: artists.length > 1 ? t('Lihat Artis · {name}', { name: artist.name }) : t('Lihat Artis'),
             onClick: () => openArtist({ artistId: artist.browseId, name: artist.name }),
           })),
-          albumId ? { key: 'album', icon: 'album', label: 'Lihat Album', onClick: () => openAlbum(albumId) } : null,
-          { key: 'share', icon: 'share', label: 'Bagikan', onClick: () => void share() },
+          albumId ? { key: 'album', icon: 'album', label: t('Lihat Album'), onClick: () => openAlbum(albumId) } : null,
+          { key: 'share', icon: 'share', label: t('Bagikan'), onClick: () => void share() },
         ]}
       />
       <AddToPlaylistSheet song={song} isOpen={playlistOpen} onClose={() => setPlaylistOpen(false)} />

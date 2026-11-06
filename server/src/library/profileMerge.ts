@@ -1,5 +1,5 @@
 /**
- * The per-account "profile": play history + the current daily/weekly mixes. Pure (no database), so the rules are
+ * The per-account "profile": play history + the current daily/weekly mixes + the chosen language. Pure (no database), so the rules are
  * testable: sanitising what a client sends, and merging two copies into one that both sides can adopt.
  *
  * Merging is commutative and repeatable — a device can send its copy any number of times and every device ends up with
@@ -24,6 +24,21 @@ export interface Profile {
   clearedAt: number;
   weekly: (Mix & { weekKey: string }) | null;
   daily: (Mix & { dayKey: string }) | null;
+  /** Pengaturan → Bahasa. Newest choice wins, so changing it on one device changes it on the others. */
+  language: LanguagePref | null;
+}
+
+export interface LanguagePref {
+  choice: 'auto' | 'id' | 'en';
+  /** When it was chosen (client clock, ms). */
+  at: number;
+}
+
+function sanitizeLanguage(value: unknown): LanguagePref | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { choice, at } = value as Record<string, unknown>;
+  if ((choice !== 'auto' && choice !== 'id' && choice !== 'en') || typeof at !== 'number' || !Number.isFinite(at) || at <= 0) return null;
+  return { choice, at: Math.floor(at) };
 }
 
 export const MAX_HISTORY = 300;
@@ -67,6 +82,7 @@ export function sanitizeProfile(raw: unknown): Profile {
     clearedAt,
     weekly: sanitizeMix(input.weekly, 'weekKey') as Profile['weekly'],
     daily: sanitizeMix(input.daily, 'dayKey') as Profile['daily'],
+    language: sanitizeLanguage(input.language),
   };
 }
 
@@ -93,5 +109,6 @@ export function mergeProfile(stored: Profile, incoming: Profile): Profile {
     clearedAt,
     weekly: newer(stored.weekly, incoming.weekly, (mix) => mix.weekKey),
     daily: newer(stored.daily, incoming.daily, (mix) => mix.dayKey),
+    language: !stored.language || (incoming.language && incoming.language.at > stored.language.at) ? incoming.language : stored.language,
   };
 }

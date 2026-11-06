@@ -1,15 +1,16 @@
 import type { Song } from '../../api/types';
+import { msg, useT } from '../../i18n/i18n';
 import { useCollectionDownload } from '../../downloads/useCollectionDownload';
 import { downloadManager } from '../../downloads/downloadManager';
 import { Icon } from '../Icon/Icon';
 import styles from './CollectionHero.module.css';
 
 const LABEL: Record<string, string> = {
-  checking: 'Memeriksa status unduhan',
-  none: 'Unduh playlist ini',
-  partial: 'Unduh sisa lagu di playlist ini',
-  downloading: 'Batalkan unduhan playlist',
-  complete: 'Semua lagu sudah diunduh',
+  checking: msg('Memeriksa status unduhan'),
+  none: msg('Unduh playlist ini'),
+  partial: msg('Unduh sisa lagu di playlist ini'),
+  downloading: msg('Batalkan unduhan playlist'),
+  complete: msg('Semua lagu sudah diunduh'),
 };
 
 /**
@@ -20,11 +21,12 @@ const LABEL: Record<string, string> = {
  * disagree with what an individual song's own "⋯" menu shows.
  */
 export function CollectionDownloadButton({ songs }: { songs: Song[] }) {
+  const t = useT();
   const { status, toggle } = useCollectionDownload(songs);
   if (!downloadManager.isSupported || songs.length === 0) return null;
 
   return (
-    <button type="button" className={styles.roundButton} onClick={toggle} aria-label={LABEL[status]} disabled={status === 'checking' || status === 'complete'}>
+    <button type="button" className={styles.roundButton} onClick={toggle} aria-label={t(LABEL[status])} disabled={status === 'checking' || status === 'complete'}>
       <Icon
         name={status === 'downloading' ? 'spinner' : status === 'complete' ? 'check' : 'download'}
         size={22}

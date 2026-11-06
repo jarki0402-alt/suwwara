@@ -1,0 +1,147 @@
+import type { Dictionary } from '../i18n';
+
+/** English for the settings area. Key = the Indonesian text exactly as written in the code. */
+export const settings: Dictionary = {
+  Otomatis: 'Automatic',
+  Bahasa: 'Language',
+  'Otomatis mengikuti bahasa perangkatmu. Judul lagu dan lirik tidak diterjemahkan.': 'Automatic follows your device language. Song titles and lyrics are not translated.',
+
+  // SettingsView
+  Pengaturan: 'Settings',
+  Tampilan: 'Appearance',
+  Pemutaran: 'Playback',
+  Jam: 'Jam',
+  'Aktif · {n} orang dengerin bareng': { one: 'Active · {n} person listening together', other: 'Active · {n} people listening together' },
+  'Dengerin lagu bareng teman, real-time.': 'Listen to music with friends, in real time.',
+  Kelola: 'Manage',
+  Mulai: 'Start',
+  Data: 'Data',
+  'Riwayat Putar': 'Listening history',
+  'Riwayat putar dibersihkan.': 'Listening history cleared.',
+  'Digunakan untuk menghasilkan rekomendasi lagu untukmu.': 'Used to make song recommendations for you.',
+  'Suwwara · diputar tanpa iklan, dibuat untuk kamu dan teman-teman.': 'Suwwara · ad-free listening, made for you and your friends.',
+
+  // ThemeToggle
+  Sistem: 'System',
+  Terang: 'Light',
+  Gelap: 'Dark',
+  Warna: 'Color',
+  'Pilih tema terang, gelap, atau ikuti sistem, lalu warna aplikasinya.': 'Choose a light or dark theme, or follow the system, then the app color.',
+
+  // GlassSlider
+  'Liquid Glass': 'Liquid Glass',
+  Penuh: 'Full',
+  Ringan: 'Light',
+  Mati: 'Off',
+  'kaca penuh dengan pembiasan': 'full glass with refraction',
+  'kaca ringan tanpa pembiasan': 'light glass without refraction',
+  'kaca dimatikan': 'glass turned off',
+  'Pilih efek kaca, lalu atur seberapa bening kaca di tombol, pemutar, dan menu.': 'Choose a glass effect, then set how clear the glass is on buttons, the player and menus.',
+  'Efek Kaca': 'Glass effect',
+  'Menyesuaikan kemampuan perangkat ini. Sekarang: {note}.': 'Adapts to what this device can handle. Now: {note}.',
+  'Paling hemat baterai: kaca jadi warna solid tanpa blur.': 'Easiest on the battery: glass becomes a solid color without blur.',
+  'Blur dan kilap kaca tanpa pembiasan, ringan untuk HP apa pun.': 'Glass blur and shine without refraction, light enough for any phone.',
+  'Selalu dengan pembiasan, bila browser mendukung. Bisa patah-patah di HP lama.': 'Always with refraction, when the browser supports it. May stutter on older phones.',
+  'Transparansi Liquid Glass': 'Liquid Glass transparency',
+  Bening: 'Clear',
+  Berwarna: 'Tinted',
+  Sedang: 'Medium',
+
+  // DataSaverToggle
+  'Data Saver': 'Data Saver',
+  'Turunkan kualitas audio untuk menghemat kuota internet.': 'Lower the audio quality to save mobile data.',
+
+  // FullscreenSettings
+  'Layar penuh': 'Fullscreen',
+  'Tanpa bar browser dan jendela, seperti aplikasi. Tekan F atau Esc untuk keluar.': 'No browser bars or window, like an app. Press F or Esc to exit.',
+  Nyalakan: 'Turn on',
+  Matikan: 'Turn off',
+  'Buka dalam layar penuh': 'Open in fullscreen',
+  'Browser tidak mengizinkan layar penuh otomatis, jadi klik pertama setelah membuka Suwwara yang memulainya.': "Browsers don't allow automatic fullscreen, so your first click after opening Suwwara starts it.",
+
+  // UpdateRow
+  Aplikasi: 'App',
+  'Cek pembaruan': 'Check for updates',
+  'Pembaruan tersedia': 'Update available',
+  'Memuat ulang…': 'Reloading…',
+  'Memeriksa versi terbaru…': 'Checking for the latest version…',
+  'Versi baru tersedia. Memuat ulang menghentikan lagu sebentar.': 'A new version is available. Reloading pauses the music briefly.',
+  'Versi baru tersedia.': 'A new version is available.',
+  'Sudah versi terbaru': 'Up to date',
+  'Sudah versi terbaru · diperiksa {time}': 'Up to date · checked at {time}',
+  'Belum bisa memeriksa. Periksa koneksi, lalu coba lagi.': "Couldn't check. Check your connection, then try again.",
+  'Pembaruan otomatis tidak aktif di sini (hanya di versi terpasang).': 'Automatic updates are off here (installed app only).',
+  'Versi {version}': 'Version {version}',
+  'Memperbarui…': 'Updating…',
+  Perbarui: 'Update',
+  'Memeriksa…': 'Checking…',
+  Periksa: 'Check',
+  'Periksa lagi': 'Check again',
+
+  // AccountSection
+  Akun: 'Account',
+  'Masuk di semua perangkatmu sekaligus': 'Signed in on all your devices at once',
+  'Ganti kata sandi': 'Change password',
+  'Perangkat yang sedang masuk': 'Signed-in devices',
+  'Perangkat ini': 'This device',
+  'Aktif {when}': 'Active {when}',
+  Keluarkan: 'Sign out',
+  'Keluar dari akun': 'Sign out',
+  'Menghapus data akun ini dari perangkat ini.': "Removes this account's data from this device.",
+
+  // PasswordForm
+  'Kata sandi baru minimal {n} karakter.': 'The new password needs at least {n} characters.',
+  'Kata sandi diganti. Perangkat lain perlu masuk lagi.': 'Password changed. Your other devices need to sign in again.',
+  'Kata sandi saat ini': 'Current password',
+  'Kata sandi baru (min. {n} karakter)': 'New password (min. {n} characters)',
+
+  // CacheManager
+  'Tak pernah': 'Never',
+  '{n} hari': { one: '{n} day', other: '{n} days' },
+  'Semua unduhan offline dihapus.': 'All offline downloads removed.',
+  'Cache lagu sementara & gambar offline berhasil dibersihkan.': 'Temporary song cache & offline images cleared.',
+  'Tersimpan Offline': 'Saved offline',
+  'Lagu Offline': 'Offline songs',
+  'Tidak tersedia di browser ini.': 'Not available in this browser.',
+  'Simpan lagu di perangkat': 'Save songs on this device',
+  'Percepat pemutaran & aktifkan mode offline dengan lagu yang tersimpan.': 'Faster playback & offline mode with saved songs.',
+  'Dinonaktifkan otomatis setelah pemutaran gagal {n}× berturut-turut di perangkat ini. Nyalakan lagi kalau mau coba ulang.':
+    'Turned off automatically after playback failed {n}× in a row on this device. Turn it back on to try again.',
+  Penyimpanan: 'Storage',
+  '{used} terpakai dari batas {limit}. {n} lagu diunduh, sisanya cache sementara dari lagu yang baru diputar.': {
+    one: '{used} used of the {limit} limit. {n} song downloaded, the rest is a temporary cache of recently played songs.',
+    other: '{used} used of the {limit} limit. {n} songs downloaded, the rest is a temporary cache of recently played songs.',
+  },
+  'Memuat…': 'Loading…',
+  'Batas penyimpanan offline': 'Offline storage limit',
+  'Unduhan baru ditolak begitu batas ini tercapai. Cache sementara mengecil sendiri duluan untuk kasih ruang.': 'New downloads are refused once this limit is reached. The temporary cache shrinks first to make room.',
+  'Hapus cache sementara kalau gak diputar selama': 'Clear the temporary cache if not played for',
+  'Cuma berlaku ke cache sementara. Lagu yang kamu unduh gak pernah kena ini, hilang cuma kalau kamu hapus sendiri.': "Only applies to the temporary cache. Songs you download are never affected, they're only removed when you delete them.",
+  'Belum ada lagu tersimpan offline. Putar sebuah lagu, atau buka menu "⋯" dan pilih "Unduh untuk Offline" biar pasti tersimpan.':
+    'No songs saved offline yet. Play a song, or open the "⋯" menu and choose "Download for offline" to be sure it\'s saved.',
+  'Lihat & kelola lagu yang diunduh satu-satu di Koleksi → Diunduh.': 'See & manage downloaded songs one by one in Library → Downloaded.',
+  'Hapus Cache Sementara': 'Clear temporary cache',
+  'Hapus Semua Unduhan': 'Remove all downloads',
+  Instalasi: 'Installation',
+  'Sudah Terpasang': 'Installed',
+  'Suwwara sudah terpasang di perangkatmu.': 'Suwwara is installed on your device.',
+  'Pasang ke Layar Utama': 'Add to Home Screen',
+  'Akses Suwwara seperti aplikasi native, tanpa browser.': 'Use Suwwara like a native app, without the browser.',
+  'Ketuk tombol Share di Safari, lalu pilih "Add to Home Screen".': 'Tap the Share button in Safari, then choose "Add to Home Screen".',
+  'Opsi ini muncul otomatis jika browser mendukungnya.': 'This option appears automatically if your browser supports it.',
+
+  // DiagnosticsPanel
+  belum: 'not yet',
+  bunyi: 'sound',
+  diganti: 'replaced',
+  'memuat…': 'loading…',
+  'Laporan disalin.': 'Report copied.',
+  'Gagal menyalin laporan.': "Couldn't copy the report.",
+  Diagnostik: 'Diagnostics',
+  Versi: 'Version',
+  'Putar sebuah lagu. Waktu tiap tahap pemuatan akan tercatat di sini.': 'Play a song. The time of each loading stage will be recorded here.',
+  'mulai {start} · metadata {meta} · siap {ready} · bunyi {sound}': 'start {start} · metadata {meta} · ready {ready} · sound {sound}',
+  'menunggu {n}×': 'waited {n}×',
+  'Salin laporan': 'Copy report',
+  Bersihkan: 'Clear',
+};

@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
+import { getCachedSongs } from '../../api/songCache';
 import { loadHistory } from '../../recommendation/historyLog';
+import { profileReady } from '../../sync/profileReady';
 import { rankByPlays } from '../../recommendation/onRepeat';
 import { MOOD_TITLE, radioArtist, timeMixTitle } from '../../recommendation/smartMixes';
 import type { GeneratedCollectionId } from '../../stores/uiStore';
@@ -46,8 +49,9 @@ export function homeMixCards(now = new Date()): MixCard[] {
   const artist = radioArtist();
   if (artist) cards.push(card(`radio:${artist}`, `Radio ${artist}`, `Mirip ${artist} dan yang sering kamu putar`, ['chill'], 'radio'));
   cards.push(card('weekly-discovery', 'Temuan Mingguan', 'Campuran dari riwayat putarmu', ['new']));
-  // Only once there is something to repeat: an empty "Sering Kamu Putar" for a new listener reads as broken.
-  if (rankByPlays(loadHistory(), now.getTime(), 3).length >= 3) {
+  // Only once there is something to repeat on THIS device: the mix is built from the songs this device has seen
+  // (no network), so history synced from another device names songs it cannot show yet, and the card opened empty.
+  if (getCachedSongs(rankByPlays(loadHistory(), now.getTime(), 3)).length >= 3) {
     cards.push(card('on-repeat', 'Sering Kamu Putar', 'Lagu favoritmu 30 hari terakhir', ['chill']));
   }
   cards.push(card('viral-indonesia', 'Lagi Viral', 'Yang lagi ramai di Indonesia', ['new']));
@@ -59,4 +63,23 @@ export function coverLines(title: string): [string, string] {
   const words = title.split(' ');
   if (words.length <= 1) return [title, ''];
   return [words[0], words.slice(1).join(' ')];
+}
+
+/**
+ * homeMixCards, recomputed once this account's play history has arrived from the server: on a fresh device Home
+ * shows before that sync, and the cards that depend on history (Radio of the top artist, Sering Kamu Putar) were
+ * missing until the next visit.
+ */
+export function useHomeMixCards(): MixCard[] {
+  const [cards, setCards] = useState(() => homeMixCards());
+  useEffect(() => {
+    let cancelled = false;
+    void profileReady().then(() => {
+      if (!cancelled) setCards(homeMixCards());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return cards;
 }

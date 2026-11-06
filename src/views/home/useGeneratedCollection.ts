@@ -66,6 +66,16 @@ function dynamicMeta(collectionId: string): { title: string; description: string
   return null;
 }
 
+/** The songs of any generated collection, for what needs them without opening it (the Home covers). */
+export async function fetchCollectionSongs(collectionId: GeneratedCollectionId): Promise<Song[]> {
+  if (collectionId.startsWith(ARTIST_MIX_PREFIX)) {
+    const result = await getArtistMixByName(collectionId.slice(ARTIST_MIX_PREFIX.length));
+    return result?.songs ?? [];
+  }
+  const meta = STATIC_META[collectionId] ?? dynamicMeta(collectionId);
+  return meta ? meta.fetch() : [];
+}
+
 export function useGeneratedCollection(collectionId: GeneratedCollectionId | null) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

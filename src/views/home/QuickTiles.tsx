@@ -4,7 +4,8 @@ import { LazyImage } from '../../components/Image/LazyImage';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { useUiStore, type GeneratedCollectionId } from '../../stores/uiStore';
 import { MixCover } from './HomeMixes';
-import { homeMixCards, type MixCard } from './mixCatalog';
+import { useRequestMixArtwork } from './mixArtwork';
+import { useHomeMixCards, type MixCard } from './mixCatalog';
 import { recordRecentCollection, useRecentCollections, type RecentCollection } from './recentCollections';
 import styles from './QuickTiles.module.css';
 
@@ -34,8 +35,8 @@ export function QuickTiles() {
   const openPlaylist = useUiStore((state) => state.openPlaylist);
   const openCollection = useUiStore((state) => state.openCollection);
 
+  const cards = useHomeMixCards();
   const tiles = useMemo(() => {
-    const cards = homeMixCards();
     const out: Tile[] = [];
     const seen = new Set<string>();
     const add = (entry: RecentCollection) => {
@@ -62,7 +63,9 @@ export function QuickTiles() {
     playlists.forEach((playlist) => add({ type: 'playlist', id: playlist.id }));
     cards.forEach((card) => add({ type: 'mix', id: card.id }));
     return out;
-  }, [recent, playlists]);
+  }, [recent, playlists, cards]);
+
+  useRequestMixArtwork(tiles.flatMap((tile) => (tile.kind === 'mix' ? [tile.card.id] : [])));
 
   const open = (tile: Tile) => {
     if (tile.kind === 'liked') {

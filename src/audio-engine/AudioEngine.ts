@@ -10,6 +10,7 @@ import { AudioEngineError } from './types';
 import { reportPlayback } from '../diagnostics/playbackReports';
 import { isAndroidDevice, isPageHidden, usesPlainMediaElements } from './platform';
 import { msg } from '../i18n/i18n';
+import { startBackgroundWatch } from '../diagnostics/backgroundWatch';
 
 /**
  * A locally stored blob: URL to play `songId` from instead of hitting the network — a deliberate offline
@@ -279,6 +280,12 @@ class AudioEngine {
   /** Android: see SYSTEM_PAUSE_WINDOW_MS. Either order counts, the pause can land just before or just after the page hides. */
   private bindBackgroundRecovery(): void {
     if (typeof document === 'undefined') return;
+    startBackgroundWatch({
+      isPlaying: () => this.snapshot.status === 'playing' && !!this.elements && !this.elements[this.activeIndex].paused,
+      songName: () => this.currentSong?.name ?? '',
+      positionSec: () => this.getCurrentTime(),
+      element: () => this.elements?.[this.activeIndex] ?? null,
+    });
     document.addEventListener('visibilitychange', () => {
       if (!isPageHidden()) return;
       this.hiddenAt = Date.now();

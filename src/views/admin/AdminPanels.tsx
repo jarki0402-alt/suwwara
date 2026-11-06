@@ -364,6 +364,12 @@ const REPORT_LABELS: Record<string, string> = {
   background_retry: 'Gagal di background, terus dicoba',
   background_recovered: 'Pulih di background',
   background_failed: 'Masih gagal saat app dibuka',
+  killed_in_background: 'App dimatikan sistem saat memutar',
+  stopped_silently: 'Berhenti diam-diam di background',
+  frozen_in_background: 'Halaman dibekukan di background',
+  session_hold: 'Ditahan sesi akun',
+  takeover_pause: 'Dijeda perangkat lain',
+  became_remote: 'Jadi remote perangkat lain',
 };
 
 /** Playback trouble the devices reported themselves (screen off, another app in front). Kept in the server's memory only. */

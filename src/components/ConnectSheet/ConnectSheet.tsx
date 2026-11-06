@@ -141,12 +141,15 @@ function ConnectBody({ closeAfterAction }: { closeAfterAction: boolean }) {
 export function ConnectSheet() {
   const isDesktop = useIsDesktop();
   const close = useUiStore((state) => state.closeConnectSheet);
+  // Over fullscreen Now Playing there is no right column to dock into: a full-height panel there hung off the edge
+  // with a few rows in it. It opens as a popover under the "Perangkat ini" button instead.
+  const asPopover = useUiStore((state) => state.isNowPlayingFullscreen) && isDesktop;
   const panelRef = useRef<HTMLElement>(null);
   const stop = (event: MouseEvent) => event.stopPropagation();
 
   // The panel stops above the player bar when one is showing, or runs to the bottom when there is none.
   useEffect(() => {
-    if (!isDesktop) return;
+    if (!isDesktop || asPopover) return;
     const panel = panelRef.current;
     const bar = document.querySelector<HTMLElement>('[data-player-bar]');
     if (!panel) return;
@@ -161,7 +164,7 @@ export function ConnectSheet() {
     const observer = new ResizeObserver(apply);
     observer.observe(bar);
     return () => observer.disconnect();
-  }, [isDesktop]);
+  }, [isDesktop, asPopover]);
 
   useEffect(() => {
     if (!isDesktop) return;
@@ -171,6 +174,22 @@ export function ConnectSheet() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isDesktop, close]);
+
+  if (asPopover) {
+    return (
+      <div className={styles.popoverScrim} onClick={close}>
+        <aside className={styles.popover} aria-label="Perangkat" onClick={stop}>
+          <div className={sheetStyles.header}>
+            <span className={sheetStyles.title}>Perangkat</span>
+            <button type="button" className={sheetStyles.closeButton} onClick={close} aria-label="Tutup">
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+          <ConnectBody closeAfterAction={false} />
+        </aside>
+      </div>
+    );
+  }
 
   if (isDesktop) {
     return (

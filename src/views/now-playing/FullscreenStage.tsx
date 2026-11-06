@@ -16,7 +16,6 @@ import { useJamStore } from '../../stores/jamStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useUiStore } from '../../stores/uiStore';
 import { formatTime } from '../../utils/formatTime';
-import { ArtistInfo } from './ArtistInfo';
 import { LyricsPanel } from './LyricsPanel';
 import { PlayerControls } from './PlayerControls';
 import { SeekBar } from './SeekBar';
@@ -115,28 +114,26 @@ export function JamCard() {
   );
 }
 
-type Tab = 'queue' | 'lyrics' | 'artist';
+type Tab = 'lyrics' | 'queue' | 'jam';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'queue', label: 'Antrean' },
   { id: 'lyrics', label: 'Lirik' },
-  { id: 'artist', label: 'Tentang artis' },
+  { id: 'queue', label: 'Antrean' },
+  { id: 'jam', label: 'Jam' },
 ];
 
 /**
- * Desktop fullscreen (2026-11 redesign): the song on the left (art, title, seek, controls) and, on the right, Antrean /
- * Lirik / Tentang artis with the Jam card on top. It used to be the lyrics alone with a thin control bar. It always opens
- * on Antrean (every way in sets the lyrics flag, so that flag cannot tell them apart). The top bar fades with the cursor
- * like before.
+ * Desktop fullscreen, "Panggung Lirik" (2026-11 redesign, option B picked in Claude Design): the song in a compact
+ * column on the left (art, title, seek, controls) and the stage on the right, lyrics by default in large display
+ * type, or the queue, or the Jam. The tabs sit in the top bar, which fades with the cursor like before. Nothing at
+ * the bottom: the stage gets the full height.
  */
 export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song; chromeHidden: boolean; onMinimize: () => void }) {
   const { playbackState, remoteDevice, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
-  const jam = useJamStatus();
-  const [tab, setTab] = useState<Tab>('queue');
+  const [tab, setTab] = useState<Tab>('lyrics');
 
   const isPlaying = playbackState.status === 'playing';
   const isBuffering = playbackState.status === 'loading';
-  const source = jam.active ? 'Diputar dari Jam' : remoteDevice ? `Memutar di ${remoteDevice.name}` : 'Sedang diputar';
 
   return (
     <div className={styles.stage}>
@@ -145,8 +142,21 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
           <Icon name="chevron-down" size={18} />
           Kecilkan
         </button>
-        <span className={styles.source}>{source}</span>
-        <button type="button" className={[styles.chip, styles.chipAccent].join(' ')} onClick={openConnectSheet}>
+        <div className={styles.tabs} role="tablist" aria-label="Panel">
+          {TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              className={[styles.tab, tab === item.id ? styles.tabActive : ''].join(' ')}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <button type="button" className={[styles.chip, styles.chipAccent, styles.chipEnd].join(' ')} onClick={openConnectSheet}>
           <Icon name="devices" size={18} />
           {remoteDevice ? remoteDevice.name : 'Perangkat ini'}
         </button>
@@ -171,32 +181,27 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
           <PlayerControls isPlaying={isPlaying} isBuffering={isBuffering} onTogglePlay={handleTogglePlay} onNext={handleNext} onPrevious={handlePrevious} />
         </section>
 
-        <section className={styles.sideColumn} aria-label="Antrean, lirik, dan Jam">
-          <div className={styles.tabs} role="tablist" aria-label="Panel">
-            {TABS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === item.id}
-                className={[styles.tab, tab === item.id ? styles.tabActive : ''].join(' ')}
-                onClick={() => setTab(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <JamCard />
-          <div className={styles.panel}>
-            {tab === 'queue' && (
-              <>
-                <span className={styles.panelHeading}>Berikutnya</span>
-                <UpNextList limit={12} />
-              </>
-            )}
-            {tab === 'lyrics' && <LyricsPanel song={song} isFullscreen={false} />}
-            {tab === 'artist' && <ArtistInfo artistName={primaryArtistNames(song)} />}
-          </div>
+        <section className={styles.stageColumn} aria-label={TABS.find((item) => item.id === tab)?.label}>
+          {tab === 'lyrics' && (
+            <div className={styles.stageLyrics}>
+              <LyricsPanel song={song} isFullscreen />
+            </div>
+          )}
+          {tab === 'queue' && (
+            <div className={styles.panel}>
+              <span className={styles.panelHeading}>Berikutnya</span>
+              <UpNextList limit={30} />
+            </div>
+          )}
+          {tab === 'jam' && (
+            <div className={styles.jamStage}>
+              <JamCard />
+              <p className={styles.jamNote}>
+                Di Jam, semua orang bisa menambah, menghapus, dan mengatur urutan antrean, serta memutar, menjeda, dan
+                melompati lagu. Lagu berganti bersamaan untuk semua yang ikut.
+              </p>
+            </div>
+          )}
         </section>
       </div>
     </div>

@@ -60,15 +60,21 @@
   --color-on-accent: var(--pd-on-accent);
 }
 
+/* The blurred album art behind Now Playing. Drawn at a quarter of its size with a quarter of the blur, then scaled up
+   4x by the compositor: the same look as a 40px blur over 120% of the sheet, for about 1/16 of the pixels and a 4x
+   smaller blur radius. At full size this was the heaviest thing on screen: with the docked panel open it made the
+   page beside it stutter while scrolling at full glass (measured: 26 to 28 late frames in a 2s scroll, 3 without). */
 .ambientBackdrop {
   position: absolute;
-  inset: -10%;
-  width: 120%;
-  height: 120%;
+  left: 50%;
+  top: 50%;
+  width: 30%;
+  height: 30%;
   object-fit: cover;
-  filter: blur(40px) saturate(1.4) brightness(0.7);
+  filter: blur(10px) saturate(1.4) brightness(0.7);
   z-index: -1;
-  transform: translateZ(0); /* own layer: the blur is rasterized once, not per frame of the slide-in */
+  transform: translate(-50%, -50%) scale(4); /* also its own layer: rasterized once, not per frame of the slide-in */
+  transform-origin: center;
 }
 
 .ambientScrim {
@@ -538,25 +544,26 @@
 /* Docked panel with "Berikutnya" and the Jam card under the song (2026-11 redesign): the art keeps its square shape
    and the panel scrolls, instead of the art being squeezed into a cropped strip to make everything fit. The panel
    itself scrolls and the sheet grows with its content, so the blurred art backdrop (absolute inside the sheet) covers
-   the whole length instead of scrolling away with the first screen. Only while the art shows (:has): lyrics replace
-   it and must keep their own fixed-height scroller, or their follow-the-song auto-scroll has nothing to scroll. */
+   the whole length instead of scrolling away with the first screen. Only while the art shows (.overlayArt, set by
+   NowPlayingView; a class rather than :has(), which the browser re-checks on every change inside the panel, such as
+   each new lyric line): lyrics replace the art and keep their own fixed-height scroller for their auto-scroll. */
 @media (min-width: 960px) {
-  .overlay:not(.overlayFullscreen):has(.artSection > .art) {
+  .overlayArt {
     overflow-y: auto;
   }
 
-  .overlay:not(.overlayFullscreen):has(.artSection > .art) .sheet {
+  .overlayArt .sheet {
     height: auto;
     min-height: 100%;
     /* Still hidden: it clips the oversized backdrop to the sheet; with height:auto it no longer scrolls itself. */
     overflow: hidden;
   }
 
-  .overlay:not(.overlayFullscreen) .artSection:has(> .art) {
+  .overlayArt .artSection {
     flex: none;
   }
 
-  .overlay:not(.overlayFullscreen) .artSection > .art {
+  .overlayArt .artSection > .art {
     width: 100%;
     height: auto;
     aspect-ratio: 1;

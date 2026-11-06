@@ -101,8 +101,6 @@ function ShellBody() {
 
   return (
     <div className={styles.shell}>
-      {/* The soft accent glow the desktop's glass sidebar and player sit on (CSS only, see .ambient). */}
-      <div className={styles.ambient} aria-hidden="true" />
       <div className={styles.titlebar} aria-hidden="true" />
       <main
         ref={contentRef}

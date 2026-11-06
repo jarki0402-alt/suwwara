@@ -3,8 +3,11 @@ import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// One stamp per build: baked into the bundle (__APP_BUILD__) and written to /version.json.
-const BUILD_STAMP = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+// One stamp per build: baked into the bundle (__APP_BUILD__) and written to /version.json. Shown in Pengaturan, so in
+// Jakarta time (WIB, UTC+7, no daylight saving): computed by hand rather than through Intl time zones, which depend
+// on the ICU data of whatever machine builds the image.
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+const BUILD_STAMP = new Date(Date.now() + WIB_OFFSET_MS).toISOString().slice(0, 16).replace('T', ' ') + ' WIB';
 
 // The update check compares the stamp the device is RUNNING with the one the server serves right now, read around every
 // cache. A service worker script that a proxy in front keeps serving stale hides a new version from

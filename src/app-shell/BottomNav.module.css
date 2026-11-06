@@ -289,13 +289,11 @@
     transition: none;
   }
 
-  /* With glass on, the sidebar is frosted over the fixed accent glow (AppShell .ambient). Only that static layer is
-     behind it, never scrolling content, so the backdrop pass is not redone while the page scrolls. */
+  /* With glass on, the sidebar is translucent glass over the accent glow (AppShell .shell's background), without a backdrop
+     blur: that glow is already soft, and its playlist list scrolls, where a backdrop blur is redone every frame. */
   :root[data-glass='full'] .nav {
     border-color: var(--glass-border);
     background: rgba(var(--glass-tint), min(0.92, calc(0.5 * var(--glass-alpha-factor, 1))));
-    backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
-    -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
     box-shadow: var(--glass-sheen);
   }
 

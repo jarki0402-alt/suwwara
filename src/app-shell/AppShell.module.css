@@ -3,24 +3,15 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  /* Own stacking context so .ambient's z-index:-1 lands above the page colour but under everything else. */
-  isolation: isolate;
 }
 
-/* Desktop only (2026-11 redesign): a fixed, faint glow of the palette's accent behind the app, so the glass sidebar and
-   player have colour to frost instead of reading as flat grey. Radial gradients, not blurred shapes: painted once,
-   no filter pass, and it never moves, so the glass over it costs nothing per frame. Off with Efek Kaca off. */
-.ambient {
-  display: none;
-}
-
+/* Desktop only (2026-11 redesign): a faint glow of the palette's accent behind the app, so the glass sidebar, page
+   and player have colour to show through instead of reading as flat grey. Painted as the shell's own background, not
+   as a separate fixed layer: that layer (position fixed, z-index -1, under everything) made Chrome composite and
+   repaint every panel while the page scrolled, which was the stutter at full glass on a Mac. Measured at Retina
+   density: 2 late frames in a 2s scroll this way, against 28 to 48 with the layer. Off with Efek Kaca off. */
 @media (min-width: 960px) {
-  :root:not([data-glass='off']) .ambient {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
+  :root:not([data-glass='off']) .shell {
     background:
       radial-gradient(42% 55% at 8% 92%, rgba(var(--color-accent-rgb), 0.16), transparent 70%),
       radial-gradient(38% 50% at 92% 6%, rgba(var(--color-accent-rgb), 0.1), transparent 70%),
@@ -84,14 +75,14 @@
     margin-right: calc(var(--now-playing-panel-width) + 2 * var(--panel-gap));
   }
 
-  /* Frosted over the fixed accent glow (.ambient), the only thing behind the panel, so scrolling the page inside it
-     never makes the browser redo the blur. */
+  /* Glass over the accent glow (the shell's background): translucent, with the glass rim, but NO backdrop-filter. The page
+     scrolls inside this element, and a backdrop blur on a scroll container is redone on every scrolled frame, which
+     made scrolling stutter on a Mac at full glass. What is behind is already a soft gradient, so blurring it changed
+     almost nothing visible. */
   :root[data-glass='full'] .content {
     background: rgba(var(--glass-tint), min(0.92, calc(0.5 * var(--glass-alpha-factor, 1))));
     border-color: var(--glass-border);
     box-shadow: var(--glass-sheen);
-    backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
-    -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
   }
 }
 

@@ -118,7 +118,16 @@ export function NowPlayingView() {
   const handleBack = isFullscreen ? closeFullscreenLyrics : closeNowPlaying;
 
   return (
-    <div ref={overlayRef} className={[styles.overlay, isFullscreen ? styles.overlayFullscreen : '', chromeHidden ? styles.cursorHidden : ''].join(' ')}>
+    <div
+      ref={overlayRef}
+      className={[
+        styles.overlay,
+        isFullscreen ? styles.overlayFullscreen : '',
+        chromeHidden ? styles.cursorHidden : '',
+        // Docked with the art showing (not lyrics): the panel scrolls as a whole, see .overlayArt.
+        isDesktop && !isFullscreen && !showLyrics ? styles.overlayArt : '',
+      ].join(' ')}
+    >
       <div className={styles.sheet}>
         {ambientUrl && <img src={ambientUrl} alt="" aria-hidden="true" className={styles.ambientBackdrop} />}
         <div className={styles.ambientScrim} aria-hidden="true" />

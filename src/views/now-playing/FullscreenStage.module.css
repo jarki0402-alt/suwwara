@@ -7,6 +7,9 @@
   flex-direction: column;
   gap: var(--space-5);
   padding: var(--space-2) clamp(var(--space-4), 3vw, var(--space-7)) var(--space-4);
+  /* The sheet switches the tokens to light-on-dark but not \`color\` itself: with the app in the light theme the title
+     inherited the page's dark text and nearly vanished on the dark stage. */
+  color: var(--color-text-primary);
 }
 
 .topBar {
@@ -98,8 +101,8 @@
   flex-direction: column;
 }
 
-/* Lyrics on the stage: the display face, large, left-aligned, filling the column (LyricsPanel's own fullscreen styles
-   cap it at 900px centred and use a smaller size). */
+/* Lyrics on the stage: large, left-aligned, filling the column (LyricsPanel's own fullscreen styles cap it at 900px
+   centred and use a smaller size). */
 .stageLyrics {
   flex: 1;
   min-height: 0;
@@ -113,10 +116,9 @@
 }
 
 .stageLyrics p {
-  font-family: var(--font-display);
+  /* Same face as the lyrics everywhere else (Figtree, LyricsPanel's own); only the size is the stage's. */
   font-size: clamp(1.7rem, 2.5vw, 2.5rem);
-  letter-spacing: -0.015em;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .stageLyrics pre {

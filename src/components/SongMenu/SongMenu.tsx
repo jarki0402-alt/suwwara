@@ -21,13 +21,15 @@ interface SongMenuProps {
   song: Song;
   /** Set where the row belongs to a user playlist: adds "Hapus dari playlist ini" to the menu. */
   onRemoveFromPlaylist?: () => void;
+  /** Set where the row is a song in the play queue: adds "Hapus dari Antrean" to the menu. */
+  onRemoveFromQueue?: () => void;
 }
 
 /**
  * The "⋯" menu of a song row — the same actions everywhere a song is listed. Essentials of what Spotify offers:
  * play next / add to queue, like, add to playlist (or remove from this one), song radio, go to artist / album, share.
  */
-export function SongMenu({ song, onRemoveFromPlaylist }: SongMenuProps) {
+export function SongMenu({ song, onRemoveFromPlaylist, onRemoveFromQueue }: SongMenuProps) {
   const isLiked = useLibraryStore((state) => state.isLiked(song.id));
   const toggleLike = useLibraryStore((state) => state.toggleLike);
   const openArtist = useUiStore((state) => state.openArtist);
@@ -109,6 +111,7 @@ export function SongMenu({ song, onRemoveFromPlaylist }: SongMenuProps) {
             disabled: downloadStatus === 'checking' || downloadStatus === 'downloading',
           },
           onRemoveFromPlaylist && { key: 'remove', icon: 'trash', label: 'Hapus dari Playlist Ini', onClick: onRemoveFromPlaylist, danger: true },
+          onRemoveFromQueue && { key: 'remove-queue', icon: 'trash', label: 'Hapus dari Antrean', onClick: onRemoveFromQueue, danger: true },
           { key: 'radio', icon: 'radio', label: 'Buka Radio Lagu', onClick: () => playSongRadio(song), separatorBefore: true },
           ...artists.map((artist, index) => ({
             key: `artist-${index}`,

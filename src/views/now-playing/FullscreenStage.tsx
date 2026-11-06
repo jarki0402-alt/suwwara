@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import type { Song } from '../../api/types';
 import { primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
@@ -8,7 +8,8 @@ import { LazyImage } from '../../components/Image/LazyImage';
 import { JamAvatars } from '../../components/JamIndicator/JamIndicator';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
 import { useToast } from '../../components/Toast/ToastProvider';
-import { playAtPosition } from '../../jam/jamQueueActions';
+import { playAtPosition, removeFromQueue, reorder } from '../../jam/jamQueueActions';
+import { SongMenu } from '../../components/SongMenu/SongMenu';
 import { copyJamLink, jamShareLink } from '../../jam/shareJam';
 import { useJamStatus } from '../../jam/useJamStatus';
 import { usePlayback } from '../../playback/PlaybackContext';
@@ -52,6 +53,116 @@ export function UpNextList({ limit, compact = false }: { limit: number; compact?
           </button>
         </li>
       ))}
+    </ol>
+  );
+}
+
+// Long queues (a 30-song radio, a whole playlist) are capped on screen: the stage is for what plays next.
+const STAGE_QUEUE_LIMIT = 60;
+
+/**
+ * The fullscreen Antrean tab: what plays next, with the same row actions as every other song list (like, the ⋯ song
+ * menu, plus "Hapus dari Antrean") and a grip to drag a song to another place. The drag works like QueueView's: the
+ * dragged row follows the pointer imperatively (no React render per pointermove), only the target slot goes through
+ * state, and the reorder is committed once on release (in a Jam, for the whole room, via jamQueueActions).
+ */
+export function StageQueue() {
+  const queue = useQueueStore((state) => state.queue);
+  const order = useQueueStore((state) => state.order);
+  const position = useQueueStore((state) => state.position);
+  const firstUpcoming = position + 1;
+  const upcoming = order.slice(firstUpcoming, firstUpcoming + STAGE_QUEUE_LIMIT);
+
+  const rowRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const rowHeight = useRef(0);
+  const startY = useRef(0);
+  const dragFrom = useRef<number | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [targetIndex, setTargetIndex] = useState<number | null>(null);
+  // The row height for the other rows' shift, read during render: state, set once per drag (the ref is for the
+  // per-pointermove maths, which must not wait for a render).
+  const [rowHeightPx, setRowHeightPx] = useState(0);
+
+  const startDrag = (index: number, clientY: number) => {
+    rowHeight.current = rowRefs.current[index]?.getBoundingClientRect().height ?? 0;
+    setRowHeightPx(rowHeight.current);
+    startY.current = clientY;
+    dragFrom.current = index;
+    setDragIndex(index);
+    setTargetIndex(index);
+  };
+  const moveDrag = (clientY: number) => {
+    const from = dragFrom.current;
+    if (from === null || rowHeight.current === 0) return;
+    const delta = clientY - startY.current;
+    const row = rowRefs.current[from];
+    if (row) row.style.transform = `translateY(${delta}px)`;
+    const next = Math.min(Math.max(from + Math.round(delta / rowHeight.current), 0), upcoming.length - 1);
+    setTargetIndex((prev) => (prev === next ? prev : next));
+  };
+  const endDrag = () => {
+    const from = dragFrom.current;
+    if (from !== null) {
+      const row = rowRefs.current[from];
+      if (row) row.style.transform = '';
+      if (targetIndex !== null && targetIndex !== from) reorder(firstUpcoming + from, firstUpcoming + targetIndex);
+    }
+    dragFrom.current = null;
+    setDragIndex(null);
+    setTargetIndex(null);
+  };
+  const shiftFor = (index: number): CSSProperties | undefined => {
+    if (dragIndex === null || targetIndex === null || index === dragIndex) return undefined;
+    const inRange = dragIndex < targetIndex ? index > dragIndex && index <= targetIndex : index < dragIndex && index >= targetIndex;
+    if (!inRange) return undefined;
+    return { transform: `translateY(${dragIndex < targetIndex ? -rowHeightPx : rowHeightPx}px)`, transition: 'transform 150ms ease' };
+  };
+
+  if (upcoming.length === 0) return <p className={styles.empty}>Belum ada lagu berikutnya di antrean.</p>;
+  return (
+    <ol className={styles.upNext}>
+      {upcoming.map((queueIndex, index) => {
+        const song = queue[queueIndex];
+        if (!song) return null;
+        const orderPosition = firstUpcoming + index;
+        return (
+          <li
+            key={`${orderPosition}-${song.id}`}
+            ref={(node) => {
+              rowRefs.current[index] = node;
+            }}
+            className={[styles.queueRow, index === dragIndex ? styles.queueRowDragging : ''].join(' ')}
+            style={shiftFor(index)}
+          >
+            <button
+              type="button"
+              className={styles.grip}
+              onPointerDown={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                startDrag(index, event.clientY);
+              }}
+              onPointerMove={(event) => moveDrag(event.clientY)}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              aria-label={`Geser ${song.name} untuk mengubah urutan`}
+            >
+              <Icon name="grip" size={18} />
+            </button>
+            <button type="button" className={styles.upNextRow} onClick={() => playAtPosition(orderPosition)}>
+              <LazyImage images={song.image} quality="50x50" alt="" className={styles.upNextArt} />
+              <span className={styles.upNextText}>
+                <span className={styles.upNextTitle}>{song.name}</span>
+                <span className={styles.upNextArtist}>{primaryArtistNames(song)}</span>
+              </span>
+              {song.duration > 0 && <span className={styles.upNextTime}>{formatTime(song.duration)}</span>}
+            </button>
+            <span className={styles.rowActions}>
+              <LikeButton song={song} />
+              <SongMenu song={song} onRemoveFromQueue={() => removeFromQueue(orderPosition)} />
+            </span>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -190,7 +301,7 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
           {tab === 'queue' && (
             <div className={styles.panel}>
               <span className={styles.panelHeading}>Berikutnya</span>
-              <UpNextList limit={30} />
+              <StageQueue />
             </div>
           )}
           {tab === 'jam' && (

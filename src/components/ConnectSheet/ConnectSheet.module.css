@@ -215,7 +215,8 @@
 
 .popover {
   position: absolute;
-  top: calc(var(--titlebar-height) + 76px);
+  /* Clear of the "Perangkat ini" button above it (the stage's top bar ends around 72px), never on top of it. */
+  top: calc(var(--titlebar-height) + 96px);
   right: clamp(16px, 3vw, 56px);
   width: min(380px, calc(100vw - 32px));
   max-height: calc(100vh - var(--titlebar-height) - 110px);

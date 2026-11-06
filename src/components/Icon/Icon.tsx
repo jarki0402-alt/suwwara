@@ -372,12 +372,13 @@ function IconPaths({ name }: { name: IconName }) {
         </>
       );
     case 'devices':
-      // A laptop screen and a phone side by side — "your devices".
+      // A laptop and a phone side by side, "your devices". Outlines only and not overlapping: the phone used to cover
+      // the laptop with a fill of the page colour, which showed as a solid black block on light or glass buttons.
       return (
         <>
-          <rect x="2.5" y="4.5" width="14" height="10" rx="1.8" stroke="currentColor" fill="none" strokeWidth={2} />
-          <path d="M1.5 18.5h16" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
-          <rect x="15" y="9" width="6.5" height="11" rx="1.6" stroke="currentColor" fill="var(--color-bg, transparent)" strokeWidth={2} />
+          <rect x="2" y="5" width="12" height="9" rx="1.6" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M1 18h14" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+          <rect x="16.5" y="8" width="5.5" height="11" rx="1.4" stroke="currentColor" fill="none" strokeWidth={2} />
         </>
       );
     case 'expand':

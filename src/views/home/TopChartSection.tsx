@@ -18,7 +18,7 @@ export function TopChartSection() {
     <section className={sectionStyles.section}>
       <div className={styles.headingRow}>
         <div>
-          <h2 className={styles.heading}>Tangga Lagu Teratas</h2>
+          <h2 className={styles.heading}>Lagi ramai</h2>
           <p className={styles.hint}>Diperbarui setiap hari untuk pendengar di Indonesia</p>
         </div>
         <span className={styles.tag}>Live Chart</span>

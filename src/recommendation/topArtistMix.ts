@@ -28,7 +28,7 @@ let cache: { mixes: ArtistMix[]; fetchedAt: number } | null = null;
  * (a new install, or mostly library use), the artists of liked songs and playlists fill the rest —
  * they are what the user picked on purpose, so they are as good a "who you listen to" signal.
  */
-function topArtistNames(limit: number): string[] {
+export function topArtistNames(limit: number): string[] {
   const history = loadHistory();
   const affinity = computeArtistAffinity(history, Date.now());
   const names = Array.from(affinity.entries())

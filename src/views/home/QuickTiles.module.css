@@ -1,0 +1,101 @@
+/* Shortcut tiles under the greeting (2026-11 redesign): art on the left, name beside it. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+}
+
+.tile {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--space-2) 0 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 160ms var(--ease-spring), background var(--transition-fast);
+}
+
+.tile:active {
+  transform: scale(0.97);
+}
+
+.art {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  display: block;
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.likedArt,
+.placeholderArt {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.likedArt {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.placeholderArt {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+/* Two lines on a phone tile: "Jam bareng Rara" does not fit in one at half the width. */
+.title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-3);
+    padding: 0 var(--space-5);
+  }
+
+  .tile {
+    height: 64px;
+    gap: var(--space-3);
+    padding-right: var(--space-3);
+  }
+
+  .art {
+    width: 64px;
+    height: 64px;
+  }
+
+  .title {
+    font-size: 0.95rem;
+  }
+}
+
+@media (hover: hover) and (min-width: 960px) {
+  .tile:hover {
+    background: var(--color-accent-soft);
+  }
+}

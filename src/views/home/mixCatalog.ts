@@ -1,0 +1,62 @@
+import { loadHistory } from '../../recommendation/historyLog';
+import { rankByPlays } from '../../recommendation/onRepeat';
+import { MOOD_TITLE, radioArtist, timeMixTitle } from '../../recommendation/smartMixes';
+import type { GeneratedCollectionId } from '../../stores/uiStore';
+
+/** The chips above Home's mixes. "Untukmu" shows all of them. */
+export type MixFilter = 'all' | 'chill' | 'focus' | 'new';
+
+export interface MixCard {
+  id: GeneratedCollectionId;
+  title: string;
+  subtitle: string;
+  /** Which chips (besides Untukmu) show this card. */
+  filters: MixFilter[];
+  /** Cover colours: the block and the round shape on it. `null` shape colour = the palette's accent. */
+  color: string;
+  shape: string | null;
+}
+
+// Fixed colours per kind of mix (2026-11 redesign), so a mix is recognisable at a glance and the shelf reads as a set,
+// whatever songs it holds today. Dark enough for white text on all of them.
+const COLORS: Record<string, [string, string | null]> = {
+  'time-mix': ['#2B3A63', null],
+  'daily-discovery': ['#5A5A2E', '#E6E08A'],
+  'weekly-discovery': ['#2E4F6B', '#8FD3F2'],
+  'mood-focus': ['#2F5D50', '#9FE0C5'],
+  'mood-chill': ['#5A3B6B', '#E0A8F2'],
+  radio: ['#7A3B2E', '#F2B38A'],
+  'on-repeat': ['#6B3B4A', '#F2A38A'],
+  'viral-indonesia': ['#7A2E5A', '#F2A8D3'],
+};
+
+function card(id: GeneratedCollectionId, title: string, subtitle: string, filters: MixFilter[], colorKey: string = id): MixCard {
+  const [color, shape] = COLORS[colorKey] ?? ['#2B3A63', null];
+  return { id, title, subtitle, filters, color, shape };
+}
+
+/** Every mix Home can show right now, in shelf order. Cheap: titles only, no songs are fetched here. */
+export function homeMixCards(now = new Date()): MixCard[] {
+  const cards: MixCard[] = [
+    card('time-mix', timeMixTitle(now), 'Yang biasa kamu putar di jam seperti ini', ['chill']),
+    card('daily-discovery', 'Temuan Harian', 'Lagu baru untukmu hari ini', ['new']),
+    card('mood-focus', MOOD_TITLE.focus, 'Instrumental tenang untuk kerja dan belajar', ['focus']),
+    card('mood-chill', MOOD_TITLE.chill, 'Akustik dan lagu santai', ['chill']),
+  ];
+  const artist = radioArtist();
+  if (artist) cards.push(card(`radio:${artist}`, `Radio ${artist}`, `Mirip ${artist} dan yang sering kamu putar`, ['chill'], 'radio'));
+  cards.push(card('weekly-discovery', 'Temuan Mingguan', 'Campuran dari riwayat putarmu', ['new']));
+  // Only once there is something to repeat: an empty "Sering Kamu Putar" for a new listener reads as broken.
+  if (rankByPlays(loadHistory(), now.getTime(), 3).length >= 3) {
+    cards.push(card('on-repeat', 'Sering Kamu Putar', 'Lagu favoritmu 30 hari terakhir', ['chill']));
+  }
+  cards.push(card('viral-indonesia', 'Lagi Viral', 'Yang lagi ramai di Indonesia', ['new']));
+  return cards;
+}
+
+/** Two short lines for the cover, "Mix Malam Ini" → "Mix" / "Malam Ini". */
+export function coverLines(title: string): [string, string] {
+  const words = title.split(' ');
+  if (words.length <= 1) return [title, ''];
+  return [words[0], words.slice(1).join(' ')];
+}

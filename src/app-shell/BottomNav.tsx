@@ -20,15 +20,15 @@ interface Tab {
   icon: IconName;
 }
 
-// 2026-11 redesign: the phone dock carries Jam in place of Pengaturan (now the avatar on Beranda, with the update dot),
-// so listening together is one tap from anywhere. The desktop sidebar has room for both.
+// The phone dock keeps Pengaturan (Jam is one tap away from Beranda's header and from Now Playing). The desktop
+// sidebar has room for Jam too.
 const PHONE_TABS: Tab[] = [
   { view: 'home', label: 'Beranda', icon: 'home' },
   { view: 'search', label: 'Cari', icon: 'search' },
   { view: 'library', label: 'Koleksi', icon: 'library' },
-  { view: 'jam', label: 'Jam', icon: 'users' },
+  { view: 'settings', label: 'Pengaturan', icon: 'settings' },
 ];
-const DESKTOP_TABS: Tab[] = [...PHONE_TABS, { view: 'settings', label: 'Pengaturan', icon: 'settings' }];
+const DESKTOP_TABS: Tab[] = [...PHONE_TABS.slice(0, 3), { view: 'jam', label: 'Jam', icon: 'users' }, PHONE_TABS[3]];
 
 // No bubble ripple on the tabs: the lifted glass pill (useLiquidPill) already answers the press, as in Apple's tab bar,
 // and inside the rectangular tab the clipped ripple flashed as a coloured box.

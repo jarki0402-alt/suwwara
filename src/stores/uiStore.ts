@@ -5,11 +5,21 @@ export type ViewName = 'home' | 'search' | 'library' | 'settings';
 /**
  * `artist-mix:{artistName}` is a template literal type, not a fixed union
  * member — there can be several artist-mix tiles at once (see
- * topArtistMix.ts's getTopArtistMixes, MadeForYouSection.tsx), one per top
+ * topArtistMix.ts's getTopArtistMixes, HomeMixes.tsx), one per top
  * artist, so the id has to encode WHICH artist rather than being a single
  * fixed value like the other two.
  */
-export type GeneratedCollectionId = 'weekly-discovery' | 'daily-discovery' | 'on-repeat' | 'viral-indonesia' | `artist-mix:${string}`;
+export type GeneratedCollectionId =
+  | 'weekly-discovery'
+  | 'daily-discovery'
+  | 'on-repeat'
+  | 'viral-indonesia'
+  | `artist-mix:${string}`
+  // 2026-11 Home redesign mixes (recommendation/smartMixes.ts)
+  | 'time-mix'
+  | 'mood-focus'
+  | 'mood-chill'
+  | `radio:${string}`;
 
 /**
  * Artist and album pages are pushed on top of whichever menu is open (Spotify-style) rather than

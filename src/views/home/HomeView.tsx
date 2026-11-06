@@ -1,9 +1,11 @@
 import { useUiStore } from '../../stores/uiStore';
 import { ArtistMixesSection } from './ArtistMixesSection';
-import { CollectionSection } from './CollectionSection';
 import { GeneratedCollectionView } from './GeneratedCollectionView';
 import { HomeHeader } from './HomeHeader';
-import { MadeForYouSection } from './MadeForYouSection';
+import { useState } from 'react';
+import { HomeMixes, MixFilterChips } from './HomeMixes';
+import type { MixFilter } from './mixCatalog';
+import { QuickTiles } from './QuickTiles';
 import { RecentlyPlayedSection } from './RecentlyPlayedSection';
 import { RecommendedSection } from './RecommendedSection';
 import { TopChartSection } from './TopChartSection';
@@ -14,6 +16,7 @@ export function HomeView() {
   const openedCollectionId = useUiStore((state) => state.openedCollectionId);
   const closeCollection = useUiStore((state) => state.closeCollection);
   const collection = useGeneratedCollection(openedCollectionId);
+  const [mixFilter, setMixFilter] = useState<MixFilter>('all');
 
   if (collection) {
     const isArtistMix = openedCollectionId?.startsWith('artist-mix:') ?? false;
@@ -33,13 +36,16 @@ export function HomeView() {
 
   return (
     <div className={styles.view}>
+      {/* 2026-11 redesign: shortcut tiles, the mixes ("Dibuat untukmu", with the phone's chips and hero card), then
+          what was already here. Koleksi Kamu moved out: Lagu Disukai and the playlists are among the tiles. */}
       <HomeHeader />
-      <MadeForYouSection />
-      <CollectionSection />
+      <MixFilterChips value={mixFilter} onChange={setMixFilter} />
+      <QuickTiles />
+      <HomeMixes filter={mixFilter} />
+      <TopChartSection />
       <RecentlyPlayedSection />
       <RecommendedSection />
       <ArtistMixesSection />
-      <TopChartSection />
     </div>
   );
 }

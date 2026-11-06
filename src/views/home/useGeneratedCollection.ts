@@ -5,9 +5,11 @@ import { getOnRepeatMix } from '../../recommendation/onRepeat';
 import { getTrendingSongsIndonesia } from '../../recommendation/trendingChart';
 import { getArtistMixByName } from '../../recommendation/topArtistMix';
 import { getWeeklyDiscoveryMix } from '../../recommendation/weeklyDiscovery';
+import { getArtistRadio, getMoodMix, getTimeMix, MOOD_TITLE, timeMixTitle } from '../../recommendation/smartMixes';
 import type { GeneratedCollectionId } from '../../stores/uiStore';
 
 const ARTIST_MIX_PREFIX = 'artist-mix:';
+const RADIO_PREFIX = 'radio:';
 
 const STATIC_META: Partial<Record<string, { title: string; description: string; fetch: () => Promise<Song[]> }>> = {
   'weekly-discovery': {
@@ -30,9 +32,39 @@ const STATIC_META: Partial<Record<string, { title: string; description: string; 
     description: 'Lagu-lagu yang lagi ramai diputar di Indonesia sekarang.',
     fetch: () => getTrendingSongsIndonesia(30),
   },
-  // 'artist-mix:{name}' deliberately excluded — handled separately below,
-  // since its title/fetch depend on the artist name encoded in the id itself.
+  'mood-focus': {
+    title: MOOD_TITLE.focus,
+    description: 'Instrumental yang tenang untuk kerja dan belajar, diperbarui tiap hari.',
+    fetch: () => getMoodMix('focus'),
+  },
+  'mood-chill': {
+    title: MOOD_TITLE.chill,
+    description: 'Akustik dan lagu santai, dicampur dengan artis yang sering kamu dengar.',
+    fetch: () => getMoodMix('chill'),
+  },
+  // 'artist-mix:{name}', 'radio:{name}' and 'time-mix' are handled separately below: their title depends on the
+  // artist in the id or on the time of day.
 };
+
+/** Title, description and songs of the ids whose meta is not fixed. */
+function dynamicMeta(collectionId: string): { title: string; description: string; fetch: () => Promise<Song[]> } | null {
+  if (collectionId === 'time-mix') {
+    return {
+      title: timeMixTitle(),
+      description: 'Lagu yang biasa kamu putar di jam seperti ini, dicampur yang mirip. Berganti mengikuti waktu.',
+      fetch: () => getTimeMix(),
+    };
+  }
+  if (collectionId.startsWith(RADIO_PREFIX)) {
+    const artistName = collectionId.slice(RADIO_PREFIX.length);
+    return {
+      title: `Radio ${artistName}`,
+      description: `Lagu-lagu yang mirip dengan ${artistName}, diperbarui tiap hari.`,
+      fetch: () => getArtistRadio(artistName),
+    };
+  }
+  return null;
+}
 
 export function useGeneratedCollection(collectionId: GeneratedCollectionId | null) {
   const [title, setTitle] = useState('');
@@ -63,7 +95,7 @@ export function useGeneratedCollection(collectionId: GeneratedCollectionId | nul
           if (!cancelled) setIsLoading(false);
         });
     } else {
-      const meta = STATIC_META[collectionId];
+      const meta = STATIC_META[collectionId] ?? dynamicMeta(collectionId);
       if (!meta) return;
       setTitle(meta.title);
       setDescription(meta.description);

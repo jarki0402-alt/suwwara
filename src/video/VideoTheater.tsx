@@ -123,7 +123,7 @@ function TheaterView({ session }: { session: VideoTheaterSession }) {
           <span className={styles.title}>{session.song.name}</span>
           <span className={styles.artist}>{primaryArtistNames(session.song)}</span>
         </div>
-        {session.ownSound && <span className={styles.badge}>{t('Versi video musik')}</span>}
+        {session.ownSound && <span className={styles.badge}>{t('Versi MV, dari awal')}</span>}
       </div>
 
       <div className={[styles.bottom, chromeVisible ? '' : styles.hidden].join(' ')}>

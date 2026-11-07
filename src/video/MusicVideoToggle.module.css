@@ -54,3 +54,21 @@
     animation: none;
   }
 }
+
+/* "Tonton MV": one pill, same family as the switch. */
+.single {
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.single:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

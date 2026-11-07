@@ -66,11 +66,11 @@ export const nowPlaying: Dictionary = {
   'Ketuk untuk memutar video': 'Tap to play the video',
   'Video tidak bisa diputar sekarang.': "The video can't be played right now.",
   'Tutup video': 'Close video',
-  'Versi video musik': 'Music video version',
+  'Versi MV, dari awal': 'MV version, from the start',
+  'Tonton MV': 'Watch MV',
   'Posisi video': 'Video position',
-  'Video musik lagu ini versinya beda dari lagunya. Lagu dijeda selama videonya diputar, lalu lanjut lagi.':
-    "This song's music video is a different cut from the song. The song pauses while the video plays, then carries on.",
-  'Tonton video musik': 'Watch the music video',
+  'Video musik lagu ini versinya beda dari lagunya, jadi diputar dari awal dengan suaranya sendiri. Lagu dijeda dulu, lalu lanjut lagi.':
+    "This song's music video is a different cut, so it plays from the start with its own sound. The song pauses, then carries on.",
   'Koneksi terlalu lambat untuk video, kembali ke lagu.': 'Connection too slow for video, back to the song.',
   'Koneksi terlalu lambat untuk video.': 'Connection too slow for video.',
 };

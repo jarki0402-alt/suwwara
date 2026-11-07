@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiGet, buildAudioUrl } from '../api/musicClient';
+import { apiGet, buildAudioUrl, prefetchAudioResolveOnly } from '../api/musicClient';
 import { primaryArtistNames } from '../api/mappers';
 import type { Song } from '../api/types';
 import { audioEngine } from '../audio-engine/AudioEngine';
@@ -82,6 +82,22 @@ export function lookupMusicVideo(song: Song): Promise<MusicVideo | null> {
     .finally(() => pending.delete(song.id));
   pending.set(song.id, request);
   return request;
+}
+
+// One warm-up per video per session (bounded by the lookups above in practice; capped anyway).
+const warmed = new Set<string>();
+const MAX_WARMED = 200;
+
+/**
+ * Called when the Video button shows: has the server resolve the video (and, for a different cut, its sound) in its
+ * lowest-priority lane, so a tap usually finds everything ready instead of starting a 2-3s yt-dlp turn then.
+ */
+export function warmMusicVideo(video: MusicVideo): void {
+  if (warmed.has(video.videoId)) return;
+  if (warmed.size >= MAX_WARMED) warmed.clear();
+  warmed.add(video.videoId);
+  void fetch(`/api/video/${encodeURIComponent(video.videoId)}/warm?h=720`).catch(() => {});
+  if (!video.synced) prefetchAudioResolveOnly(video.videoId, 'high');
 }
 
 interface VideoModeState {

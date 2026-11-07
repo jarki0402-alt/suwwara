@@ -66,6 +66,24 @@ def format_selector(quality: str, kind: str) -> str:
 # resort so something always plays.
 CLIENT_ATTEMPTS = (['visionos'], ['web'], ['android', 'ios'])
 
+# Which attempt worked last time for a video, so its next resolve (a music video's picture right after its sound, a
+# re-resolve hours later) starts there instead of paying for the clients that already failed it (~4.5s instead of
+# ~2s for videos visionos refuses). Bounded: oldest dropped past the cap.
+MAX_REMEMBERED_CLIENTS = 500
+_working_client: dict[str, int] = {}
+
+def attempts_for(video_id: str):
+    first = _working_client.get(video_id, 0)
+    return list(range(first, len(CLIENT_ATTEMPTS)))
+
+def remember_client(video_id: str, attempt: int) -> None:
+    with _state_lock:
+        _working_client.pop(video_id, None)
+        if attempt > 0:
+            _working_client[video_id] = attempt
+            while len(_working_client) > MAX_REMEMBERED_CLIENTS:
+                _working_client.pop(next(iter(_working_client)))
+
 def extract(video_id: str, fmt: str, clients):
     youtube_args = {'player_client': clients}
     ydl_opts = {
@@ -94,14 +112,17 @@ def resolve_audio(req: ResolveRequest):
         _inflight[token] = time.time()
     try:
         info = None
-        for attempt, clients in enumerate(CLIENT_ATTEMPTS):
+        order = attempts_for(req.video_id)
+        for position, attempt in enumerate(order):
+            clients = CLIENT_ATTEMPTS[attempt]
             try:
                 info = extract(req.video_id, fmt, clients)
+                remember_client(req.video_id, attempt)
                 break
             except Exception as e:
-                if attempt == len(CLIENT_ATTEMPTS) - 1:
+                if position == len(order) - 1:
                     raise
-                logger.warning(f"{req.video_id} ({req.kind}): client {clients} failed ({str(e)[:160]}), trying {CLIENT_ATTEMPTS[attempt + 1]}")
+                logger.warning(f"{req.video_id} ({req.kind}): client {clients} failed ({str(e)[:160]}), trying {CLIENT_ATTEMPTS[order[position + 1]]}")
 
         with _state_lock:
             _infra_failures = 0

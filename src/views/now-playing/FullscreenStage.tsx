@@ -334,9 +334,9 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
                 </VideoSurface>
               ) : (
                 <div className={styles.videoCut}>
-                  <p className={styles.jamNote}>{t('Video musik lagu ini versinya beda dari lagunya. Lagu dijeda selama videonya diputar, lalu lanjut lagi.')}</p>
+                  <p className={styles.jamNote}>{t('Video musik lagu ini versinya beda dari lagunya, jadi diputar dari awal dengan suaranya sendiri. Lagu dijeda dulu, lalu lanjut lagi.')}</p>
                   <button type="button" className={styles.jamPrimary} onClick={() => openTheater(song, video)}>
-                    {t('Tonton video musik')}
+                    {t('Tonton MV')}
                   </button>
                 </div>
               )}

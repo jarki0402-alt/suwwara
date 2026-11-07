@@ -25,6 +25,14 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Video: lebih cepat, dan tidak "ngulang" lagi)
+
+Laporan: video masih lemot di desktop dan HP; sebagian lagu "ngulang dari awal" saat pindah ke Video, sebagian tidak.
+- **Ngulang** = MV versi beda (durasi lain, ada intro/adegan), memang diputar dari awal dengan suaranya sendiri, tapi tersembunyi di balik tombol Video yang sama dengan MV yang menyambung. Sekarang seperti Spotify: **Lagu | Video** hanya untuk MV yang sinkron (lanjut di detik yang sama), MV versi beda jadi tombol terpisah **"Tonton MV"** dengan label "Versi MV, dari awal".
+- **Lemot**: ketukan Video dulu masuk jalur antrean `idle`, di belakang setiap persiapan lagu berikutnya (beberapa giliran yt-dlp 2-3 dtk). Sekarang ketukan = prioritas tinggi (tugas `idle` yang sudah antre ikut dinaikkan), dan begitu tombol muncul link video (dan suara MV versi beda) disiapkan diam-diam di jalur `idle` + potongan pertamanya, lewat `GET /api/video/:id/warm`.
+- yt-dlp-service mengingat klien yang berhasil per video (maks 500): video yang ditolak `visionos` (mis. MV APT.) tidak lagi mencoba tiga klien di setiap resolve (4,5 dtk jadi 1,5 dtk untuk resolve berikutnya).
+- Terukur (Docker + Playwright, video yang belum pernah dibuka): sudah disiapkan → gambar pertama 0,56 dtk setelah ketuk (sebelumnya ~8 dtk); diketuk seketika → 1,9-2,4 dtk.
+
 ## Perubahan terbaru · 2026-11-08 (Video musik ala Spotify + audio ternyata selama ini file video)
 
 **Temuan besar dulu: "audio" yang dikirim selama ini adalah file video 360p.** Semua 192 link di `audio_cache` ber-`itag=18` (video H.264 360p + suara), bukan m4a. Penyebab: image `bgutil-provider` `:latest` lokal masih 1.3.2 sementara plugin pip sudah 2.0.2 → token PO mati diam-diam → klien android/ios cuma dapat format 18 (eksperimen SABR YouTube membuang URL adaptif mereka). Akibatnya bandwidth ~2,5x dari seharusnya, dan Chrome Android memperlakukan lagu sebagai *video* yang dijeda saat app ke background, cocok dengan laporan "dijeda sistem 9 ms setelah ke background" berulang 15x (15 = batas laporan per sesi, kejadian sesudahnya tak terlihat).

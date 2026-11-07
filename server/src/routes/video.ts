@@ -213,6 +213,29 @@ videoRouter.get('/video/:videoId/hls.m3u8', async (req, res) => {
   }
 });
 
+/**
+ * Warm-up: resolves the link while the Video button is merely showing, in the 'idle' lane (behind every song), so a
+ * tap usually finds it ready. Also pulls the first chunk (the file's index), which is what the player asks for first.
+ */
+videoRouter.get('/video/:videoId/warm', async (req, res) => {
+  if (!VIDEO_ENABLED) {
+    res.status(404).end();
+    return;
+  }
+  const height: VideoHeight = req.query.h === '480' ? '480' : '720';
+  const gone = new AbortController();
+  res.once('close', () => gone.abort());
+  try {
+    await resolveVideo(req.params.videoId, height, gone.signal, 'idle');
+    res.status(204).end();
+    // After answering: the head chunk is fetched even if the page has moved on, it's 1MB and short-lived.
+    const source = await openChunkSource(req.params.videoId, height, new AbortController().signal);
+    await source.getChunk(0);
+  } catch {
+    if (!res.headersSent) res.status(204).end();
+  }
+});
+
 videoRouter.get('/video/match/:songId', async (req, res) => {
   if (!VIDEO_ENABLED) {
     res.json({ video: null });

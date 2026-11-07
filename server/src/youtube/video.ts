@@ -59,7 +59,7 @@ const FALLBACK_TTL_MS = 2 * 60 * 60 * 1000;
 // Few videos are watched compared to songs played, and an entry is a URL and a few headers.
 const MAX_RESOLVED = 60;
 const resolved = new Map<string, { stream: ResolvedStream; expiresAt: number }>();
-const inFlight = new Map<string, { promise: Promise<ResolvedStream>; cancel: () => boolean; interested: number }>();
+const inFlight = new Map<string, { promise: Promise<ResolvedStream>; cancel: () => boolean; promote: () => void; interested: number }>();
 
 setInterval(() => {
   const now = Date.now();
@@ -77,14 +77,20 @@ export function forgetVideo(videoId: string, height: VideoHeight, deadUrl: strin
 }
 
 /** Playable URL of the MV's picture. `signal`: the viewer left, so a resolve still waiting in line is dropped. */
-export async function resolveVideo(videoId: string, height: VideoHeight, signal?: AbortSignal): Promise<ResolvedStream> {
+/**
+ * `priority`: 'idle' for the warm-up made as soon as the Video button shows (nobody waits on it yet, it must never
+ * delay a song); 'high' once someone actually tapped Video and is looking at a spinner. That was 'idle' too at first,
+ * and a tap then queued behind every next-song lookahead, several yt-dlp turns of 2-3s each: "the video is so slow".
+ */
+export async function resolveVideo(videoId: string, height: VideoHeight, signal?: AbortSignal, priority: 'high' | 'idle' = 'high'): Promise<ResolvedStream> {
   const key = `${videoId}:${height}`;
   const hit = resolved.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.stream;
 
   let job = inFlight.get(key);
+  if (job && priority === 'high') job.promote();
   if (!job) {
-    const { promise: raw, handle } = scheduleOnResolver('idle', () => callResolver(videoId, height, 'video'));
+    const { promise: raw, handle } = scheduleOnResolver(priority, () => callResolver(videoId, height, 'video'));
     const promise = raw
       .then((stream) => {
         resolved.delete(key);
@@ -98,7 +104,7 @@ export async function resolveVideo(videoId: string, height: VideoHeight, signal?
       })
       .finally(() => inFlight.delete(key));
     promise.catch(() => {});
-    job = { promise, cancel: () => handle.cancel(), interested: 0 };
+    job = { promise, cancel: () => handle.cancel(), promote: () => handle.promote(), interested: 0 };
     inFlight.set(key, job);
   }
 

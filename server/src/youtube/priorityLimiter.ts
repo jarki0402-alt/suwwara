@@ -36,7 +36,7 @@ export interface TaskHandle {
   readonly started: boolean;
   /** Removes the task from the queue if it hasn't started. Returns whether it did. */
   cancel(): boolean;
-  /** Moves a still-queued 'low' task to the 'high' lane. */
+  /** Moves a still-queued 'low' or 'idle' task to the 'high' lane. */
   promote(): void;
 }
 
@@ -87,7 +87,7 @@ export class PriorityLimiter {
       },
       promote: () => {
         if (started) return;
-        if (this.remove(this.low, task)) this.high.push(task);
+        if (this.remove(this.low, task) || this.remove(this.idle, task)) this.high.push(task);
       },
     };
     return { promise, handle };

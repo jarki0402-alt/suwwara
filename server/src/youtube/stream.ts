@@ -299,6 +299,18 @@ export async function resolveAudio(
 
 export interface ResolvedStream extends ResolvedAudio {
   durationSec: number | null;
+  /** Video only: every H.264 quality of the file, lowest first (the ytdlp-service's VIDEO_LADDER). */
+  variants?: ResolvedVideoVariant[];
+}
+
+export interface ResolvedVideoVariant {
+  tier: string;
+  url: string;
+  httpHeaders: Record<string, string>;
+  width: number | null;
+  height: number | null;
+  kbps: number | null;
+  codecs: string | null;
 }
 
 /**
@@ -332,6 +344,7 @@ export async function callResolver(videoId: string, quality: string, kind: 'audi
       mimeType: data.mimeType,
       httpHeaders: data.httpHeaders,
       durationSec: typeof data.duration === 'number' ? data.duration : null,
+      variants: Array.isArray(data.variants) ? (data.variants as ResolvedVideoVariant[]) : undefined,
     };
   } catch (error) {
     consecutiveFailures += 1;

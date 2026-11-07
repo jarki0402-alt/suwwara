@@ -37,7 +37,7 @@ threading.Thread(target=_watchdog, daemon=True).start()
 
 class ResolveRequest(BaseModel):
     video_id: str
-    quality: str  # audio: 'high' or 'low'; video: the max height, '720' or '480'
+    quality: str  # audio: 'high' or 'low'; video: ignored (every quality comes back, see VIDEO_LADDER)
     kind: str = 'audio'  # 'audio' or 'video'
 
 EXT_TO_MIME = {
@@ -47,14 +47,37 @@ EXT_TO_MIME = {
     'mp3': 'audio/mpeg',
 }
 
+# The H.264 MP4 rungs of YouTube's ladder, by itag, each labelled with its quality name. By itag rather than height:
+# a widescreen film-look MV's "1080p" file is 1920x804, its height says nothing. H.264 only: the one codec every phone
+# decodes in hardware, iPhones included; VP9/AV1 would be smaller but software-decoded (hot, stuttering) on older
+# Androids and absent from iOS's HLS.
+VIDEO_LADDER = {'133': '240', '134': '360', '135': '480', '136': '720', '137': '1080'}
+
+def video_variants(info) -> list:
+    """Every rung this video has, lowest first. All of them come from one extraction (the formats list carries every
+    URL), so adaptive quality costs a single yt-dlp turn, not one per quality."""
+    variants = []
+    for f in info.get('formats') or []:
+        tier = VIDEO_LADDER.get(str(f.get('format_id')))
+        if not tier or not f.get('url') or f.get('protocol') not in ('https', 'http'):
+            continue
+        variants.append({
+            'tier': tier,
+            'url': f['url'],
+            'httpHeaders': f.get('http_headers') or info.get('http_headers', {}),
+            'width': f.get('width'),
+            'height': f.get('height'),
+            'kbps': f.get('tbr'),
+            'codecs': f.get('vcodec'),
+        })
+    variants.sort(key=lambda v: int(v['tier']))
+    return variants
+
 def format_selector(quality: str, kind: str) -> str:
     if kind == 'video':
-        # Video only (the sound is the song's own audio, or the MV's audio stream, played next to it) and H.264 in MP4:
-        # the one codec every phone decodes in hardware, iPhones included. VP9/AV1 would be smaller but software-decoded
-        # (hot, stuttering) on older Androids and not playable from a plain <video src> on iOS. The last resort is the
-        # 360p file with sound, which still plays muted.
-        height = 480 if quality == '480' else 720
-        return f'bestvideo[height<={height}][vcodec^=avc1][ext=mp4]/bestvideo[height<={height}][ext=mp4]/best[height<={height}][ext=mp4]'
+        # Picks the top-level URL, the fallback when a client gives no ladder (only the 360p file with sound, which
+        # still plays muted). The ladder itself is read from the formats list, see video_variants.
+        return 'bestvideo[height<=720][vcodec^=avc1][ext=mp4]/bestvideo[height<=720][ext=mp4]/best[height<=720][ext=mp4]'
     if quality == 'low':
         return 'worstaudio[ext=m4a]/worstaudio/worst[ext=mp4]/worst'
     return 'bestaudio[ext=m4a]/bestaudio/best[ext=mp4]/best'
@@ -133,6 +156,7 @@ def resolve_audio(req: ResolveRequest):
             "httpHeaders": info.get('http_headers', {}),
             "formatId": info.get('format_id'),
             "duration": info.get('duration'),
+            "variants": video_variants(info) if req.kind == 'video' else None,
         }
     except Exception as e:
         logger.error(f"yt-dlp failed to resolve {req.kind} for {req.video_id}: {str(e)}")

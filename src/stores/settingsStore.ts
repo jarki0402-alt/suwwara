@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_CACHE_RETENTION_DAYS } from '../audio-engine/cachePolicy';
 import { DEFAULT_OFFLINE_QUOTA_MB } from '../downloads/downloadPolicy';
+import type { VideoQuality } from '../video/musicVideo';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 /** How much of the Liquid Glass material this device draws — see hooks/glassQuality.ts. */
@@ -59,6 +60,8 @@ interface SettingsState {
   palette: PaletteId;
   /** "Buka dalam layar penuh": the first click/key after opening Suwwara makes it fullscreen. Per device. */
   openInFullscreen: boolean;
+  /** "Kualitas video": the ceiling of the music video's adaptive quality (video/musicVideo.ts videoQualityCap). Per device. */
+  videoQuality: VideoQuality;
   setDataSaver: (value: boolean) => void;
   setVolume: (value: number) => void;
   setTheme: (value: ThemePreference) => void;
@@ -72,6 +75,7 @@ interface SettingsState {
   setGlassAutoTier: (value: GlassTier) => void;
   setPalette: (value: PaletteId) => void;
   setOpenInFullscreen: (value: boolean) => void;
+  setVideoQuality: (value: VideoQuality) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -89,6 +93,7 @@ export const useSettingsStore = create<SettingsState>()(
       glassAutoTier: null,
       palette: 'bara',
       openInFullscreen: false,
+      videoQuality: 'auto',
       setDataSaver: (value) => set({ dataSaver: value }),
       setVolume: (value) => set({ volume: Math.min(Math.max(value, 0), 1) }),
       setTheme: (value) => set({ theme: value }),
@@ -105,6 +110,7 @@ export const useSettingsStore = create<SettingsState>()(
       setGlassAutoTier: (value) => set({ glassAutoTier: value }),
       setPalette: (value) => set({ palette: PALETTES.includes(value) ? value : 'bara' }),
       setOpenInFullscreen: (value) => set({ openInFullscreen: value }),
+      setVideoQuality: (value) => set({ videoQuality: value }),
     }),
     {
       name: 'suwwara-settings',

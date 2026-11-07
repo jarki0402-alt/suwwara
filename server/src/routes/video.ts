@@ -1,7 +1,8 @@
 import { Router, type Response } from 'express';
 import { recordVideo } from '../metrics/usage';
 import { ResolveAbortedError, type ResolvedStream } from '../youtube/stream';
-import { findMusicVideo, forgetVideo, resolveVideo, type VideoHeight } from '../youtube/video';
+import { findMusicVideo, forgetVideo, parseVideoTier, pickVariant, resolveVideoSet, type VideoTier, type VideoVariant } from '../youtube/video';
+import { buildMasterPlaylist, START_TIER } from '../youtube/videoPlaylist';
 
 /**
  * Music videos. The picture is proxied the same way audio is (googlevideo links are IP-locked to this server), but
@@ -11,7 +12,9 @@ import { findMusicVideo, forgetVideo, resolveVideo, type VideoHeight } from '../
  *   Range requests it keeps cancelling and re-issuing at nearby offsets: without it each one paid a fresh upstream
  *   round trip and the first frame took ~9s, with it the re-asks are answered from memory;
  * - at most MAX_STREAMS video responses at once on the whole server, each holding at most two 1MB chunks;
- * - the yt-dlp resolve waits in the 'idle' lane behind every song (youtube/video.ts);
+ * - the yt-dlp resolve waits in the 'idle' lane behind every song (youtube/video.ts), one turn for every quality;
+ * - adaptive quality is the player's job: /master.m3u8 lists the qualities, the browser (Safari natively, hls.js
+ *   elsewhere) picks one by its own measured speed and moves between them. The server only serves byte ranges.
  * - VIDEO_ENABLED=false in .env turns the whole feature off: /match answers "no video", so the button never shows.
  */
 export const videoRouter = Router();
@@ -89,25 +92,25 @@ interface ChunkSource {
   mimeType: () => string;
 }
 
-/** Aligned 1MB chunks of one video, shared across requests: concurrent and repeated asks cost one upstream fetch. */
-async function openChunkSource(videoId: string, height: VideoHeight, signal: AbortSignal): Promise<ChunkSource> {
-  let stream = await resolveVideo(videoId, height, signal);
+/** Aligned 1MB chunks of one quality of a video, shared across requests: repeated asks cost one upstream fetch. */
+async function openChunkSource(videoId: string, tier: VideoTier, signal: AbortSignal): Promise<ChunkSource & { variant: () => VideoVariant }> {
+  let variant = pickVariant(await resolveVideoSet(videoId, signal), tier);
   let refreshes = 0;
   // One retry with a freshly resolved link when the cached one died (expired early, IP changed).
   const fetchAligned = async (index: number): Promise<Chunk> => {
     for (;;) {
       try {
-        return await fetchChunk(stream, index * CHUNK_SIZE, index * CHUNK_SIZE + CHUNK_SIZE - 1);
+        return await fetchChunk(variant.stream, index * CHUNK_SIZE, index * CHUNK_SIZE + CHUNK_SIZE - 1);
       } catch (error) {
         if (!(error instanceof UpstreamGoneError) || refreshes >= MAX_URL_REFRESHES) throw error;
         refreshes += 1;
-        forgetVideo(videoId, height, stream.url);
-        stream = await resolveVideo(videoId, height, signal);
+        forgetVideo(videoId, variant.stream.url);
+        variant = pickVariant(await resolveVideoSet(videoId, signal), tier);
       }
     }
   };
   const getChunk = (index: number): Promise<Chunk> => {
-    const key = `${videoId}:${height}:${index}`;
+    const key = `${videoId}:${variant.tier}:${index}`;
     const cached = chunkCache.get(key);
     if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached);
     const pending = chunkFetches.get(key);
@@ -122,7 +125,7 @@ async function openChunkSource(videoId: string, height: VideoHeight, signal: Abo
     chunkFetches.set(key, fetching);
     return fetching;
   };
-  return { getChunk, mimeType: () => stream.mimeType || 'video/mp4' };
+  return { getChunk, mimeType: () => variant.stream.mimeType || 'video/mp4', variant: () => variant };
 }
 
 /**
@@ -186,19 +189,40 @@ export function buildHlsPlaylist(head: Buffer, mediaUrl: string): string | null 
   return null;
 }
 
+videoRouter.get('/video/:videoId/master.m3u8', async (req, res) => {
+  if (!VIDEO_ENABLED) {
+    res.status(404).end();
+    return;
+  }
+  const { videoId } = req.params;
+  const max = parseVideoTier(req.query.max);
+  const gone = new AbortController();
+  res.once('close', () => gone.abort());
+  try {
+    const set = await resolveVideoSet(videoId, gone.signal);
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.setHeader('Cache-Control', 'private, max-age=600');
+    res.send(buildMasterPlaylist(videoId, set.variants, max));
+  } catch (error) {
+    if (error instanceof ResolveAbortedError || gone.signal.aborted) return;
+    res.status(502).json({ error: 'Failed to load the music video.', message: (error as Error).message });
+  }
+});
+
 videoRouter.get('/video/:videoId/hls.m3u8', async (req, res) => {
   if (!VIDEO_ENABLED) {
     res.status(404).end();
     return;
   }
   const { videoId } = req.params;
-  const height: VideoHeight = req.query.h === '480' ? '480' : '720';
+  const tier = parseVideoTier(req.query.h);
   const gone = new AbortController();
   res.once('close', () => gone.abort());
   try {
-    const source = await openChunkSource(videoId, height, gone.signal);
+    const source = await openChunkSource(videoId, tier, gone.signal);
     const head = await source.getChunk(0);
-    const playlist = buildHlsPlaylist(head.buffer, `/api/video/${encodeURIComponent(videoId)}?h=${height}`);
+    // The quality actually served (a video without this rung gets the one below), so segments and playlist agree.
+    const playlist = buildHlsPlaylist(head.buffer, `/api/video/${encodeURIComponent(videoId)}?h=${source.variant().tier}`);
     if (!playlist) {
       // No usable index (the 360p fallback file has none): the client plays the MP4 directly instead.
       res.status(415).json({ error: 'no segment index' });
@@ -222,14 +246,14 @@ videoRouter.get('/video/:videoId/warm', async (req, res) => {
     res.status(404).end();
     return;
   }
-  const height: VideoHeight = req.query.h === '480' ? '480' : '720';
   const gone = new AbortController();
   res.once('close', () => gone.abort());
   try {
-    await resolveVideo(req.params.videoId, height, gone.signal, 'idle');
+    await resolveVideoSet(req.params.videoId, gone.signal, 'idle');
     res.status(204).end();
-    // After answering: the head chunk is fetched even if the page has moved on, it's 1MB and short-lived.
-    const source = await openChunkSource(req.params.videoId, height, new AbortController().signal);
+    // After answering: the head chunk (init + index) of the quality a player usually opens on, even if the page has
+    // moved on: it's 1MB and short-lived.
+    const source = await openChunkSource(req.params.videoId, START_TIER, new AbortController().signal);
     await source.getChunk(0);
   } catch {
     if (!res.headersSent) res.status(204).end();
@@ -271,7 +295,7 @@ videoRouter.get('/video/:videoId', async (req, res) => {
   activeStreams += 1;
 
   const { videoId } = req.params;
-  const height: VideoHeight = req.query.h === '480' ? '480' : '720';
+  const tier = parseVideoTier(req.query.h);
   const gone = new AbortController();
   const socket = res.socket;
   const bytesBefore = socket?.bytesWritten ?? 0;
@@ -283,7 +307,7 @@ videoRouter.get('/video/:videoId', async (req, res) => {
   });
 
   try {
-    const source = await openChunkSource(videoId, height, gone.signal);
+    const source = await openChunkSource(videoId, tier, gone.signal);
     const { getChunk } = source;
 
     const range = parseRange(req.headers.range);

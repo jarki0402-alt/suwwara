@@ -19,21 +19,35 @@ export interface MusicVideo {
   synced: boolean;
 }
 
-export type VideoHeight = '720' | '480';
+/** Quality names of the server's ladder (server/src/youtube/video.ts VIDEO_TIERS). */
+export type VideoTier = '240' | '360' | '480' | '720' | '1080';
 
-export function videoStreamUrl(videoId: string, height: VideoHeight): string {
-  return `/api/video/${encodeURIComponent(videoId)}?h=${height}`;
+/** "Kualitas video" in Pengaturan. Otomatis follows the connection up to 720p; Data Saver caps it like Hemat data. */
+export type VideoQuality = 'auto' | 'saver' | 'high';
+
+/**
+ * The highest quality the player may climb to. 720p for Otomatis: sharp on any phone and on a laptop's panel, at a
+ * third of 1080p's bytes, every one of which goes through this server's monthly egress. 1080p only when asked for.
+ */
+export function videoQualityCap(quality: VideoQuality, dataSaver: boolean): VideoTier {
+  if (dataSaver || quality === 'saver') return '480';
+  return quality === 'high' ? '1080' : '720';
 }
 
-/** Same video as an HLS playlist over byte ranges of that file (see server/src/routes/video.ts buildHlsPlaylist). */
-export function videoHlsUrl(videoId: string, height: VideoHeight): string {
-  return `/api/video/${encodeURIComponent(videoId)}/hls.m3u8?h=${height}`;
+/** One quality as a plain MP4: the fallback for a browser that can do neither HLS nor Media Source. */
+export function videoStreamUrl(videoId: string, tier: VideoTier): string {
+  return `/api/video/${encodeURIComponent(videoId)}?h=${tier}`;
+}
+
+/** Every quality up to `max` as an adaptive HLS playlist (see server/src/routes/video.ts buildMasterPlaylist). */
+export function videoMasterUrl(videoId: string, max: VideoTier): string {
+  return `/api/video/${encodeURIComponent(videoId)}/master.m3u8?max=${max}`;
 }
 
 /**
- * WebKit: every iPhone/iPad browser (they're all Safari underneath) and Safari on the Mac. It walks the whole of
- * YouTube's fragmented MP4 to find a time (~5s to the first frame); its native HLS fetches just the needed fragment.
- * Chrome/Firefox keep the plain MP4, which they open at once.
+ * WebKit: every iPhone/iPad browser (they're all Safari underneath) and Safari on the Mac. Its own HLS player does the
+ * adaptive switching itself, and is the only way on iPhones (no Media Source there for hls.js). Others play the same
+ * playlist through hls.js (VideoSurface).
  */
 export function prefersHls(video: HTMLVideoElement): boolean {
   if (typeof navigator === 'undefined' || video.canPlayType('application/vnd.apple.mpegurl') === '') return false;
@@ -96,7 +110,7 @@ export function warmMusicVideo(video: MusicVideo): void {
   if (warmed.has(video.videoId)) return;
   if (warmed.size >= MAX_WARMED) warmed.clear();
   warmed.add(video.videoId);
-  void fetch(`/api/video/${encodeURIComponent(video.videoId)}/warm?h=720`).catch(() => {});
+  void fetch(`/api/video/${encodeURIComponent(video.videoId)}/warm`).catch(() => {});
   if (!video.synced) prefetchAudioResolveOnly(video.videoId, 'high');
 }
 

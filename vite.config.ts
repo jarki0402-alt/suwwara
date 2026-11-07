@@ -68,6 +68,9 @@ export default defineConfig({
       includeAssets: ['icons/*.png', 'apple-touch-icon.png'],
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // hls.js (~380KB) is only for whoever opens a music video, which needs the network anyway: not downloaded
+        // into every install's precache.
+        globIgnores: ['**/hls.light-*.js'],
       },
       manifest: {
         name: 'Suwwara',

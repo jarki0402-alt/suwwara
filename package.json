@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "hls.js": "1.7.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "uqr": "^0.1.3",

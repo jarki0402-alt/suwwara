@@ -117,3 +117,9 @@
   font-size: 0.7rem;
   font-weight: 600;
 }
+
+/* Kualitas video while Data Saver decides it: shown, not choosable. */
+.segment:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

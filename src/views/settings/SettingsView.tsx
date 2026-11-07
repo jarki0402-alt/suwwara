@@ -5,6 +5,7 @@ import { useUiStore } from '../../stores/uiStore';
 import { useT } from '../../i18n/i18n';
 import { CacheManager } from './CacheManager';
 import { DataSaverToggle } from './DataSaverToggle';
+import { VideoQualitySetting } from './VideoQualitySetting';
 import { DiagnosticsPanel } from './DiagnosticsPanel';
 import { AccountSection } from './AccountSection';
 import { UpdateRow } from './UpdateRow';
@@ -54,6 +55,7 @@ export function SettingsView() {
             control={<span className={styles.linkButton}>{jamRole === 'jam' ? t('Kelola') : t('Mulai')}</span>}
           />
         </div>
+        <VideoQualitySetting />
       </div>
 
       <AccountSection />

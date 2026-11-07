@@ -28,7 +28,7 @@ suwwara/
 │   └── sw.ts            service worker (Workbox, injectManifest)
 ├── server/          backend GCP — Express + TypeScript (audio, akun, library, Jam — butuh proses persisten)
 │   └── src/
-│       ├── routes/      /api/audio, /api/video (video musik + HLS untuk Safari), /api/auth, /api/library, /api/jam (+ search/browse/details/similar/trending, dipertahankan sebagai fallback lokal — lihat nginx.conf)
+│       ├── routes/      /api/audio, /api/video (video musik, HLS adaptif 240p–1080p), /api/auth, /api/library, /api/jam (+ search/browse/details/similar/trending, dipertahankan sebagai fallback lokal — lihat nginx.conf)
 │       ├── db/           koneksi Postgres + schema (accounts, devices, library_snapshots, audio_cache)
 │       ├── auth/         sesi/cookie, sandi scrypt, pembatas login, audit, deviceAuth
 │       ├── metrics/      pemakaian bandwidth per hari + statistik resolve (dashboard admin)
@@ -36,7 +36,7 @@ suwwara/
 │       ├── connect/      hub in-memory perangkat per akun (kontrol jarak jauh) + sesi pemutaran akun (Postgres)
 │       ├── library/      penggabungan library dua akun
 │       ├── jam/          state room "Jam" in-memory + reducer antrean (mirror queueStore.ts)
-│       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses: high/low/idle) — `priorityLimiter.ts`; video musik di `video.ts`/`videoMatch.ts`
+│       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses: high/low/idle) — `priorityLimiter.ts`; video musik di `video.ts`/`videoMatch.ts`/`videoPlaylist.ts`
 ├── vercel/          proyek Vercel terpisah — search/browse/details/similar/trending (stateless, tanpa DB)
 │   ├── api/             Vercel Functions (file-based routing)
 │   └── lib/              logic YouTube Music, di-port apa adanya dari server/src/youtube/
@@ -80,7 +80,7 @@ Untuk deploy ke GCP + Vercel beneran, lihat bagian **Deploy** di bawah.
 
 ## Stack
 
-- **Frontend**: React 19, TypeScript, Vite, Zustand (state), Workbox (service worker via `vite-plugin-pwa`, strategi `injectManifest`)
+- **Frontend**: React 19, TypeScript, Vite, Zustand (state), hls.js light (video musik adaptif di Chrome/Android, dimuat hanya saat video dibuka; Safari/iPhone pakai HLS bawaan), Workbox (service worker via `vite-plugin-pwa`, strategi `injectManifest`)
 - **Backend (GCP)**: Express, `yt-dlp` (resolusi & proxy audio, cache di Postgres, dibatasi `p-limit` maks 3 proses bersamaan), `postgres` (klien DB, tanpa ORM), `ytmusic-api`/`youtube-sr` (fallback lokal untuk pencarian & metadata)
 - **Search/metadata (Vercel)**: Vercel Functions (Node runtime), `ytmusic-api`/`youtube-sr` — stateless, tanpa akses Postgres
 - **Database**: Postgres 16 (akun/device, snapshot library, cache resolve audio) — self-hosted di kontainer yang sama dengan backend, tidak pernah diekspos publik

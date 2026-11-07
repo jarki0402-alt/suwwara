@@ -51,6 +51,15 @@ export const settings: Dictionary = {
   'Data Saver': 'Data Saver',
   'Turunkan kualitas audio untuk menghemat kuota internet.': 'Lower the audio quality to save mobile data.',
 
+  // VideoQualitySetting
+  'Kualitas video': 'Video quality',
+  'Hemat data': 'Data saver',
+  Tinggi: 'High',
+  'Data Saver aktif: video maksimal 480p.': 'Data Saver is on: videos up to 480p.',
+  'Sampai 1080p kalau internet kuat. Pakai kuota lebih banyak.': 'Up to 1080p on a strong connection. Uses more data.',
+  'Maksimal 480p, paling hemat kuota.': 'Up to 480p, uses the least data.',
+  'Mengikuti kecepatan internet, sampai 720p.': 'Follows your connection speed, up to 720p.',
+
   // FullscreenSettings
   'Layar penuh': 'Fullscreen',
   'Tanpa bar browser dan jendela, seperti aplikasi. Tekan F atau Esc untuk keluar.': 'No browser bars or window, like an app. Press F or Esc to exit.',

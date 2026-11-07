@@ -1,9 +1,11 @@
 import { BoundedTtlCache } from './boundedCache';
 import { callResolver, ResolveAbortedError, scheduleOnResolver, type ResolvedStream } from './stream';
+import { VIDEO_TIERS, type VideoSet, type VideoTier, type VideoVariant } from './videoPlaylist';
 import { pickMusicVideo, shortlistVideoCandidates, type MusicVideoMatch, type SongForMatch, type VideoCandidate } from './videoMatch';
 import { getYTMusic } from './ytmusic';
 
 export type { MusicVideoMatch };
+export { parseVideoTier, pickVariant, VIDEO_TIERS, type VideoSet, type VideoTier, type VideoVariant } from './videoPlaylist';
 
 /**
  * Music videos ("Video" in Now Playing). Two jobs, both kept away from the audio path:
@@ -11,7 +13,7 @@ export type { MusicVideoMatch };
  *   Music's audio-only uploads; the MV is a different video id. YouTube Music's own song/video switch ("counterpart")
  *   only comes back for signed-in sessions, so the MV is found the way a person would: YouTube Music's video search,
  *   checked against each upload's real title and channel (videoMatch.ts has the rules).
- * - resolveVideo: the playable URL of its picture, through the same single yt-dlp slot as audio but in the 'idle'
+ * - resolveVideoSet: the playable URLs of its picture, every quality from one call, through the same single yt-dlp slot as audio but in the 'idle'
  *   lane, so it only ever runs when no song is waiting.
  */
 
@@ -81,15 +83,13 @@ export function findMusicVideo(song: SongForMatch): Promise<MusicVideoMatch | nu
   });
 }
 
-export type VideoHeight = '720' | '480';
-
 // googlevideo links live ~6h; the safety margin keeps a link from dying mid-video.
 const EXPIRY_MARGIN_MS = 30 * 60 * 1000;
 const FALLBACK_TTL_MS = 2 * 60 * 60 * 1000;
-// Few videos are watched compared to songs played, and an entry is a URL and a few headers.
+// Few videos are watched compared to songs played, and an entry is a handful of URLs and headers.
 const MAX_RESOLVED = 60;
-const resolved = new Map<string, { stream: ResolvedStream; expiresAt: number }>();
-const inFlight = new Map<string, { promise: Promise<ResolvedStream>; cancel: () => boolean; promote: () => void; interested: number }>();
+const resolved = new Map<string, { set: VideoSet; expiresAt: number }>();
+const inFlight = new Map<string, { promise: Promise<VideoSet>; cancel: () => boolean; promote: () => void; interested: number }>();
 
 setInterval(() => {
   const now = Date.now();
@@ -101,41 +101,60 @@ function expiryOf(url: string): number {
   return Number.isFinite(expireSec) && expireSec > 0 ? expireSec * 1000 - EXPIRY_MARGIN_MS : Date.now() + FALLBACK_TTL_MS;
 }
 
-export function forgetVideo(videoId: string, height: VideoHeight, deadUrl: string): void {
-  const key = `${videoId}:${height}`;
-  if (resolved.get(key)?.stream.url === deadUrl) resolved.delete(key);
+function toSet(stream: ResolvedStream): VideoSet {
+  const variants: VideoVariant[] = (stream.variants ?? []).flatMap((variant) =>
+    VIDEO_TIERS.includes(variant.tier as VideoTier)
+      ? [
+          {
+            tier: variant.tier as VideoTier,
+            stream: { url: variant.url, mimeType: 'video/mp4', httpHeaders: variant.httpHeaders, durationSec: stream.durationSec },
+            width: variant.width,
+            height: variant.height,
+            kbps: variant.kbps,
+            codecs: variant.codecs,
+          },
+        ]
+      : [],
+  );
+  // No ladder (a fallback client that only gave the 360p file with sound): that one file, as the only rung.
+  if (variants.length === 0) variants.push({ tier: '360', stream, width: null, height: null, kbps: null, codecs: null });
+  return { variants };
 }
 
-/** Playable URL of the MV's picture. `signal`: the viewer left, so a resolve still waiting in line is dropped. */
+export function forgetVideo(videoId: string, deadUrl: string): void {
+  if (resolved.get(videoId)?.set.variants.some((variant) => variant.stream.url === deadUrl)) resolved.delete(videoId);
+}
+
 /**
+ * Every quality of a video's picture. `signal`: the viewer left, so a resolve still waiting in line is dropped.
  * `priority`: 'idle' for the warm-up made as soon as the Video button shows (nobody waits on it yet, it must never
  * delay a song); 'high' once someone actually tapped Video and is looking at a spinner. That was 'idle' too at first,
  * and a tap then queued behind every next-song lookahead, several yt-dlp turns of 2-3s each: "the video is so slow".
  */
-export async function resolveVideo(videoId: string, height: VideoHeight, signal?: AbortSignal, priority: 'high' | 'idle' = 'high'): Promise<ResolvedStream> {
-  const key = `${videoId}:${height}`;
-  const hit = resolved.get(key);
-  if (hit && hit.expiresAt > Date.now()) return hit.stream;
+export async function resolveVideoSet(videoId: string, signal?: AbortSignal, priority: 'high' | 'idle' = 'high'): Promise<VideoSet> {
+  const hit = resolved.get(videoId);
+  if (hit && hit.expiresAt > Date.now()) return hit.set;
 
-  let job = inFlight.get(key);
+  let job = inFlight.get(videoId);
   if (job && priority === 'high') job.promote();
   if (!job) {
-    const { promise: raw, handle } = scheduleOnResolver(priority, () => callResolver(videoId, height, 'video'));
+    const { promise: raw, handle } = scheduleOnResolver(priority, () => callResolver(videoId, 'all', 'video'));
     const promise = raw
       .then((stream) => {
-        resolved.delete(key);
-        resolved.set(key, { stream, expiresAt: expiryOf(stream.url) });
+        const set = toSet(stream);
+        resolved.delete(videoId);
+        resolved.set(videoId, { set, expiresAt: expiryOf(set.variants[0]!.stream.url) });
         while (resolved.size > MAX_RESOLVED) {
           const oldest = resolved.keys().next().value;
           if (oldest === undefined) break;
           resolved.delete(oldest);
         }
-        return stream;
+        return set;
       })
-      .finally(() => inFlight.delete(key));
+      .finally(() => inFlight.delete(videoId));
     promise.catch(() => {});
     job = { promise, cancel: () => handle.cancel(), promote: () => handle.promote(), interested: 0 };
-    inFlight.set(key, job);
+    inFlight.set(videoId, job);
   }
 
   const joined = job;
@@ -153,7 +172,7 @@ export async function resolveVideo(videoId: string, height: VideoHeight, signal?
   }
   signal?.addEventListener('abort', release, { once: true });
   try {
-    return await new Promise<ResolvedStream>((resolve, reject) => {
+    return await new Promise<VideoSet>((resolve, reject) => {
       signal?.addEventListener('abort', () => reject(new ResolveAbortedError()), { once: true });
       joined.promise.then(resolve, reject);
     });

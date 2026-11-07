@@ -1,6 +1,6 @@
 import { BoundedTtlCache } from './boundedCache';
 import { callResolver, ResolveAbortedError, scheduleOnResolver, type ResolvedStream } from './stream';
-import { pickMusicVideo, type MusicVideoMatch, type SongForMatch, type VideoCandidate } from './videoMatch';
+import { pickMusicVideo, shortlistVideoCandidates, type MusicVideoMatch, type SongForMatch, type VideoCandidate } from './videoMatch';
 import { getYTMusic } from './ytmusic';
 
 export type { MusicVideoMatch };
@@ -10,7 +10,7 @@ export type { MusicVideoMatch };
  * - findMusicVideo: which YouTube video is the official MV of a song. The song ids this app plays are mostly YouTube
  *   Music's audio-only uploads; the MV is a different video id. YouTube Music's own song/video switch ("counterpart")
  *   only comes back for signed-in sessions, so the MV is found the way a person would: YouTube Music's video search,
- *   first result from the same artist whose title is the song's and isn't a lyric/live/cover upload.
+ *   checked against each upload's real title and channel (videoMatch.ts has the rules).
  * - resolveVideo: the playable URL of its picture, through the same single yt-dlp slot as audio but in the 'idle'
  *   lane, so it only ever runs when no song is waiting.
  */
@@ -37,6 +37,26 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+// oEmbed is YouTube's public, keyless "what is this video" endpoint: a few hundred bytes with the real title and channel.
+const OEMBED_TIMEOUT_MS = 4000;
+
+async function realUpload(videoId: string): Promise<{ title: string; channel: string } | null> {
+  try {
+    const url = `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(OEMBED_TIMEOUT_MS) });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { title?: unknown; author_name?: unknown };
+    return typeof body.title === 'string' && typeof body.author_name === 'string' ? { title: body.title, channel: body.author_name } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * YouTube Music's video search credits uploads to the song's artist and strips their titles: Dan Music's "dhruv -
+ * double take (Lyrics)" comes back as "double take" by "Dhruv", indistinguishable from the real MV. So the shortlist's
+ * real titles and channels are looked up (in parallel, a handful) and the choice is made on those.
+ */
 export function findMusicVideo(song: SongForMatch): Promise<MusicVideoMatch | null> {
   return matches.getOrLoad(song.id, async () => {
     const ytmusic = await getYTMusic();
@@ -47,7 +67,17 @@ export function findMusicVideo(song: SongForMatch): Promise<MusicVideoMatch | nu
       artist: video.artist?.name ?? '',
       durationSec: video.duration ?? 0,
     }));
-    return pickMusicVideo(song, candidates);
+    const shortlist = shortlistVideoCandidates(song, candidates);
+    if (shortlist.length === 0) return null;
+    const uploads = await Promise.all(shortlist.map((candidate) => realUpload(candidate.videoId)));
+    // Not one lookup answered: YouTube unreachable, not "no video". Thrown, so it isn't cached as a miss for a day.
+    if (uploads.every((upload) => upload === null)) throw new Error('video channel lookup failed');
+    // An upload whose channel couldn't be checked is left out rather than trusted on YouTube Music's word.
+    const verified = shortlist.flatMap((candidate, index) => {
+      const upload = uploads[index];
+      return upload ? [{ ...candidate, uploadTitle: upload.title, channel: upload.channel }] : [];
+    });
+    return pickMusicVideo(song, verified);
   });
 }
 

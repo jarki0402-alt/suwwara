@@ -123,6 +123,7 @@ export function UsagePanel() {
   const points = fillDailySeries(data?.series ?? [], days);
   const perUser = data?.perUser ?? [];
   const max = Math.max(...perUser.map((row) => row.bytes), 1);
+  const videoTotal = (data?.series ?? []).reduce((sum, row) => sum + (row.videoBytes ?? 0), 0);
 
   return (
     <>
@@ -138,6 +139,7 @@ export function UsagePanel() {
         <h2 className={styles.cardTitle}>Bandwidth per hari</h2>
         <TrendChart data={points} formatValue={formatBytes} ariaLabel={`Pemakaian bandwidth ${days} hari terakhir`} />
         <ChartFigures points={points} />
+        {videoTotal > 0 && <p className={styles.muted}>Termasuk video musik: {formatBytes(videoTotal)}</p>}
       </div>
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Per pengguna</h2>
@@ -149,7 +151,10 @@ export function UsagePanel() {
             <div className={styles.meter}>
               <div className={styles.meterFill} style={{ width: `${(row.bytes / max) * 100}%` }} />
             </div>
-            <span className={styles.rowValue}>{formatBytes(row.bytes)}</span>
+            <span className={styles.rowValue}>
+              {formatBytes(row.bytes)}
+              {row.videoBytes > 0 && <span className={styles.muted}> · video {formatBytes(row.videoBytes)}</span>}
+            </span>
           </div>
         ))}
         <p className={styles.muted}>Hanya jumlah byte yang dikirim server, bukan lagu apa yang diputar. Total sisi Cloudflare ada di dashboard Cloudflare.</p>

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { withViewTransition } from '../utils/viewTransition';
+import type { Song } from '../api/types';
+import type { MusicVideo } from '../video/musicVideo';
 
 export type ViewName = 'home' | 'search' | 'library' | 'settings';
 /**
@@ -62,6 +64,8 @@ interface UiState {
    * entirely, unlike the panel which lets you keep browsing.
    */
   isNowPlayingFullscreen: boolean;
+  /** The music video filling the screen (src/video/VideoTheater.tsx), or null. */
+  videoTheater: VideoTheaterSession | null;
   openConnectSheet: () => void;
   closeConnectSheet: () => void;
   setView: (view: ViewName) => void;
@@ -86,6 +90,15 @@ interface UiState {
   setLyricsOpen: (open: boolean) => void;
   openFullscreenLyrics: () => void;
   closeFullscreenLyrics: () => void;
+  openVideoTheater: (session: VideoTheaterSession) => void;
+  closeVideoTheater: () => void;
+}
+
+export interface VideoTheaterSession {
+  song: Song;
+  video: MusicVideo;
+  /** The video plays with its own sound and controls (a different cut from the song), the song paused meanwhile. */
+  ownSound: boolean;
 }
 
 /**
@@ -114,6 +127,7 @@ export const useUiStore = create<UiState>((set) => ({
   openedCollectionId: null,
   isLyricsOpen: false,
   isNowPlayingFullscreen: false,
+  videoTheater: null,
   // On desktop this is a docked right panel that reserves room from the page, so it opens/closes as one relayout step.
   openConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: true })),
   closeConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: false })),
@@ -144,4 +158,6 @@ export const useUiStore = create<UiState>((set) => ({
   setLyricsOpen: (open) => set({ isLyricsOpen: open }),
   openFullscreenLyrics: () => set({ isNowPlayingFullscreen: true, isLyricsOpen: true, isNowPlayingOpen: true }),
   closeFullscreenLyrics: () => set({ isNowPlayingFullscreen: false }),
+  openVideoTheater: (session) => set({ videoTheater: session }),
+  closeVideoTheater: () => set({ videoTheater: null }),
 }));

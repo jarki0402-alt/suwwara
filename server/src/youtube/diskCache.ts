@@ -129,3 +129,49 @@ export async function sweep(): Promise<void> {
 }
 
 setInterval(() => void sweep(), SWEEP_INTERVAL_MS).unref();
+
+// One-off clean-up (2026-11): for a long stretch yt-dlp could only get YouTube's 360p video+audio file, so the tracks
+// stored then are videos, 2-3x the bytes of the m4a now resolved, with a picture track Chrome on Android pauses in the
+// background. They're found by the video handler in the file's header (the moov box of that format sits at the start)
+// and deleted; the next play stores the audio-only file. The marker ends in .mime so sweep() never counts it.
+const AUDIO_ONLY_MARKER = '.audio-only-v1.mime';
+const HEADER_BYTES = 64 * 1024;
+
+async function hasVideoTrack(file: string): Promise<boolean> {
+  const handle = await open(file, 'r');
+  try {
+    const { buffer, bytesRead } = await handle.read(Buffer.alloc(HEADER_BYTES), 0, HEADER_BYTES, 0);
+    const head = buffer.subarray(0, bytesRead);
+    for (let at = head.indexOf('hdlr'); at !== -1; at = head.indexOf('hdlr', at + 4)) {
+      if (head.subarray(at + 4, at + 16).includes('vide')) return true;
+    }
+    return false;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function purgeVideoTracksOnce(): Promise<void> {
+  if (!(await ensureDir())) return;
+  try {
+    if (await stat(path.join(DIR, AUDIO_ONLY_MARKER)).then(() => true, () => false)) return;
+    let removed = 0;
+    // One file at a time: a slow background read, never a burst of disk I/O on the small VM.
+    for (const name of await readdir(DIR)) {
+      if (name.endsWith('.mime') || name.endsWith('.tmp')) continue;
+      const file = path.join(DIR, name);
+      if (await hasVideoTrack(file).catch(() => false)) {
+        await rm(file, { force: true });
+        await rm(`${file}.mime`, { force: true });
+        removed += 1;
+      }
+    }
+    await writeFile(path.join(DIR, AUDIO_ONLY_MARKER), 'done');
+    // eslint-disable-next-line no-console
+    console.log(`[audio-cache] removed ${removed} stored tracks that were video files`);
+  } catch {
+    // best effort: tried again on the next start
+  }
+}
+
+setTimeout(() => void purgeVideoTracksOnce(), 20_000).unref();

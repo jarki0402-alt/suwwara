@@ -24,7 +24,13 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
 // strategy for a multi-minute streamed audio response either way.
 registerRoute(
   // Sign-in and admin answers are never cached: a stale "you are signed in" served after a logout would be worse than an error.
-  ({ url }) => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/audio/') && !url.pathname.startsWith('/api/auth/') && !url.pathname.startsWith('/api/admin/'),
+  // Music videos are streamed by Range like audio, and never cached here for the same reasons (see below).
+  ({ url }) =>
+    url.pathname.startsWith('/api/') &&
+    !url.pathname.startsWith('/api/audio/') &&
+    !url.pathname.startsWith('/api/video/') &&
+    !url.pathname.startsWith('/api/auth/') &&
+    !url.pathname.startsWith('/api/admin/'),
   new NetworkFirst({
     cacheName: 'music-api',
     networkTimeoutSeconds: 4,

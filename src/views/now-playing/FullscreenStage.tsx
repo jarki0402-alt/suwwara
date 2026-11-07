@@ -1,6 +1,6 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import type { Song } from '../../api/types';
-import { primaryArtistNames } from '../../api/mappers';
+import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { DownloadButton } from '../../components/DownloadButton/DownloadButton';
 import { Icon } from '../../components/Icon/Icon';
@@ -22,6 +22,11 @@ import { LyricsPanel } from './LyricsPanel';
 import { PlayerControls } from './PlayerControls';
 import { SeekBar } from './SeekBar';
 import styles from './FullscreenStage.module.css';
+import { audioEngine } from '../../audio-engine/AudioEngine';
+import { songClock } from '../../video/musicVideo';
+import { openTheater } from '../../video/theater';
+import { useMusicVideo } from '../../video/useMusicVideo';
+import { VideoSurface } from '../../video/VideoSurface';
 
 /** The songs after the current one, with their place in the play order (what playAtPosition takes). */
 function useUpNext(limit: number): { song: Song; orderPosition: number }[] {
@@ -229,12 +234,15 @@ export function JamCard() {
   );
 }
 
-type Tab = 'lyrics' | 'queue' | 'jam';
+type Tab = 'lyrics' | 'queue' | 'jam' | 'video';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'lyrics', label: msg('Lirik') },
   { id: 'queue', label: msg('Antrean') },
   { id: 'jam', label: msg('Jam') },
 ];
+// Only while the song has a music video (FullscreenStage adds it).
+const VIDEO_TAB: { id: Tab; label: string } = { id: 'video', label: msg('Video') };
+const songStarving = () => audioEngine.getSnapshot().status === 'loading';
 
 /**
  * Desktop fullscreen, "Panggung Lirik" (2026-11 redesign, option B picked in Claude Design): the song in a compact
@@ -247,6 +255,12 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
   const { playbackState, remoteDevice, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
   const openConnectSheet = useUiStore((state) => state.openConnectSheet);
   const [tab, setTab] = useState<Tab>('lyrics');
+  const video = useMusicVideo(song);
+  const { showToast } = useToast();
+  const theaterOpen = useUiStore((state) => state.videoTheater !== null);
+  const tabs = video ? [...TABS, VIDEO_TAB] : TABS;
+  // The song changed to one without a video while its tab was showing: back to the lyrics.
+  const shownTab: Tab = tab === 'video' && !video ? 'lyrics' : tab;
 
   const isPlaying = playbackState.status === 'playing';
   const isBuffering = playbackState.status === 'loading';
@@ -259,13 +273,13 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
           {t('Kecilkan')}
         </button>
         <div className={styles.tabs} role="tablist" aria-label={t('Panel')}>
-          {TABS.map((item) => (
+          {tabs.map((item) => (
             <button
               key={item.id}
               type="button"
               role="tab"
-              aria-selected={tab === item.id}
-              className={[styles.tab, tab === item.id ? styles.tabActive : ''].join(' ')}
+              aria-selected={shownTab === item.id}
+              className={[styles.tab, shownTab === item.id ? styles.tabActive : ''].join(' ')}
               onClick={() => setTab(item.id)}
             >
               {t(item.label)}
@@ -297,19 +311,49 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
           <PlayerControls isPlaying={isPlaying} isBuffering={isBuffering} onTogglePlay={handleTogglePlay} onNext={handleNext} onPrevious={handlePrevious} />
         </section>
 
-        <section className={styles.stageColumn} aria-label={t(TABS.find((item) => item.id === tab)?.label ?? '')}>
-          {tab === 'lyrics' && (
+        <section className={styles.stageColumn} aria-label={t(tabs.find((item) => item.id === shownTab)?.label ?? '')}>
+          {shownTab === 'video' && video && (
+            <div className={styles.videoStage}>
+              {video.synced ? (
+                <VideoSurface
+                  key={video.videoId}
+                  videoId={video.videoId}
+                  clock={songClock}
+                  posterUrl={bestImageUrl(song.image, '500x500')}
+                  active={!theaterOpen}
+                  audioStarving={songStarving}
+                  className={styles.videoSurface}
+                  onUnavailable={(reason) => {
+                    setTab('lyrics');
+                    showToast(reason === 'slow' ? t('Koneksi terlalu lambat untuk video.') : t('Video tidak bisa diputar sekarang.'));
+                  }}
+                >
+                  <button type="button" className={styles.videoExpand} onClick={() => openTheater(song, video)} aria-label={t('Layar penuh')}>
+                    <Icon name="fullscreen" size={20} />
+                  </button>
+                </VideoSurface>
+              ) : (
+                <div className={styles.videoCut}>
+                  <p className={styles.jamNote}>{t('Video musik lagu ini versinya beda dari lagunya. Lagu dijeda selama videonya diputar, lalu lanjut lagi.')}</p>
+                  <button type="button" className={styles.jamPrimary} onClick={() => openTheater(song, video)}>
+                    {t('Tonton video musik')}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {shownTab === 'lyrics' && (
             <div className={styles.stageLyrics}>
               <LyricsPanel song={song} isFullscreen />
             </div>
           )}
-          {tab === 'queue' && (
+          {shownTab === 'queue' && (
             <div className={styles.panel}>
               <span className={styles.panelHeading}>{t('Berikutnya')}</span>
               <StageQueue />
             </div>
           )}
-          {tab === 'jam' && (
+          {shownTab === 'jam' && (
             <div className={styles.jamStage}>
               <JamCard />
               <p className={styles.jamNote}>

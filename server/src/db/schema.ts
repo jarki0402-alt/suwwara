@@ -131,6 +131,11 @@ create table if not exists usage_daily (
   primary key (account_id, day)
 );
 create index if not exists usage_daily_day_idx on usage_daily (day);
+-- Links resolved while yt-dlp could only get YouTube's 360p video+audio file (itag 18): dropped so the next play
+-- resolves the audio-only m4a. Only links that would be re-resolved within hours anyway; harmless to run again.
+delete from audio_cache where url ~ '[?&]itag=18(&|$)';
+-- Music videos (Now Playing → Video), kept apart from audio so the dashboard shows what the feature costs (2026-11).
+alter table usage_daily add column if not exists video_bytes bigint not null default 0;
 
 -- The account's one playback session (Spotify Connect): the running queue and where it is, whichever device plays it.
 -- One small row per account, so a phone opened after the laptop was closed can carry on from the same spot. The queue

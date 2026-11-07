@@ -10,6 +10,7 @@ import { DownloadButton } from '../../components/DownloadButton/DownloadButton';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { LikeButton } from '../../components/LikeButton/LikeButton';
+import { useToast } from '../../components/Toast/ToastProvider';
 import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import { useIdleMouse } from '../../hooks/useIdleMouse';
 import { useSwipeGesture } from '../../hooks/useSwipeGesture';
@@ -26,6 +27,15 @@ import { LyricsPanel } from './LyricsPanel';
 import styles from './NowPlayingView.module.css';
 import { PlayerControls } from './PlayerControls';
 import { SeekBar } from './SeekBar';
+import { audioEngine } from '../../audio-engine/AudioEngine';
+import { songClock, useVideoMode } from '../../video/musicVideo';
+import { MusicVideoToggle } from '../../video/MusicVideoToggle';
+import { openTheater } from '../../video/theater';
+import { useMusicVideo } from '../../video/useMusicVideo';
+import { VideoSurface } from '../../video/VideoSurface';
+
+// Synced video: the song itself is waiting for data, so the picture gives up its share of the connection.
+const songStarving = () => audioEngine.getSnapshot().status === 'loading';
 
 const IDLE_TIMEOUT_MS = 2500;
 
@@ -50,6 +60,12 @@ export function NowPlayingView() {
   const setLocalVolume = useSettingsStore((state) => state.setVolume);
 
   const { currentSong, playbackState, remoteDevice, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
+  // Only looked up while Now Playing is open: this component stays mounted, closed, for the whole session.
+  const video = useMusicVideo(isOpen ? currentSong : null);
+  const videoWanted = useVideoMode((state) => state.wanted);
+  const setVideoWanted = useVideoMode((state) => state.setWanted);
+  const theaterOpen = useUiStore((state) => state.videoTheater !== null);
+  const { showToast } = useToast();
   // As a remote, the slider is the other device's (shown only where that device lets a web page set it).
   const volume = remoteDevice ? (remoteDevice.state?.volume ?? 1) : localVolume;
   const setVolume = remoteDevice ? remoteSetVolume : setLocalVolume;
@@ -158,6 +174,8 @@ export function NowPlayingView() {
               <Icon name="speaker" size={15} />
               {t('Memutar di {name}', { name: remoteDevice.name })}
             </span>
+          ) : video ? (
+            <MusicVideoToggle song={currentSong} video={video} />
           ) : (
             <span className={styles.topBarLabel}>{t('Sedang Diputar')}</span>
           )}
@@ -178,6 +196,24 @@ export function NowPlayingView() {
         <div className={styles.artSection}>
           {showLyrics ? (
             <LyricsPanel song={currentSong} isFullscreen={isFullscreen} />
+          ) : video?.synced && videoWanted ? (
+            <VideoSurface
+              key={video.videoId}
+              videoId={video.videoId}
+              clock={songClock}
+              posterUrl={ambientUrl}
+              active={!theaterOpen}
+              audioStarving={songStarving}
+              className={styles.videoArt}
+              onUnavailable={(reason) => {
+                setVideoWanted(false);
+                showToast(reason === 'slow' ? t('Koneksi terlalu lambat untuk video, kembali ke lagu.') : t('Video tidak bisa diputar sekarang.'));
+              }}
+            >
+              <button type="button" className={styles.videoExpand} onClick={() => openTheater(currentSong, video)} aria-label={t('Layar penuh')}>
+                <Icon name="fullscreen" size={18} />
+              </button>
+            </VideoSurface>
           ) : (
             <LazyImage images={currentSong.image} quality="500x500" alt={currentSong.name} className={styles.art} />
           )}

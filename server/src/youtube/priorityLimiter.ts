@@ -1,4 +1,6 @@
-export type ResolvePriority = 'high' | 'low';
+// 'idle' is for music videos: they wait behind every audio resolve, speculative ones included, so tapping Video can
+// never be the reason a song starts late. It still can't preempt one that has already started (see below).
+export type ResolvePriority = 'high' | 'low' | 'idle';
 
 /** Thrown to a caller whose request went away (tab closed, the user tapped another
  * song) while its resolve was still waiting in line — see PriorityLimiter. */
@@ -42,6 +44,7 @@ export class PriorityLimiter {
   private active = 0;
   private readonly high: QueuedTask[] = [];
   private readonly low: QueuedTask[] = [];
+  private readonly idle: QueuedTask[] = [];
 
   private readonly maxConcurrency: number;
 
@@ -69,7 +72,7 @@ export class PriorityLimiter {
       },
     };
 
-    (priority === 'high' ? this.high : this.low).push(task);
+    (priority === 'high' ? this.high : priority === 'low' ? this.low : this.idle).push(task);
     this.dequeue();
 
     const handle: TaskHandle = {
@@ -78,7 +81,7 @@ export class PriorityLimiter {
       },
       cancel: () => {
         if (started) return false;
-        const removed = this.remove(this.high, task) || this.remove(this.low, task);
+        const removed = this.remove(this.high, task) || this.remove(this.low, task) || this.remove(this.idle, task);
         if (removed) settle.reject(new ResolveAbortedError());
         return removed;
       },
@@ -99,12 +102,12 @@ export class PriorityLimiter {
 
   private dequeue(): void {
     if (this.active >= this.maxConcurrency) return;
-    const next = this.high.shift() ?? this.low.shift();
+    const next = this.high.shift() ?? this.low.shift() ?? this.idle.shift();
     next?.start();
   }
 
   get pendingCount(): number {
-    return this.high.length + this.low.length;
+    return this.high.length + this.low.length + this.idle.length;
   }
 
   get activeCount(): number {

@@ -25,6 +25,30 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Video musik ala Spotify + audio ternyata selama ini file video)
+
+**Temuan besar dulu: "audio" yang dikirim selama ini adalah file video 360p.** Semua 192 link di `audio_cache` ber-`itag=18` (video H.264 360p + suara), bukan m4a. Penyebab: image `bgutil-provider` `:latest` lokal masih 1.3.2 sementara plugin pip sudah 2.0.2 → token PO mati diam-diam → klien android/ios cuma dapat format 18 (eksperimen SABR YouTube membuang URL adaptif mereka). Akibatnya bandwidth ~2,5x dari seharusnya, dan Chrome Android memperlakukan lagu sebagai *video* yang dijeda saat app ke background, cocok dengan laporan "dijeda sistem 9 ms setelah ke background" berulang 15x (15 = batas laporan per sesi, kejadian sesudahnya tak terlihat).
+- `bgutil-provider` dikunci ke `2.0.2` di compose dan pip (`requirements.txt`), wajib naik bareng.
+- yt-dlp sekarang klien `visionos` dulu (tanpa tantangan JS, ~1,8 dtk, dapat m4a 140 dan video 720p), lalu `web`, lalu android/ios sebagai cadangan terakhir. Default yt-dlp (visionos+web) diukur 4-6 dtk karena JS `web` dipecahkan Node tiap resolve.
+- Bersih-bersih satu kali: baris `audio_cache` itag 18 dihapus saat boot, file di cache disk yang punya track video dihapus (226 file lokal), diputar ulang jadi m4a.
+
+**Fitur: tombol Lagu | Video di Sedang Diputar** (tempat yang sama dengan Spotify).
+- Server mencari MV resmi lewat pencarian video YouTube Music (`server/src/youtube/videoMatch.ts`, fungsi murni + test): channel artis sama, judul sama, bukan lirik/live/cover/remix, durasi masuk akal. Pasangan bawaan YT Music ("counterpart") cuma keluar kalau login, jadi tidak dipakai.
+- **Sinkron** (durasi sama ±2 dtk): gambar MV tanpa suara menggantikan sampul, mengikuti audio lagu yang tidak pernah berhenti atau dimuat ulang (`src/video/VideoSurface.tsx`: suara = patokan, selisih kecil dikejar lewat kecepatan, selisih besar atau yang tertahan dilompat). Bisa diperbesar ke teater layar penuh.
+- **Versi beda** (ada intro/skit): dibuka di teater dengan suaranya sendiri (`<audio>` terpisah lewat `/api/audio` yang sama, dimulai di dalam ketukan supaya iOS mengizinkan), lagu dijeda lalu lanjut saat teater ditutup. Video habis → lagu berikutnya.
+- Desktop: toggle di panel samping, plus tab Video di layar penuh.
+- Back Android menutup teater (lapisan baru di `useBackNavigation`). Tidak muncul saat jadi remote perangkat lain atau di Jam.
+
+**Server, dijaga supaya tidak mengganggu audio:** resolve video lewat jalur antrean baru `idle` (selalu di belakang semua resolve audio, `priorityLimiter.ts`). Gambar dialirkan per potongan 1 MB dengan cache sendiri 12 MB (bukan cache audio 40 MB), maks 6 stream video sekaligus, `VIDEO_ENABLED=false` mematikan seluruh fitur. Hanya track video H.264 (bisa didekode hardware di semua HP), tanpa ffmpeg. Bandwidth video dicatat terpisah (`usage_daily.video_bytes`), total di dashboard sudah termasuk video. MV 720p ternyata kecil: ~0,9 Mbps, ~29 MB per 4,4 menit.
+
+**Safari/iPhone lewat HLS:** WebKit memindai seluruh MP4 terfragmentasi YouTube untuk mencari satu detik (diukur: ~20 permintaan Range, 5-9 dtk sampai gambar pertama). Sekarang server membangun playlist HLS dari indeks `sidx` file itu sendiri (potongan = rentang byte file yang sama, tanpa remux): gambar pertama ~1,3-2 dtk.
+
+**Terukur (Docker + Playwright, Pixel 7/Chromium dan iPhone 13/WebKit):**
+- Gambar pertama: Chromium ~1,3 dtk, WebKit ~2 dtk (link sudah di-resolve). Selisih gambar dan suara 0,02-0,05 dtk.
+- Internet dibatasi 1 Mbps sejak awal: audio maju terus (satu jeda ~0,5 dtk dalam 40 dtk), video turun ke 480p. Di 0,7 Mbps: video menyerah ke sampul dengan pesan, audio 0 jeda.
+- Teater versi beda: lagu dijeda, MV jalan, tutup → lagu lanjut. Back menutup teater.
+- Belum dites di HP asli: rotasi otomatis ke landscape (Android), Low Power Mode iPhone (ada tombol "Ketuk untuk memutar video" kalau autoplay ditolak).
+
 ## Perubahan terbaru · 2026-11-06 (Android: musik mati saat keluar dari PWA)
 
 Laporan: di HP dan tablet Android, keluar dari Suwwara saat lagu diputar → musik langsung berhenti, harus diputar manual lagi.

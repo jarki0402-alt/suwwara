@@ -3,7 +3,8 @@ import { useSyncExternalStore } from 'react';
 /**
  * Real fullscreen (the Fullscreen API): no window title bar, no dock, no browser chrome. Used two ways, by two owners:
  * - 'app': the whole of Suwwara (top bar button, the F key, "Buka dalam layar penuh" in Pengaturan);
- * - 'view': Now Playing's "Perbesar layar penuh" lyrics view.
+ * - 'view': Now Playing's "Perbesar layar penuh" lyrics view;
+ * - 'video': the music video theater (src/video/VideoTheater.tsx).
  * Only the owner that started fullscreen ends it, so stepping out of the lyrics view while the whole app is fullscreen
  * keeps the app fullscreen. Safari on the Mac still only has the prefixed webkit* names, so both are tried. Where a page
  * may not go fullscreen at all (iPhone Safari allows it for <video> only) isFullscreenSupported is false, the buttons
@@ -15,7 +16,7 @@ type FullscreenDocument = Document & {
   webkitExitFullscreen?: () => Promise<void> | void;
 };
 type FullscreenElement = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
-export type FullscreenOwner = 'app' | 'view';
+export type FullscreenOwner = 'app' | 'view' | 'video';
 
 const doc = () => document as FullscreenDocument;
 let owner: FullscreenOwner | null = null;

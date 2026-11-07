@@ -1,0 +1,56 @@
+.toggle {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 999px;
+  /* Now Playing sits on the cover's own colours under a dark scrim: a translucent pill reads on any of them. */
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: toggleIn 240ms ease;
+}
+
+@keyframes toggleIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.option:hover {
+  color: #fff;
+}
+
+.active {
+  background: #fff;
+  color: #111;
+}
+
+.active:hover {
+  color: #111;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle {
+    animation: none;
+  }
+}

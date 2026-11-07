@@ -15,22 +15,37 @@ interface Pending {
   day: string;
   bytes: number;
   requests: number;
+  videoBytes: number;
 }
 const pending = new Map<string, Pending>();
 
 const today = (): string => new Date().toISOString().slice(0, 10);
 
-export function recordAudio(accountId: string | undefined, bytes: number): void {
+function record(accountId: string | undefined, bytes: number, kind: 'audio' | 'video'): void {
   if (!accountId || bytes <= 0) return;
   const day = today();
   const key = `${accountId}|${day}`;
-  const entry = pending.get(key);
-  if (entry) {
+  let entry = pending.get(key);
+  if (!entry) {
+    if (pending.size >= MAX_PENDING) return;
+    entry = { accountId, day, bytes: 0, requests: 0, videoBytes: 0 };
+    pending.set(key, entry);
+  }
+  if (kind === 'video') {
+    entry.videoBytes += bytes;
+  } else {
     entry.bytes += bytes;
     entry.requests += 1;
-  } else if (pending.size < MAX_PENDING) {
-    pending.set(key, { accountId, day, bytes, requests: 1 });
   }
+}
+
+export function recordAudio(accountId: string | undefined, bytes: number): void {
+  record(accountId, bytes, 'audio');
+}
+
+/** Music videos, counted apart so the dashboard shows what the Video button costs. */
+export function recordVideo(accountId: string | undefined, bytes: number): void {
+  record(accountId, bytes, 'video');
 }
 
 export async function flushUsage(): Promise<void> {
@@ -40,10 +55,11 @@ export async function flushUsage(): Promise<void> {
   try {
     for (const entry of batch) {
       await sql`
-        insert into usage_daily (account_id, day, audio_bytes, audio_requests)
-        values (${entry.accountId}, ${entry.day}, ${entry.bytes}, ${entry.requests})
+        insert into usage_daily (account_id, day, audio_bytes, audio_requests, video_bytes)
+        values (${entry.accountId}, ${entry.day}, ${entry.bytes}, ${entry.requests}, ${entry.videoBytes})
         on conflict (account_id, day) do update
-          set audio_bytes = usage_daily.audio_bytes + excluded.audio_bytes, audio_requests = usage_daily.audio_requests + excluded.audio_requests
+          set audio_bytes = usage_daily.audio_bytes + excluded.audio_bytes, audio_requests = usage_daily.audio_requests + excluded.audio_requests,
+              video_bytes = usage_daily.video_bytes + excluded.video_bytes
       `;
     }
   } catch {

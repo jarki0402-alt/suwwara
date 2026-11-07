@@ -57,4 +57,20 @@ export const nowPlaying: Dictionary = {
   'Koneksi lambat, lagu gagal dimuat.': "Slow connection, the song didn't load.",
   'Terjadi kesalahan saat memutar: sumber audio tidak tersedia.': 'Something went wrong while playing: the audio source is unavailable.',
   'Ketuk untuk lanjutkan audio Jam.': 'Tap to resume Jam audio.',
+
+  // Music video (Lagu | Video, the theater)
+  'Lagu atau video': 'Song or video',
+  Lagu: 'Song',
+  Video: 'Video',
+  'Video musik': 'Music video',
+  'Ketuk untuk memutar video': 'Tap to play the video',
+  'Video tidak bisa diputar sekarang.': "The video can't be played right now.",
+  'Tutup video': 'Close video',
+  'Versi video musik': 'Music video version',
+  'Posisi video': 'Video position',
+  'Video musik lagu ini versinya beda dari lagunya. Lagu dijeda selama videonya diputar, lalu lanjut lagi.':
+    "This song's music video is a different cut from the song. The song pauses while the video plays, then carries on.",
+  'Tonton video musik': 'Watch the music video',
+  'Koneksi terlalu lambat untuk video, kembali ke lagu.': 'Connection too slow for video, back to the song.',
+  'Koneksi terlalu lambat untuk video.': 'Connection too slow for video.',
 };

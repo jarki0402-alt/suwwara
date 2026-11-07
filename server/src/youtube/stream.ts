@@ -87,6 +87,11 @@ setInterval(() => {
 // making one resolve faster was never the actual problem.
 const limit = new PriorityLimiter(1);
 
+/** The same single yt-dlp slot, for the music-video resolves in video.ts (always the 'idle' lane). */
+export function scheduleOnResolver<T>(priority: ResolvePriority, fn: () => Promise<T>): { promise: Promise<T>; handle: TaskHandle } {
+  return limit.schedule(priority, fn);
+}
+
 // Cold yt-dlp resolutions (BotGuard PO-token handshake included) normally land
 // in a few seconds; this is a safety net, not the expected case. Without it, a
 // hung ytdlp-service/bgutil-provider call (e.g. its headless Chrome wedged)
@@ -201,7 +206,7 @@ function startJob(videoId: string, quality: AudioQuality, priority: ResolvePrior
   // eslint-disable-next-line no-console
   console.log(`[audio] ${videoId} (${quality}): CACHE MISS, queued for yt-dlp (priority: ${priority}, queue depth: ${limit.pendingCount}, active: ${limit.activeCount})`);
 
-  const { promise: raw, handle } = limit.schedule(priority, () => resolveAudioUncached(videoId, quality));
+  const { promise: raw, handle } = limit.schedule(priority, () => callResolver(videoId, quality, 'audio'));
   const promise = raw
     .then(async (audio) => {
       const expiresAt = cacheExpiryMs(audio.url);
@@ -292,12 +297,16 @@ export async function resolveAudio(
   }
 }
 
+export interface ResolvedStream extends ResolvedAudio {
+  durationSec: number | null;
+}
+
 /**
- * Shells out to the yt-dlp Python microservice to resolve a playable audio URL.
+ * Shells out to the yt-dlp Python microservice to resolve a playable URL (audio, or a music video's picture).
  * Using a constantly running Python microservice avoids the massive multi-second
  * cold-start penalty of spawning the yt-dlp CLI and Python VM from scratch for every request.
  */
-async function resolveAudioUncached(videoId: string, quality: AudioQuality): Promise<ResolvedAudio> {
+export async function callResolver(videoId: string, quality: string, kind: 'audio' | 'video'): Promise<ResolvedStream> {
   if (Date.now() < breakerOpenUntil) {
     throw new Error(`yt-dlp resolver paused after repeated failures for ${videoId}`);
   }
@@ -307,7 +316,7 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ video_id: videoId, quality }),
+      body: JSON.stringify({ video_id: videoId, quality, kind }),
       signal: AbortSignal.timeout(RESOLVE_TIMEOUT_MS),
     });
 
@@ -322,12 +331,13 @@ async function resolveAudioUncached(videoId: string, quality: AudioQuality): Pro
       url: data.url,
       mimeType: data.mimeType,
       httpHeaders: data.httpHeaders,
+      durationSec: typeof data.duration === 'number' ? data.duration : null,
     };
   } catch (error) {
     consecutiveFailures += 1;
     if (consecutiveFailures >= BREAKER_FAILURES) breakerOpenUntil = Date.now() + BREAKER_OPEN_MS;
     // eslint-disable-next-line no-console
-    console.error(`[audio] ${videoId} (${quality}): yt-dlp microservice FAILED: ${(error as Error).message}`);
-    throw new Error(`yt-dlp microservice failed to resolve audio for ${videoId}: ${(error as Error).message}`);
+    console.error(`[${kind}] ${videoId} (${quality}): yt-dlp microservice FAILED: ${(error as Error).message}`);
+    throw new Error(`yt-dlp microservice failed to resolve ${kind} for ${videoId}: ${(error as Error).message}`);
   }
 }

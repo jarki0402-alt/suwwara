@@ -48,7 +48,8 @@ export type IconName =
   | 'tablet'
   | 'speaker'
   | 'fullscreen'
-  | 'fullscreen-exit';
+  | 'fullscreen-exit'
+  | 'video';
 
 interface IconProps {
   name: IconName;
@@ -426,6 +427,14 @@ function IconPaths({ name }: { name: IconName }) {
       return <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />;
     case 'fullscreen-exit':
       return <path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />;
+    case 'video':
+      // A screen with a play triangle: "watch".
+      return (
+        <>
+          <rect x="2.5" y="5" width="19" height="14" rx="3" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M10 9.2v5.6l4.8-2.8z" fill="currentColor" />
+        </>
+      );
     case 'speaker':
       // A speaker with sound waves — "this is where the sound comes out".
       return (

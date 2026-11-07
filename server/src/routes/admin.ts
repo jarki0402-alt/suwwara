@@ -40,8 +40,8 @@ adminRouter.get('/admin/users', async (_req, res) => {
     select u.account_id as id, u.username, u.role, u.disabled, u.must_change_password, u.created_at, u.last_login_at,
       (select count(*)::int from sessions s where s.account_id = u.account_id and s.expires_at > now()) as sessions,
       (select count(*)::int from devices d where d.account_id = u.account_id) as devices,
-      coalesce((select sum(audio_bytes) from usage_daily x where x.account_id = u.account_id and x.day = current_date), 0)::bigint as today_bytes,
-      coalesce((select sum(audio_bytes) from usage_daily x where x.account_id = u.account_id and x.day > current_date - 30), 0)::bigint as month_bytes
+      coalesce((select sum(audio_bytes + video_bytes) from usage_daily x where x.account_id = u.account_id and x.day = current_date), 0)::bigint as today_bytes,
+      coalesce((select sum(audio_bytes + video_bytes) from usage_daily x where x.account_id = u.account_id and x.day > current_date - 30), 0)::bigint as month_bytes
     from users u order by u.created_at
   `;
   res.json({ users: rows.map((row) => ({ ...row, today_bytes: Number(row.today_bytes), month_bytes: Number(row.month_bytes) })) });
@@ -166,17 +166,18 @@ adminRouter.delete('/admin/users/:id', async (req, res) => {
 adminRouter.get('/admin/usage', async (req, res) => {
   const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 90);
   await flushUsage();
-  const series = await sql<{ day: string; bytes: string; requests: number }[]>`
-    select to_char(day, 'YYYY-MM-DD') as day, sum(audio_bytes)::bigint as bytes, sum(audio_requests)::int as requests
+  const series = await sql<{ day: string; bytes: string; video_bytes: string; requests: number }[]>`
+    select to_char(day, 'YYYY-MM-DD') as day, sum(audio_bytes + video_bytes)::bigint as bytes, sum(video_bytes)::bigint as video_bytes, sum(audio_requests)::int as requests
     from usage_daily where day > current_date - ${days}::int group by day order by day`;
-  const perUser = await sql<{ username: string; bytes: string; requests: number }[]>`
-    select u.username, sum(x.audio_bytes)::bigint as bytes, sum(x.audio_requests)::int as requests
+  const perUser = await sql<{ username: string; bytes: string; video_bytes: string; requests: number }[]>`
+    select u.username, sum(x.audio_bytes + x.video_bytes)::bigint as bytes, sum(x.video_bytes)::bigint as video_bytes, sum(x.audio_requests)::int as requests
     from usage_daily x join users u on u.account_id = x.account_id
     where x.day > current_date - ${days}::int group by u.username order by 2 desc limit 50`;
   res.json({
     days,
-    series: series.map((row) => ({ day: row.day, bytes: Number(row.bytes), requests: row.requests })),
-    perUser: perUser.map((row) => ({ username: row.username, bytes: Number(row.bytes), requests: row.requests })),
+    // `bytes` is everything the server sent (audio + video), `videoBytes` the part of it that was music videos.
+    series: series.map((row) => ({ day: row.day, bytes: Number(row.bytes), videoBytes: Number(row.video_bytes), requests: row.requests })),
+    perUser: perUser.map((row) => ({ username: row.username, bytes: Number(row.bytes), videoBytes: Number(row.video_bytes), requests: row.requests })),
   });
 });
 
@@ -188,9 +189,9 @@ adminRouter.get('/admin/overview', async (_req, res) => {
       (select count(*)::int from users where disabled) as disabled,
       (select count(*)::int from sessions where expires_at > now()) as sessions,
       (select count(distinct account_id)::int from sessions where last_seen_at > now() - interval '15 minutes' and expires_at > now()) as active_now,
-      coalesce((select sum(audio_bytes) from usage_daily where day = current_date), 0)::bigint as today_bytes,
-      coalesce((select sum(audio_bytes) from usage_daily where day > current_date - 30), 0)::bigint as month_bytes,
-      coalesce((select sum(audio_bytes) from usage_daily where day >= date_trunc('month', current_date)::date), 0)::bigint as billing_cycle_bytes`;
+      coalesce((select sum(audio_bytes + video_bytes) from usage_daily where day = current_date), 0)::bigint as today_bytes,
+      coalesce((select sum(audio_bytes + video_bytes) from usage_daily where day > current_date - 30), 0)::bigint as month_bytes,
+      coalesce((select sum(audio_bytes + video_bytes) from usage_daily where day >= date_trunc('month', current_date)::date), 0)::bigint as billing_cycle_bytes`;
   res.json({
     users: counts.users,
     disabled: counts.disabled,

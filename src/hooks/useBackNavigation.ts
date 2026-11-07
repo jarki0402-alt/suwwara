@@ -10,6 +10,7 @@ type Ui = ReturnType<typeof useUiStore.getState>;
 // Everything the system Back should close, top-most first. Without history entries for these, the
 // Android back gesture/button (and a browser's Back) left the whole app instead.
 const LAYERS: { isOpen: (ui: Ui) => boolean; close: (ui: Ui) => void }[] = [
+  { isOpen: (ui) => ui.videoTheater !== null, close: (ui) => ui.closeVideoTheater() },
   { isOpen: (ui) => ui.joinJamRoomId !== null, close: (ui) => ui.closeJoinJamSheet() },
   { isOpen: (ui) => ui.isJamSheetOpen, close: (ui) => ui.closeJamSheet() },
   { isOpen: (ui) => ui.isConnectSheetOpen, close: (ui) => ui.closeConnectSheet() },

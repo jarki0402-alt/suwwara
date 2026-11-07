@@ -338,6 +338,29 @@
   /* No border: a 1px light outline drawn over the photo's edge read as a grey line cutting into the art. */
 }
 
+/* The music video in the cover's place: wider than the square cover (16:9), as wide as the sheet allows. */
+.videoArt {
+  width: min(92vw, 640px);
+}
+
+.videoExpand {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 .meta {
   display: flex;
   align-items: center;
@@ -567,5 +590,9 @@
     width: 100%;
     height: auto;
     aspect-ratio: 1;
+  }
+
+  .overlayArt .artSection > .videoArt {
+    width: 100%;
   }
 }

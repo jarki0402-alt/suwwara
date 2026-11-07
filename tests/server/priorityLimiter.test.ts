@@ -134,4 +134,25 @@ describe('PriorityLimiter', () => {
     await expect(good.promise).resolves.toBe('fine');
     expect(limiter.activeCount).toBe(0);
   });
+
+  it("runs 'idle' tasks (music videos) only after every high and low task", async () => {
+    const limiter = new PriorityLimiter(1);
+    const started: string[] = [];
+    const gates: Array<() => void> = [];
+    const make = (label: string) => () =>
+      new Promise<void>((resolve) => {
+        started.push(label);
+        gates.push(resolve);
+      });
+    limiter.schedule('high', make('first'));
+    limiter.schedule('idle', make('video'));
+    limiter.schedule('low', make('lookahead'));
+    limiter.schedule('high', make('tapped'));
+    await tick();
+    for (let i = 0; i < 3; i += 1) {
+      gates.shift()?.();
+      await tick();
+    }
+    expect(started).toEqual(['first', 'tapped', 'lookahead', 'video']);
+  });
 });

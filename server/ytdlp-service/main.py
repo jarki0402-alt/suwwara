@@ -37,7 +37,8 @@ threading.Thread(target=_watchdog, daemon=True).start()
 
 class ResolveRequest(BaseModel):
     video_id: str
-    quality: str  # 'high' or 'low'
+    quality: str  # audio: 'high' or 'low'; video: the max height, '720' or '480'
+    kind: str = 'audio'  # 'audio' or 'video'
 
 EXT_TO_MIME = {
     'm4a': 'audio/mp4',
@@ -46,52 +47,74 @@ EXT_TO_MIME = {
     'mp3': 'audio/mpeg',
 }
 
-def format_selector(quality: str) -> str:
+def format_selector(quality: str, kind: str) -> str:
+    if kind == 'video':
+        # Video only (the sound is the song's own audio, or the MV's audio stream, played next to it) and H.264 in MP4:
+        # the one codec every phone decodes in hardware, iPhones included. VP9/AV1 would be smaller but software-decoded
+        # (hot, stuttering) on older Androids and not playable from a plain <video src> on iOS. The last resort is the
+        # 360p file with sound, which still plays muted.
+        height = 480 if quality == '480' else 720
+        return f'bestvideo[height<={height}][vcodec^=avc1][ext=mp4]/bestvideo[height<={height}][ext=mp4]/best[height<={height}][ext=mp4]'
     if quality == 'low':
         return 'worstaudio[ext=m4a]/worstaudio/worst[ext=mp4]/worst'
     return 'bestaudio[ext=m4a]/bestaudio/best[ext=mp4]/best'
 
-@app.post("/resolve")
-def resolve_audio(req: ResolveRequest):
-    url = f"https://www.youtube.com/watch?v={req.video_id}"
+# visionos first: it gets the real adaptive formats (m4a audio, 720p H.264 video) without a JavaScript challenge, ~1.8s
+# per resolve. yt-dlp's own default (visionos + web) took 4-6s, the web client's player JS is solved in Node on every
+# resolve. The android/ios pair used to be the only setting, but YouTube's SABR-only experiment strips their adaptive
+# URLs, leaving just the 360p video+audio file, which this service then handed out as "audio"; it stays as the last
+# resort so something always plays.
+CLIENT_ATTEMPTS = (['visionos'], ['web'], ['android', 'ios'])
+
+def extract(video_id: str, fmt: str, clients):
+    youtube_args = {'player_client': clients}
     ydl_opts = {
-        'format': format_selector(req.quality),
+        'format': fmt,
         'js_runtimes': {'node': {}},
         'extractor_args': {
-            'youtube': {'player_client': ['android', 'ios']},
+            'youtube': youtube_args,
             'youtubepot-bgutilhttp': {'base_url': ['http://bgutil-provider:4416']},
         },
         'quiet': True,
         'no_warnings': True,
         'socket_timeout': 20,
     }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+    if not info or not info.get('url'):
+        raise Exception("No stream URL found in extracted info")
+    return info
 
+@app.post("/resolve")
+def resolve_audio(req: ResolveRequest):
+    fmt = format_selector(req.quality, req.kind)
     global _infra_failures
     token = threading.get_ident()
     with _state_lock:
         _inflight[token] = time.time()
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if not info:
-                raise Exception("No info extracted")
-                
-            stream_url = info.get('url')
-            ext = info.get('ext')
-            http_headers = info.get('http_headers', {})
-            
-            if not stream_url:
-                raise Exception("No stream URL found in extracted info")
+        info = None
+        for attempt, clients in enumerate(CLIENT_ATTEMPTS):
+            try:
+                info = extract(req.video_id, fmt, clients)
+                break
+            except Exception as e:
+                if attempt == len(CLIENT_ATTEMPTS) - 1:
+                    raise
+                logger.warning(f"{req.video_id} ({req.kind}): client {clients} failed ({str(e)[:160]}), trying {CLIENT_ATTEMPTS[attempt + 1]}")
 
-            with _state_lock:
-                _infra_failures = 0
-            return {
-                "url": stream_url,
-                "mimeType": EXT_TO_MIME.get(ext, 'audio/mp4'),
-                "httpHeaders": http_headers
-            }
+        with _state_lock:
+            _infra_failures = 0
+        ext = info.get('ext')
+        return {
+            "url": info['url'],
+            "mimeType": 'video/mp4' if req.kind == 'video' else EXT_TO_MIME.get(ext, 'audio/mp4'),
+            "httpHeaders": info.get('http_headers', {}),
+            "formatId": info.get('format_id'),
+            "duration": info.get('duration'),
+        }
     except Exception as e:
-        logger.error(f"yt-dlp failed to resolve audio for {req.video_id}: {str(e)}")
+        logger.error(f"yt-dlp failed to resolve {req.kind} for {req.video_id}: {str(e)}")
         # Only network-shaped failures count: a private or removed video fails on its own without anything being wrong.
         if any(marker in str(e).lower() for marker in INFRA_ERROR_MARKERS):
             with _state_lock:

@@ -32,8 +32,9 @@ export interface Overview {
 
 export interface Usage {
   days: number;
-  series: Array<{ day: string; bytes: number; requests: number }>;
-  perUser: Array<{ username: string; bytes: number; requests: number }>;
+  /** `bytes` is everything sent (audio + video); `videoBytes` the music-video part of it. */
+  series: Array<{ day: string; bytes: number; videoBytes: number; requests: number }>;
+  perUser: Array<{ username: string; bytes: number; videoBytes: number; requests: number }>;
 }
 
 export interface SystemInfo {

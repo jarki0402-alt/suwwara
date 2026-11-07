@@ -16,6 +16,7 @@ suwwara/
 │   ├── jam/             client "Jam" (dengerin bareng) — SSE client, aksi antrean yang jam-aware
 │   ├── stores/         Zustand stores (player, queue, library, history, settings, ui, jam)
 │   ├── recommendation/ mesin rekomendasi & trending berbasis histori lokal
+│   ├── video/           video musik (Lagu | Video): VideoSurface mengikuti audio, VideoTheater layar penuh
 │   ├── i18n/            dua bahasa (Indonesia bawaan + Inggris): t()/useT(), kamus Inggris di i18n/en/ (dimuat lazy)
 │   ├── lyrics/         parser LRC, sinkronisasi + koreksi waktu lirik (data dari backend /api/lyrics)
 │   ├── views/          layar: home, search, library, queue, now-playing, settings
@@ -27,7 +28,7 @@ suwwara/
 │   └── sw.ts            service worker (Workbox, injectManifest)
 ├── server/          backend GCP — Express + TypeScript (audio, akun, library, Jam — butuh proses persisten)
 │   └── src/
-│       ├── routes/      /api/audio, /api/auth, /api/library, /api/jam (+ search/browse/details/similar/trending, dipertahankan sebagai fallback lokal — lihat nginx.conf)
+│       ├── routes/      /api/audio, /api/video (video musik + HLS untuk Safari), /api/auth, /api/library, /api/jam (+ search/browse/details/similar/trending, dipertahankan sebagai fallback lokal — lihat nginx.conf)
 │       ├── db/           koneksi Postgres + schema (accounts, devices, library_snapshots, audio_cache)
 │       ├── auth/         sesi/cookie, sandi scrypt, pembatas login, audit, deviceAuth
 │       ├── metrics/      pemakaian bandwidth per hari + statistik resolve (dashboard admin)
@@ -35,7 +36,7 @@ suwwara/
 │       ├── connect/      hub in-memory perangkat per akun (kontrol jarak jauh) + sesi pemutaran akun (Postgres)
 │       ├── library/      penggabungan library dua akun
 │       ├── jam/          state room "Jam" in-memory + reducer antrean (mirror queueStore.ts)
-│       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses) — `priorityLimiter.ts`
+│       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses: high/low/idle) — `priorityLimiter.ts`; video musik di `video.ts`/`videoMatch.ts`
 ├── vercel/          proyek Vercel terpisah — search/browse/details/similar/trending (stateless, tanpa DB)
 │   ├── api/             Vercel Functions (file-based routing)
 │   └── lib/              logic YouTube Music, di-port apa adanya dari server/src/youtube/

@@ -12,6 +12,7 @@ import { useUiStore } from '../stores/uiStore';
 import { InstallBanner } from '../components/InstallBanner/InstallBanner';
 import { JamPill } from '../components/JamIndicator/JamIndicator';
 import { NowPlayingView } from '../views/now-playing/NowPlayingView';
+import { VideoTheater } from '../video/VideoTheater';
 import styles from './AppShell.module.css';
 import { BottomNav } from './BottomNav';
 
@@ -117,6 +118,7 @@ function ShellBody() {
       <BottomNav />
       <JamPill />
       <NowPlayingView />
+      <VideoTheater />
       <JamSheet isOpen={isJamSheetOpen} onClose={closeJamSheet} />
       {joinJamRoomId && <JoinJamSheet isOpen roomId={joinJamRoomId} onClose={closeJoinJamSheet} />}
       {isConnectSheetOpen && <ConnectSheet />}

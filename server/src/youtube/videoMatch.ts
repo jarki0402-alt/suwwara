@@ -68,9 +68,9 @@ export function pickMusicVideo(song: SongForMatch, candidates: VideoCandidate[])
   if (!title || songArtists.length === 0) return null;
 
   for (const candidate of candidates.slice(0, CANDIDATES_CHECKED)) {
-    if (candidate.videoId === song.id) {
-      return { videoId: candidate.videoId, durationSec: candidate.durationSec || song.durationSec, synced: true };
-    }
+    // The song being one of the results is no reason to take it: songs that came from a radio or "similar" list are
+    // often a lyric channel's upload (Dan Music, 7clouds) of the real song, and showing that "video" is exactly what
+    // this is meant to avoid. It goes through the same artist/title checks as every other result.
     const channel = normalize(cleanChannelName(candidate.artist));
     const sameArtist = songArtists.some((artist) => channel === artist || channel.includes(artist) || artist.includes(channel));
     if (!sameArtist || !channel) continue;
@@ -79,7 +79,7 @@ export function pickMusicVideo(song: SongForMatch, candidates: VideoCandidate[])
     if (NOT_A_MUSIC_VIDEO.some((word) => hasWord(name, word) && !hasWord(songText, word))) continue;
     // A compilation or a full live set under the same title is not this song's video.
     if (song.durationSec > 0 && candidate.durationSec > 0 && (candidate.durationSec < song.durationSec * 0.75 || candidate.durationSec > song.durationSec * 1.8 + 30)) continue;
-    const synced = song.durationSec > 0 && Math.abs(candidate.durationSec - song.durationSec) <= SYNC_TOLERANCE_SEC;
+    const synced = candidate.videoId === song.id || (song.durationSec > 0 && Math.abs(candidate.durationSec - song.durationSec) <= SYNC_TOLERANCE_SEC);
     return { videoId: candidate.videoId, durationSec: candidate.durationSec, synced };
   }
   return null;

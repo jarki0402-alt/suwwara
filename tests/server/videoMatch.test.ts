@@ -47,4 +47,12 @@ describe('pickMusicVideo', () => {
     const match = pickMusicVideo({ id: 'same', title: 'Song', artist: 'Artist', durationSec: 200 }, [{ videoId: 'same', name: 'Song', artist: 'Artist', durationSec: 200 }]);
     expect(match).toEqual({ videoId: 'same', durationSec: 200, synced: true });
   });
+
+  it("passes over the song itself when it is a lyric channel's upload and takes the artist's official video", () => {
+    const match = pickMusicVideo({ id: 'danMusicId', title: 'double take', artist: 'dhruv', durationSec: 172 }, [
+      { videoId: 'danMusicId', name: 'dhruv - double take (Lyrics)', artist: 'Dan Music', durationSec: 172 },
+      { videoId: 'myh5xtfUG-I', name: 'double take', artist: 'Dhruv', durationSec: 172 },
+    ]);
+    expect(match).toEqual({ videoId: 'myh5xtfUG-I', durationSec: 172, synced: true });
+  });
 });

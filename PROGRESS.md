@@ -25,6 +25,10 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Video: jangan ambil video lirik dari channel lain)
+
+Laporan: "double take" (dhruv) menampilkan video lirik channel Dan Music, padahal video resmi Dhruv ada. Penyebab: lagu yang diputar memang upload Dan Music (datang dari radio/rekomendasi), dan pencocokan punya jalan pintas "kalau lagunya sendiri ada di hasil pencarian, pakai itu" tanpa cek artis. Jalan pintas dihapus: lagu itu sendiri sekarang lewat cek channel artis/judul yang sama dengan kandidat lain, jadi yang terpilih video resmi dari channel artisnya (`myh5xtfUG-I`, sinkron). Test baru di `tests/server/videoMatch.test.ts`.
+
 ## Perubahan terbaru · 2026-11-08 (Video: tata letak layar penuh dan kontrol teater)
 
 - Layar penuh desktop, tab Video: foto sampul disembunyikan, video di tengah dengan judul, seek bar, dan kontrol di bawahnya selebar video. MV versi beda: pesan + tombol "Tonton MV" juga di tengah, kolom menyempit.

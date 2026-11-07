@@ -68,6 +68,8 @@ export const nowPlaying: Dictionary = {
   'Tutup video': 'Close video',
   'Versi MV, dari awal': 'MV version, from the start',
   'Tonton MV': 'Watch MV',
+  'Mundur 10 detik': 'Back 10 seconds',
+  'Maju 10 detik': 'Forward 10 seconds',
   'Posisi video': 'Video position',
   'Video musik lagu ini versinya beda dari lagunya, jadi diputar dari awal dengan suaranya sendiri. Lagu dijeda dulu, lalu lanjut lagi.':
     "This song's music video is a different cut, so it plays from the start with its own sound. The song pauses, then carries on.",

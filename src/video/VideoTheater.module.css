@@ -44,23 +44,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
-  background: linear-gradient(rgba(0, 0, 0, 0.7), transparent);
+  padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
 }
 
+/* Plain controls straight on the picture, no dark band behind them (asked for: simple). Centred on the screen at a
+   readable width; a transform rather than margin auto, which an absolute box with left/right 0 didn't honour here. */
 .bottom {
-  bottom: 0;
-  padding: 40px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
-}
-
-/* Reuses Now Playing's SeekBar/PlayerControls: on black they need the light text the sheet gives them. */
-.bottom {
-  --color-text-primary: #fff;
-  --color-text-secondary: rgba(255, 255, 255, 0.75);
-  --color-text-tertiary: rgba(255, 255, 255, 0.6);
-  max-width: 760px;
-  margin: 0 auto;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 50%;
+  right: auto;
+  width: min(760px, calc(100% - 32px));
+  transform: translateX(-50%);
 }
 
 .hidden {
@@ -116,7 +110,7 @@
   font-weight: 700;
 }
 
-.ownTransport {
+.transport {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -148,10 +142,28 @@
   background: #fff;
 }
 
-.ownRow {
+.row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 3vw, 24px);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
 }
 
 .time {

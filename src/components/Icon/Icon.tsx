@@ -49,7 +49,9 @@ export type IconName =
   | 'speaker'
   | 'fullscreen'
   | 'fullscreen-exit'
-  | 'video';
+  | 'video'
+  | 'replay-10'
+  | 'forward-10';
 
 interface IconProps {
   name: IconName;
@@ -427,6 +429,23 @@ function IconPaths({ name }: { name: IconName }) {
       return <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />;
     case 'fullscreen-exit':
       return <path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />;
+    case 'replay-10':
+      // A circle turning back with the 10 inside: "10 seconds back", as in every video player.
+      return (
+        <>
+          <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" />
+          <path d="M4.2 3.8v3.7h3.7" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+          <text x="12" y="15.3" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor">10</text>
+        </>
+      );
+    case 'forward-10':
+      return (
+        <>
+          <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" />
+          <path d="M19.8 3.8v3.7h-3.7" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+          <text x="12" y="15.3" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor">10</text>
+        </>
+      );
     case 'video':
       // A screen with a play triangle: "watch".
       return (

@@ -8,8 +8,6 @@ import { usePlayback } from '../playback/PlaybackContext';
 import { useUiStore, type VideoTheaterSession } from '../stores/uiStore';
 import { isDocumentFullscreen, onDocumentFullscreenChange } from '../utils/documentFullscreen';
 import { formatTime } from '../utils/formatTime';
-import { PlayerControls } from '../views/now-playing/PlayerControls';
-import { SeekBar } from '../views/now-playing/SeekBar';
 import { currentVideoSound, peekMusicVideo, songClock, stopVideoSound, subscribeLookups, type VideoClock } from './musicVideo';
 import { lockLandscape } from './theater';
 import { useMusicVideo } from './useMusicVideo';
@@ -30,7 +28,7 @@ function TheaterView({ session }: { session: VideoTheaterSession }) {
   const { showToast } = useToast();
   const close = useUiStore((state) => state.closeVideoTheater);
   const open = useUiStore((state) => state.openVideoTheater);
-  const { currentSong, playbackState, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
+  const { currentSong, handleTogglePlay, handleNext, handlePrevious } = usePlayback();
   // Taken once: the sound started in the tap that opened this, and it lives as long as this view.
   const [sound] = useState(() => (session.ownSound ? currentVideoSound() : null));
   const clock: VideoClock = sound?.clock ?? songClock;
@@ -128,18 +126,23 @@ function TheaterView({ session }: { session: VideoTheaterSession }) {
 
       <div className={[styles.bottom, chromeVisible ? '' : styles.hidden].join(' ')}>
         {sound ? (
-          <OwnTransport element={sound.element} clock={clock} durationSec={session.video.durationSec} />
+          <Transport
+            clock={clock}
+            durationSec={Number.isFinite(sound.element.duration) && sound.element.duration > 0 ? sound.element.duration : session.video.durationSec}
+            paused={() => sound.element.paused}
+            onToggle={() => (sound.element.paused ? void sound.element.play().catch(() => {}) : sound.element.pause())}
+            onSeek={(seconds) => seekElement(sound.element, seconds)}
+          />
         ) : (
-          <>
-            <SeekBar duration={session.song.duration} />
-            <PlayerControls
-              isPlaying={playbackState.status === 'playing'}
-              isBuffering={playbackState.status === 'loading'}
-              onTogglePlay={handleTogglePlay}
-              onNext={handleNext}
-              onPrevious={handlePrevious}
-            />
-          </>
+          <Transport
+            clock={clock}
+            durationSec={session.song.duration}
+            paused={() => audioEngine.getSnapshot().status !== 'playing' && audioEngine.getSnapshot().status !== 'loading'}
+            onToggle={handleTogglePlay}
+            onSeek={(seconds) => audioEngine.seek(seconds)}
+            onPrevious={handlePrevious}
+            onNext={handleNext}
+          />
         )}
       </div>
     </div>
@@ -155,37 +158,65 @@ function seekElement(element: HTMLAudioElement, seconds: number): void {
   element.currentTime = seconds;
 }
 
-/** Play/pause and seek for a video playing with its own sound. */
-function OwnTransport({ element, clock, durationSec }: { element: HTMLAudioElement; clock: VideoClock; durationSec: number }) {
+// The 10-second jumps of every video player: for finding the part of a video again, which a song rarely needs.
+const SKIP_SEC = 10;
+
+interface TransportProps {
+  clock: VideoClock;
+  durationSec: number;
+  paused: () => boolean;
+  onToggle: () => void;
+  onSeek: (seconds: number) => void;
+  /** The song's own: previous/next track. Not for a different cut playing with its own sound. */
+  onPrevious?: () => void;
+  onNext?: () => void;
+}
+
+/** The theater's controls: seek, back/forward 10s around play/pause, and the song's previous/next when it's the song. */
+function Transport({ clock, durationSec, paused: isPaused, onToggle, onSeek, onPrevious, onNext }: TransportProps) {
   const t = useT();
   // Whole seconds and the play state: re-renders at most once a second while playing.
   const second = useSyncExternalStore(subscribeFrames, () => Math.floor(clock.time()));
-  const paused = useSyncExternalStore(clock.subscribe, () => element.paused);
-  const duration = Number.isFinite(element.duration) && element.duration > 0 ? element.duration : durationSec;
+  const paused = useSyncExternalStore(subscribeFrames, isPaused);
+  const duration = Math.max(durationSec, 0);
   const fill = duration > 0 ? Math.min(100, (second / duration) * 100) : 0;
+  const skip = (delta: number) => onSeek(Math.min(Math.max(clock.time() + delta, 0), Math.max(duration - 1, 0)));
 
   return (
-    <div className={styles.ownTransport}>
+    <div className={styles.transport}>
       <input
         type="range"
         min={0}
         max={Math.max(1, Math.floor(duration))}
         value={Math.min(second, Math.floor(duration))}
-        onChange={(event) => seekElement(element, Number(event.target.value))}
+        onChange={(event) => onSeek(Number(event.target.value))}
         className={styles.seek}
         style={{ '--fill': `${fill}%` } as CSSProperties}
         aria-label={t('Posisi video')}
       />
-      <div className={styles.ownRow}>
+      <div className={styles.row}>
         <span className={styles.time}>{formatTime(second)}</span>
-        <button
-          type="button"
-          className={styles.playButton}
-          onClick={() => (element.paused ? void element.play().catch(() => {}) : element.pause())}
-          aria-label={paused ? t('Putar') : t('Jeda')}
-        >
-          <Icon name={paused ? 'play' : 'pause'} size={28} />
-        </button>
+        <div className={styles.buttons}>
+          {onPrevious && (
+            <button type="button" className={styles.control} onClick={onPrevious} aria-label={t('Lagu sebelumnya')}>
+              <Icon name="previous" size={24} />
+            </button>
+          )}
+          <button type="button" className={styles.control} onClick={() => skip(-SKIP_SEC)} aria-label={t('Mundur 10 detik')}>
+            <Icon name="replay-10" size={28} />
+          </button>
+          <button type="button" className={styles.playButton} onClick={onToggle} aria-label={paused ? t('Putar') : t('Jeda')}>
+            <Icon name={paused ? 'play' : 'pause'} size={28} />
+          </button>
+          <button type="button" className={styles.control} onClick={() => skip(SKIP_SEC)} aria-label={t('Maju 10 detik')}>
+            <Icon name="forward-10" size={28} />
+          </button>
+          {onNext && (
+            <button type="button" className={styles.control} onClick={onNext} aria-label={t('Lagu berikutnya')}>
+              <Icon name="next" size={24} />
+            </button>
+          )}
+        </div>
         <span className={styles.time}>{formatTime(duration)}</span>
       </div>
     </div>

@@ -25,6 +25,12 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Video: tata letak layar penuh dan kontrol teater)
+
+- Layar penuh desktop, tab Video: foto sampul disembunyikan, video di tengah dengan judul, seek bar, dan kontrol di bawahnya selebar video. MV versi beda: pesan + tombol "Tonton MV" juga di tengah, kolom menyempit.
+- Teater: tombol mundur/maju 10 detik di kiri-kanan pause (juga sebelum/berikutnya kalau videonya sinkron dengan lagu), tanpa bayangan gradasi hitam di belakang kontrol, bar kontrol benar-benar di tengah layar (sebelumnya bergeser ke kiri di HP landscape). Ikon baru `replay-10`/`forward-10`.
+- Terukur (Playwright Pixel 7): maju 10 dtk 7→18, mundur 18→9, pusat kontrol tepat di tengah layar, untuk MV sinkron dan versi beda.
+
 ## Perubahan terbaru · 2026-11-08 (Video: lebih cepat, dan tidak "ngulang" lagi)
 
 Laporan: video masih lemot di desktop dan HP; sebagian lagu "ngulang dari awal" saat pindah ke Video, sebagian tidak.

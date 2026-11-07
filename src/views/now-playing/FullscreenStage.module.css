@@ -474,7 +474,39 @@
 }
 
 .videoSurface {
-  width: min(100%, calc((100vh - 220px) * 16 / 9));
+  width: 100%;
+}
+
+/* Video tab: centred, the video first and the song column (title, seek, controls) under it at the video's width. */
+.columnsVideo {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  --video-width: min(100%, 1100px, calc((100vh - 420px) * 16 / 9));
+}
+
+/* A different cut shows a note and a button instead of a video: the column narrows to match it. */
+.columnsVideoCut {
+  --video-width: min(100%, 440px);
+  gap: var(--space-8, 48px);
+}
+
+.columnsVideo .stageColumn {
+  order: 1;
+  flex: none;
+  width: var(--video-width);
+}
+
+.columnsVideo .songColumn {
+  order: 2;
+  flex: none;
+  width: var(--video-width);
+  gap: var(--space-2);
+}
+
+.columnsVideo .videoStage {
+  flex: none;
 }
 
 .videoExpand {

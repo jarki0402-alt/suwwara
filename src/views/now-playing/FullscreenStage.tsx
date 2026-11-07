@@ -292,9 +292,11 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
         </button>
       </header>
 
-      <div className={styles.columns}>
+      {/* Video tab: one centred column, the video on top and the song's controls under it, no cover (it would only
+          repeat what the video shows and push the video off-centre). */}
+      <div className={[styles.columns, shownTab === 'video' ? styles.columnsVideo : '', shownTab === 'video' && !video?.synced ? styles.columnsVideoCut : ''].join(' ')}>
         <section className={styles.songColumn} aria-label={t('Lagu yang diputar')}>
-          <LazyImage images={song.image} quality="500x500" alt={song.name} className={styles.art} />
+          {shownTab !== 'video' && <LazyImage images={song.image} quality="500x500" alt={song.name} className={styles.art} />}
           <div className={styles.meta}>
             <div className={styles.metaText}>
               <h1 className={styles.title}>{song.name}</h1>

@@ -2,11 +2,10 @@
  * Notifications as an "island" (ToastProvider, UpdateNotice): a black pill that grows out of the top of the screen into
  * a card and shrinks back into it, like the iPhone's Dynamic Island or a Samsung's punch-hole notifications.
  *
- * Phone: top centre. The installed app draws under the status bar (black-translucent + viewport-fit=cover), so on an
- * iPhone with a Dynamic Island the closed pill sits right on it (~11px down, 126x37) and the card seems to come out of
- * the camera; a notch (inset ~47px) or a punch-hole phone (Android keeps its status bar, inset 0) puts it 8px down,
- * still right under the camera. A web page can't know where a camera actually is, only how tall the top inset is, so a
- * corner punch-hole just gets a centred pill.
+ * Phone: top centre, always just below the status bar and the camera (the top inset + 8px). It first sat right on the
+ * Dynamic Island (~11px down), but a web page can't tell an island from a notch or a punch-hole, only how tall the top
+ * inset is: on an Android drawing edge-to-edge (Chrome does with viewport-fit=cover) or an iPhone with a notch the
+ * pill landed on the camera and over the clock. Below it, it reads like the system's own banners on every phone.
  * Desktop: same island, top-right corner, growing out of its right end: a window has no camera, and the top centre is
  * the search bar.
  */
@@ -14,7 +13,7 @@
   --island-w: 126px;
   --island-h: 37px;
   position: fixed;
-  top: max(8px, calc(env(safe-area-inset-top) - 48px));
+  top: calc(env(safe-area-inset-top) + 8px);
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--z-toast);

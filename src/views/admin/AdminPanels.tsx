@@ -366,6 +366,8 @@ export function SecurityPanel() {
 
 const REPORT_LABELS: Record<string, string> = {
   system_pause: 'Dijeda oleh sistem',
+  system_pause_recovered: 'Dijeda sistem, lanjut lagi',
+  system_pause_stopped: 'Dijeda sistem, lagu berhenti',
   background_retry: 'Gagal di background, terus dicoba',
   background_recovered: 'Pulih di background',
   background_failed: 'Masih gagal saat app dibuka',
@@ -395,7 +397,7 @@ export function PlaybackPanel() {
           <div className={styles.events}>
             {reports.map((report) => (
               <div key={`${report.at}-${report.username}-${report.event}`} className={styles.event}>
-                <span className={report.event === 'background_recovered' ? undefined : styles.eventBad}>
+                <span className={report.event === 'background_recovered' || report.event === 'system_pause_recovered' ? undefined : styles.eventBad}>
                   {REPORT_LABELS[report.event] ?? report.event} · {report.username}
                 </span>
                 <span className={styles.rowValue}>{timeAgo(new Date(report.at).toISOString())}</span>

@@ -25,6 +25,17 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Android background: pertahanan 5 detik, laporan jujur satu per kejadian)
+
+Analisis laporan resti/fatha: (1) laporan dikirim **per jeda**, bukan per kejadian, dan tanpa hasil akhir, jadi satu tarik-menarik di Jam ("Cancer 209 dtk" ×13) tampil sebagai 13 alarm padahal lagunya tetap bunyi: penjaga Jam di `usePlaybackController` memutar lagi setiap kali Chrome menjeda; (2) di luar Jam, app hanya melawan jeda dalam **2 detik** setelah app ditinggal, sedangkan di tablet resti jedanya datang ~2–2,5 detik, jadi lagu berhenti; (3) di HP fatha Chrome menjeda ~18× dalam 2 detik pertama dan app selalu menang (lagu lanjut). iPhone tidak terdampak (logika ini khusus Android).
+
+Perubahan ([AudioEngine.ts](./src/audio-engine/AudioEngine.ts)):
+- **Jendela pertahanan 2 → 5 detik** (`SYSTEM_PAUSE_WINDOW_MS`): jeda sistem dalam 5 detik setelah app ke background dijawab dengan memutar lagi, satu kali per jeda (jeda beruntun tetap dijawab satu per satu). Lewat 5 detik tetap dihormati (app lain mulai bersuara, telepon).
+- **Headset/Bluetooth lepas tidak pernah dilawan**: jeda dalam 1,5 detik setelah event `devicechange` dibiarkan (lagu tidak tiba-tiba keluar dari speaker).
+- **Laporan satu per kejadian**, dikirim 15 detik setelah jeda pertama dengan hasil akhirnya: `system_pause_recovered` ("Dijeda sistem, lanjut lagi", tidak merah di admin) atau `system_pause_stopped` ("Dijeda sistem, lagu berhenti", merah). Isinya: berapa kali dijeda, kapan yang pertama, siapa yang memutar lagi (otomatis / dari luar: Jam, perangkat lain, notifikasi), dan konteks tepat sebelumnya (lagu dimuat, lagu berikutnya disiapkan, pemanasan lagu berikutnya, serah-terima lagu, perangkat audio berubah) sebagai petunjuk pemicunya. Jeda saat app sedang dipakai (tidak ke background) tidak dilaporkan. Kuota 15 laporan per sesi tidak lagi habis oleh satu kejadian beruntun.
+- Pengaman tombol Kembali (Android) **tidak diubah**: belum ada bukti pasti perilaku Chrome di Android 12+, jadi tidak diambil risiko.
+- Dites di Chromium mode Pixel 7 (Docker, visibilitas disimulasikan): jeda sekali 300ms → lanjut; 12× beruntun → lanjut; di 2,6 dtk (kasus resti, dulu berhenti) → lanjut; di 7 dtk → tetap berhenti; headset dicabut → tetap berhenti; jeda saat app dipakai → tanpa laporan. Tiap kasus satu laporan dengan hasil yang benar. Bukti akhir tetap dari tablet resti dan HP fatha setelah deploy.
+
 ## Perubahan terbaru · 2026-11-08 (Liquid Glass bawaan: Mati)
 
 - Liquid Glass sekarang **Mati secara bawaan** di semua perangkat: perangkat baru mulai di Mati, dan perangkat lama dipindah ke Mati **sekali** saat update (migrasi `settingsStore` v3, pilihan sebelumnya seperti Penuh/Otomatis direset). Pengguna tetap bisa menyalakannya di Pengaturan → Tampilan, dan pilihan itu bertahan setelah reload. Pengaturan lain (palet, tema) tidak tersentuh.

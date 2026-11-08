@@ -40,9 +40,40 @@ export const isAndroid = typeof navigator !== 'undefined' && isAndroidDevice(nav
 // one is still sounding keeps the page audible straight through. Slightly more than the ~250ms between 'timeupdate's.
 const EARLY_HANDOFF_SEC = 0.3;
 // Android only: a pause nobody in the app asked for, this close to the page going to the background, is the system
-// stopping the music as the user left the app (seen on a Galaxy phone: Home, and the song stopped at once). Asked to
-// play again once. Narrow on purpose: a headphone unplug or a call minutes later must stay paused.
-const SYSTEM_PAUSE_WINDOW_MS = 2000;
+// stopping the music as the user left the app (seen on a Galaxy phone: Home, and the song stopped at once; on phones
+// often as a burst of a dozen pauses in the first 2s, each answered by playing again). 5s and not 2s: on a tablet the
+// burst ran just past 2s (reports "2 dtk setelah app ke background, dibiarkan") and the song stayed stopped. Still
+// narrow on purpose: another app started later, a headphone unplug or a call must stay paused.
+const SYSTEM_PAUSE_WINDOW_MS = 5000;
+// A pause this close to an audio device change is a headphone/Bluetooth disconnect: never undone, the song would
+// suddenly come out of the speaker.
+const DEVICE_CHANGE_GUARD_MS = 1500;
+// A run of system pauses is reported once, this long after its first pause, with how it ended (still playing or
+// stopped). One report per pause used to fill the admin list with alarms for music that in fact kept going.
+const PAUSE_INCIDENT_REPORT_MS = 15_000;
+// Something the app did this shortly before a system pause is named in its report (a lead for what triggers them).
+const PAUSE_CONTEXT_MS = 3000;
+
+/** Android: one run of system pauses while in the background, see PAUSE_INCIDENT_REPORT_MS. */
+interface PauseIncident {
+  /** Ms after the page went to the background (negative: just before), at the first pause. */
+  gapMs: number;
+  pauses: number;
+  autoResumed: number;
+  autoRefused: string | null;
+  /** 'playing' events while the incident was open: the ones the engine's own resumes don't explain came from elsewhere
+   *  (Jam keeping in step with its room, another device, the notification's play button). */
+  playingEvents: number;
+  sawHidden: boolean;
+  context: string[];
+  song: string;
+}
+
+function formatGap(ms: number): string {
+  const abs = Math.abs(ms);
+  const amount = abs < 1000 ? `${abs} ms` : abs < 10_000 ? `${(abs / 1000).toFixed(1).replace('.', ',')} dtk` : `${Math.round(abs / 1000)} dtk`;
+  return ms < 0 ? `${amount} sebelum` : `${amount} setelah`;
+}
 // Android, page hidden: how long before the end the spare element is nudged into actually buffering the next track (see
 // warmSpareWhileHidden). Long enough for a slow resolve on the 1-vCPU server, short enough not to fetch a song early
 // that a skip would throw away.
@@ -204,6 +235,15 @@ class AudioEngine {
   private warmedSpareSrc = '';
   /** When someone last asked this device to play (a tap on a song, play, a transfer); 0 = never. See markPlayIntent. */
   private playIntentAt = 0;
+  /** Android: the run of system pauses being watched, reported once it settles (PAUSE_INCIDENT_REPORT_MS). */
+  private pauseIncident: PauseIncident | null = null;
+  /** Android: when a track last started loading, the spare was last warmed, a track last handed over early, and the
+   *  audio output last changed. Read only to judge and describe a system pause. */
+  private lastLoadAt = 0;
+  private lastPreloadAt = 0;
+  private lastWarmAt = 0;
+  private lastHandoffAt = 0;
+  private lastDeviceChangeAt = 0;
 
   static getInstance(): AudioEngine {
     if (!AudioEngine.instance) AudioEngine.instance = new AudioEngine();
@@ -289,25 +329,80 @@ class AudioEngine {
     document.addEventListener('visibilitychange', () => {
       if (!isPageHidden()) return;
       this.hiddenAt = Date.now();
+      // A pause that came just before the page hid (it stays at "just before", gapMs -1) now counts as a background one.
+      if (this.pauseIncident) this.pauseIncident.sawHidden = true;
       this.resumeAfterSystemPause();
+    });
+    // Headphones or Bluetooth going away fire this; a pause right then is the system doing the right thing.
+    navigator.mediaDevices?.addEventListener?.('devicechange', () => {
+      this.lastDeviceChangeAt = Date.now();
     });
   }
 
   private resumeAfterSystemPause(): void {
     const pause = this.systemPause;
     if (!pause || !isPageHidden() || Math.abs(pause.at - this.hiddenAt) > SYSTEM_PAUSE_WINDOW_MS) return;
-    // Once per pause: if the system stops it again, it means it.
+    // Once per pause: each new pause in a burst gets its own single answer, a pause outside the window none.
     this.systemPause = null;
+    if (Math.abs(pause.at - this.lastDeviceChangeAt) < DEVICE_CHANGE_GUARD_MS) return;
     if (!this.elements || pause.element !== this.elements[this.activeIndex] || !pause.element.paused || pause.element.ended) return;
-    const gapMs = pause.at - this.hiddenAt;
-    const when = gapMs >= 0 ? `${gapMs} ms setelah` : `${-gapMs} ms sebelum`;
-    const title = this.currentSong?.name ?? '';
+    const incident = this.pauseIncident;
     pause.element
       .play()
-      .then(() => reportPlayback('system_pause', `Dijeda sistem ${when} app ke background, dilanjutkan otomatis: berhasil · ${title}`))
-      .catch((error: unknown) =>
-        reportPlayback('system_pause', `Dijeda sistem ${when} app ke background, dilanjutkan otomatis: ditolak (${error instanceof Error ? error.name : 'unknown'}) · ${title}`),
-      );
+      .then(() => {
+        if (incident) incident.autoResumed += 1;
+      })
+      .catch((error: unknown) => {
+        if (incident) incident.autoRefused = error instanceof Error ? error.name : 'unknown';
+      });
+  }
+
+  /** Android: counts a system pause into the current run, opening one (with what happened just before) if none is. */
+  private notePauseIncident(): void {
+    const now = Date.now();
+    if (!this.pauseIncident) {
+      const context: string[] = [];
+      if (now - this.lastLoadAt < PAUSE_CONTEXT_MS) context.push('tepat setelah lagu dimuat');
+      if (now - this.lastPreloadAt < PAUSE_CONTEXT_MS) context.push('tepat setelah lagu berikutnya disiapkan');
+      if (now - this.lastWarmAt < PAUSE_CONTEXT_MS) context.push('tepat setelah pemanasan lagu berikutnya');
+      if (now - this.lastHandoffAt < PAUSE_CONTEXT_MS) context.push('tepat setelah serah-terima lagu');
+      if (now - this.lastDeviceChangeAt < DEVICE_CHANGE_GUARD_MS) context.push('perangkat audio berubah (headset/Bluetooth lepas?)');
+      this.pauseIncident = {
+        gapMs: isPageHidden() ? now - this.hiddenAt : -1,
+        pauses: 0,
+        autoResumed: 0,
+        autoRefused: null,
+        playingEvents: 0,
+        sawHidden: isPageHidden(),
+        context,
+        song: this.currentSong?.name ?? '',
+      };
+      setTimeout(() => this.finishPauseIncident(), PAUSE_INCIDENT_REPORT_MS);
+    }
+    this.pauseIncident.pauses += 1;
+  }
+
+  private finishPauseIncident(): void {
+    const incident = this.pauseIncident;
+    this.pauseIncident = null;
+    // Paused while in use and never left: a call or another app's sound in front of the user, not a background stop.
+    if (!incident || !incident.sawHidden) return;
+    const playing = this.snapshot.status === 'playing' && !!this.elements && !this.elements[this.activeIndex].paused;
+    const fromElsewhere = Math.max(0, incident.playingEvents - incident.autoResumed);
+    const resumedBy =
+      [
+        incident.autoResumed > 0 ? `otomatis ${incident.autoResumed}×` : '',
+        fromElsewhere > 0 ? `dari luar (Jam/perangkat lain/notifikasi) ${fromElsewhere}×` : '',
+        incident.autoRefused ? `ditolak (${incident.autoRefused})` : '',
+      ]
+        .filter(Boolean)
+        .join(', ') || 'tidak dilanjutkan';
+    const when = incident.gapMs < 0 && incident.gapMs > -SYSTEM_PAUSE_WINDOW_MS ? 'sesaat sebelum' : formatGap(incident.gapMs);
+    const context = incident.context.length > 0 ? ` · ${incident.context.join(', ')}` : '';
+    reportPlayback(
+      playing ? 'system_pause_recovered' : 'system_pause_stopped',
+      `Dijeda sistem ${incident.pauses}× (pertama ${when} app ke background) · dilanjutkan: ${resumedBy} · akhirnya: ${playing ? 'tetap diputar' : 'berhenti'}${context} · ${incident.song}`,
+    );
   }
 
   /**
@@ -326,6 +421,7 @@ class AudioEngine {
     const remaining = end - element.currentTime;
     if (!(end > 0) || remaining > WARM_SPARE_BEFORE_END_SEC || remaining < 1) return;
     this.warmedSpareSrc = spare.src;
+    this.lastWarmAt = Date.now();
     spare.muted = true;
     spare
       .play()
@@ -358,6 +454,7 @@ class AudioEngine {
     const spare = this.elements[this.activeIndex === 0 ? 1 : 0];
     if (!this.preloaded || !spare.src || spare.error || (spare.readyState < HAVE_FUTURE_DATA && !spare.src.startsWith('blob:'))) return;
     this.handedOff = element;
+    this.lastHandoffAt = Date.now();
     this.updateSnapshot({ status: 'ended' });
   }
 
@@ -414,7 +511,12 @@ class AudioEngine {
     });
     element.addEventListener('playing', () => {
       if (!isActive()) return;
+      if (this.pauseIncident) this.pauseIncident.playingEvents += 1;
       this.updateSnapshot({ status: 'playing', error: null });
+    });
+    element.addEventListener('loadstart', () => {
+      if (isActive()) this.lastLoadAt = Date.now();
+      else this.lastPreloadAt = Date.now();
     });
     element.addEventListener('pause', () => {
       const ownPause = this.ownPauses.delete(element);
@@ -423,11 +525,8 @@ class AudioEngine {
       if (this.snapshot.status !== 'ended') this.updateSnapshot({ status: 'paused' });
       if (isAndroid && !ownPause && wasPlaying && !element.ended) {
         this.systemPause = { element, at: Date.now() };
+        this.notePauseIncident();
         this.resumeAfterSystemPause();
-        // Still pending while hidden: long after leaving the app, so left paused (a call, an unplug), but worth knowing.
-        if (this.systemPause && isPageHidden()) {
-          reportPlayback('system_pause', `Dijeda sistem ${Math.round((Date.now() - this.hiddenAt) / 1000)} dtk setelah app ke background, dibiarkan · ${this.currentSong?.name ?? ''}`);
-        }
       }
     });
     element.addEventListener('timeupdate', () => {

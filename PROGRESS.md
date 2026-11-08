@@ -25,6 +25,11 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Liquid Glass bawaan: Mati)
+
+- Liquid Glass sekarang **Mati secara bawaan** di semua perangkat: perangkat baru mulai di Mati, dan perangkat lama dipindah ke Mati **sekali** saat update (migrasi `settingsStore` v3, pilihan sebelumnya seperti Penuh/Otomatis direset). Pengguna tetap bisa menyalakannya di Pengaturan → Tampilan, dan pilihan itu bertahan setelah reload. Pengaturan lain (palet, tema) tidak tersentuh.
+- Dites (Chromium, Docker): perangkat dengan Penuh dari v2 → Mati setelah update, palet tetap; dinyalakan lagi → tetap Penuh setelah reload; perangkat baru → Mati.
+
 ## Perubahan terbaru · 2026-11-08 (Lagu | Video saat lirik terbuka, kontrol MV sama dengan video)
 
 - **Lagu | Video tetap berfungsi saat lirik terbuka** di panel Sedang Diputar: lirik menggantikan cover, jadi tombolnya dulu tidak mengubah apa pun yang terlihat. Sekarang memilih Lagu atau Video sekaligus menutup lirik dan menampilkan cover atau videonya ([MusicVideoToggle.tsx](./src/video/MusicVideoToggle.tsx)). Layar penuh (tab Lirik/Antrean/Jam/Video) tidak diubah.

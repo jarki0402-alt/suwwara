@@ -89,7 +89,9 @@ export const useSettingsStore = create<SettingsState>()(
       offlineQuotaMB: DEFAULT_OFFLINE_QUOTA_MB,
       audioCacheDays: DEFAULT_CACHE_RETENTION_DAYS,
       glassTint: 0.5,
-      glassMode: 'auto',
+      // Off unless the listener turns it on (2026-11): the plain solid look is the lightest on every device, the
+      // glass is an option in Pengaturan → Tampilan.
+      glassMode: 'off',
       glassAutoTier: null,
       palette: 'bara',
       openInFullscreen: false,
@@ -117,10 +119,15 @@ export const useSettingsStore = create<SettingsState>()(
       // v2 (2026-11 redesign): every device moves to the new Bara look once, whatever palette it had, so the redesign
       // is actually seen (v1 only moved the old default, and people on a palette they once tried kept the old look).
       // The choice stays theirs: any palette picked from now on is kept.
-      version: 2,
+      // v3 (2026-11): Liquid Glass off on every device once, whatever was picked before; turning it back on sticks.
+      version: 3,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<SettingsState>;
         if (version < 2) state.palette = 'bara';
+        if (version < 3) {
+          state.glassMode = 'off';
+          state.glassAutoTier = null;
+        }
         return state as SettingsState;
       },
     },

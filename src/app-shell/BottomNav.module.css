@@ -198,7 +198,8 @@
   }
 }
 
-.brand {
+.brand,
+.brandRow {
   display: none;
 }
 
@@ -302,13 +303,75 @@
     display: none;
   }
 
+  .brandRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0 0 var(--space-5) var(--space-3);
+  }
+
   .brand {
     display: block;
     font-size: 1.1rem;
     font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--color-text-primary);
-    padding: 0 var(--space-3) var(--space-5);
+    white-space: nowrap;
+  }
+
+  .foldButton {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--radius-full);
+    background: none;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+
+  .foldButton:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+  }
+
+  /* Folded to its icons (paneWidths.ts SIDEBAR_COLLAPSED_PX): every label goes, every icon and cover stays, centred in
+     the narrow column. The names are in tooltips (BottomNav.tsx). */
+  :global(html[data-sidebar='collapsed']) .nav {
+    padding-inline: var(--space-2);
+  }
+
+  :global(html[data-sidebar='collapsed']) .brandRow {
+    justify-content: center;
+    padding-left: 0;
+  }
+
+  :global(html[data-sidebar='collapsed']) .brand,
+  :global(html[data-sidebar='collapsed']) .tabLabel,
+  :global(html[data-sidebar='collapsed']) .libraryHeading,
+  :global(html[data-sidebar='collapsed']) .libraryText {
+    display: none;
+  }
+
+  :global(html[data-sidebar='collapsed']) .tabButton,
+  :global(html[data-sidebar='collapsed']) .libraryItem {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  :global(html[data-sidebar='collapsed']) .libraryHeadingRow {
+    justify-content: center;
+    padding-right: 0;
+  }
+
+  /* The open playlist can't be shown by its name in the accent colour any more: a ring on its cover instead. */
+  :global(html[data-sidebar='collapsed']) .libraryItemActive :is(.libraryThumb, .libraryLikedIcon, .libraryPlaceholderIcon) {
+    box-shadow: 0 0 0 2px var(--color-accent);
   }
 
   .tabButton {

@@ -25,6 +25,12 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Scrollbar muncul saat di-scroll saja, sidebar bisa diciutkan jadi ikon)
+
+- **Scrollbar otomatis hilang**: di semua area yang bisa di-scroll, thumb scrollbar transparan saat diam dan baru tampil selama area itu di-scroll (~0,9 detik setelah scroll terakhir) atau saat kursor tepat di atas batangnya (supaya tetap bisa diseret). Satu listener `scroll` (fase capture) untuk seluruh halaman di [autoHideScrollbars.ts](./src/utils/autoHideScrollbars.ts) memberi kelas `.is-scrolling`; gayanya di `global.css` (Firefox lewat `scrollbar-color`, hanya di browser tanpa `::-webkit-scrollbar` karena di Chrome properti itu mematikan gaya webkit).
+- **Sidebar desktop bisa diciutkan jadi ikon saja** (seperti Spotify): tombol baru di samping logo (ikon `sidebar`, "Ciutkan/Lebarkan sidebar"), atau seret tepinya ke kiri melewati 150px (langsung menyusut ke 88px; seret balik untuk melebarkan), atau panah kiri di pegangan saat sudah paling sempit. Mode ikon: label menu, judul Koleksimu, nama playlist, dan kartu Jam disembunyikan, ikon dan cover di tengah, nama muncul sebagai tooltip, playlist yang terbuka ditandai cincin aksen. Tersimpan per browser bersama lebar panel ([paneWidths.ts](./src/app-shell/paneWidths.ts), `<html data-sidebar="collapsed">`).
+- Dites di Chromium (Docker): tombol, seret buka/tutup, tersimpan setelah reload, scrollbar tampil saat scroll lalu hilang.
+
 ## Perubahan terbaru · 2026-11-08 (Video: kualitas adaptif seperti YouTube, menu Kualitas video)
 
 Video musik sekarang mengikuti kecepatan internet: mulai kecil (360p) supaya gambar cepat muncul, naik ke 480p/720p (atau 1080p) begitu internet kuat, turun lagi kalau melemah, tanpa jeda dan tanpa kembali ke cover. Cara kerja:

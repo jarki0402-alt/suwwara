@@ -6,10 +6,12 @@ import './styles/variables.css';
 import './styles/theme.css';
 import './styles/global.css';
 import { applySavedPaneWidths } from './app-shell/paneWidths';
+import { installAutoHideScrollbars } from './utils/autoHideScrollbars';
 import { captureInstallPrompt } from './pwa/installPrompt';
 import { initLanguage } from './i18n/i18n';
 
 applySavedPaneWidths();
+installAutoHideScrollbars();
 captureInstallPrompt();
 
 const rootElement = document.getElementById('root');

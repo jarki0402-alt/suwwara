@@ -1,6 +1,6 @@
 import { JamSidebarCard } from '../components/JamIndicator/JamIndicator';
 import { useUpdateStore } from '../pwa/updateStore';
-import { useRef, useState } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { LazyImage } from '../components/Image/LazyImage';
 import { PlaylistNameDialog } from '../components/PlaylistNameDialog/PlaylistNameDialog';
 import { Icon, type IconName } from '../components/Icon/Icon';
@@ -12,6 +12,7 @@ import { useUiStore, type ViewName } from '../stores/uiStore';
 import styles from './BottomNav.module.css';
 import { LiquidGlassLensDefs } from './LiquidGlassLens';
 import { useLiquidPill } from './useLiquidPill';
+import { isSidebarCollapsed, subscribeSidebar, toggleSidebarCollapsed } from './paneWidths';
 import { msg, useT } from '../i18n/i18n';
 
 interface Tab {
@@ -37,21 +38,29 @@ function TabButton({
   tab,
   isActive,
   hasUpdate,
+  iconsOnly,
   onSelect,
 }: {
   tab: Tab;
   isActive: boolean;
   hasUpdate: boolean;
+  /** Desktop sidebar folded to its icons: the name moves to a tooltip and stays the button's accessible name. */
+  iconsOnly: boolean;
   onSelect: () => void;
 }) {
   const t = useT();
   return (
-    <button type="button" className={[styles.tabButton, isActive ? styles.tabActive : ''].join(' ')} onClick={onSelect}>
+    <button
+      type="button"
+      className={[styles.tabButton, isActive ? styles.tabActive : ''].join(' ')}
+      onClick={onSelect}
+      title={iconsOnly ? t(tab.label) : undefined}
+    >
       <span className={styles.tabIcon}>
         <Icon name={tab.icon} size={22} />
         {tab.view === 'settings' && hasUpdate && <span className={styles.updateDot} aria-label={t('Ada pembaruan')} />}
       </span>
-      <span>{t(tab.label)}</span>
+      <span className={styles.tabLabel}>{t(tab.label)}</span>
     </button>
   );
 }
@@ -69,6 +78,7 @@ export function BottomNav() {
   const hasUpdate = useUpdateStore((state) => state.status === 'available');
   const openJamSheet = useUiStore((state) => state.openJamSheet);
   const isDesktop = useIsDesktop();
+  const sidebarFolded = useSyncExternalStore(subscribeSidebar, isSidebarCollapsed, () => false) && isDesktop;
   const TABS = isDesktop ? DESKTOP_TABS : PHONE_TABS;
   const activeIndex = selectedPlaylistId ? -1 : TABS.findIndex((tab) => tab.view === currentView);
   const select = (tab: Tab) => (tab.view === 'jam' ? openJamSheet() : setView(tab.view));
@@ -135,15 +145,27 @@ export function BottomNav() {
       >
         <Icon name={orbTab.icon} size={24} />
       </button>
-      <span className={styles.brand}>
-        Suwwara<span className={styles.brandDot}>.</span>
-      </span>
+      <div className={styles.brandRow}>
+        <span className={styles.brand}>
+          Suwwara<span className={styles.brandDot}>.</span>
+        </span>
+        <button
+          type="button"
+          className={styles.foldButton}
+          onClick={toggleSidebarCollapsed}
+          aria-label={sidebarFolded ? t('Lebarkan sidebar') : t('Ciutkan sidebar')}
+          title={sidebarFolded ? t('Lebarkan sidebar') : t('Ciutkan sidebar')}
+        >
+          <Icon name="sidebar" size={20} />
+        </button>
+      </div>
       {TABS.map((tab, index) => (
-        <TabButton key={tab.view} tab={tab} isActive={index === activeIndex} hasUpdate={hasUpdate} onSelect={() => select(tab)} />
+        <TabButton key={tab.view} tab={tab} isActive={index === activeIndex} hasUpdate={hasUpdate} iconsOnly={sidebarFolded} onSelect={() => select(tab)} />
       ))}
 
-      {/* Desktop: "you are in a Jam", under the menu (hidden on phones, which get JamPill in the corner). */}
-      <JamSidebarCard />
+      {/* Desktop: "you are in a Jam", under the menu (hidden on phones, which get JamPill in the corner). Folded, the
+          Jam icon in the menu is what's left of it. */}
+      {!sidebarFolded && <JamSidebarCard />}
 
       {/* Desktop-only "Your Library" style shortcut list (hidden on mobile via
           CSS — see BottomNav.module.css) so playlists are reachable directly
@@ -161,6 +183,8 @@ export function BottomNav() {
             type="button"
             className={[styles.libraryItem, currentView === 'library' && !selectedPlaylistId ? styles.libraryItemActive : ''].join(' ')}
             onClick={() => setView('library')}
+            title={sidebarFolded ? t('Lagu Disukai') : undefined}
+            aria-label={sidebarFolded ? t('Lagu Disukai') : undefined}
           >
             <span className={styles.libraryLikedIcon}>
               <Icon name="heart-filled" size={22} />
@@ -176,6 +200,8 @@ export function BottomNav() {
               type="button"
               className={[styles.libraryItem, selectedPlaylistId === playlist.id ? styles.libraryItemActive : ''].join(' ')}
               onClick={() => openPlaylist(playlist.id)}
+              title={sidebarFolded ? playlist.name : undefined}
+              aria-label={sidebarFolded ? playlist.name : undefined}
             >
               {playlist.songs[0] ? (
                 <LazyImage images={playlist.songs[0].image} quality="50x50" alt={playlist.name} className={styles.libraryThumb} />

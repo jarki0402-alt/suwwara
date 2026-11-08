@@ -1,7 +1,7 @@
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { useEffect, useRef } from 'react';
 import { useUiStore } from '../stores/uiStore';
-import { currentPaneWidth, resetPaneWidth, savePaneWidths, setPaneWidth, type Pane } from './paneWidths';
+import { currentPaneWidth, isSidebarCollapsed, PANE_LIMITS, resetPaneWidth, savePaneWidths, setPaneWidth, SIDEBAR_COLLAPSED_PX, type Pane } from './paneWidths';
 import styles from './PaneResizers.module.css';
 import { msg, useT } from '../i18n/i18n';
 
@@ -60,7 +60,12 @@ function Handle({ pane, label }: { pane: Pane; label: string }) {
     const direction = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
     if (direction === 0) return;
     event.preventDefault();
-    setPaneWidth(pane, currentPaneWidth(pane) + direction * KEYBOARD_STEP_PX * (pane === 'sidebar' ? 1 : -1));
+    const current = currentPaneWidth(pane);
+    let next = current + direction * KEYBOARD_STEP_PX * (pane === 'sidebar' ? 1 : -1);
+    // The sidebar's fold is a step of its own from the keyboard too: left at its narrowest folds it, right unfolds it.
+    if (pane === 'sidebar' && direction < 0 && current <= PANE_LIMITS.sidebar.min) next = SIDEBAR_COLLAPSED_PX;
+    if (pane === 'sidebar' && direction > 0 && isSidebarCollapsed()) next = PANE_LIMITS.sidebar.min;
+    setPaneWidth(pane, next);
     savePaneWidths();
   };
 

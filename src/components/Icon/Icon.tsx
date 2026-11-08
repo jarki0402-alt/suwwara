@@ -51,7 +51,8 @@ export type IconName =
   | 'fullscreen-exit'
   | 'video'
   | 'replay-10'
-  | 'forward-10';
+  | 'forward-10'
+  | 'sidebar';
 
 interface IconProps {
   name: IconName;
@@ -444,6 +445,14 @@ function IconPaths({ name }: { name: IconName }) {
           <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" />
           <path d="M19.8 3.8v3.7h-3.7" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
           <text x="12" y="15.3" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor">10</text>
+        </>
+      );
+    case 'sidebar':
+      // A window with its left column marked: "show/hide the sidebar", as in macOS and Spotify.
+      return (
+        <>
+          <rect x="3" y="4.5" width="18" height="15" rx="3" stroke="currentColor" fill="none" strokeWidth={1.8} />
+          <path d="M9 4.5v15" stroke="currentColor" strokeWidth={1.8} />
         </>
       );
     case 'video':

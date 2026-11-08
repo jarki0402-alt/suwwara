@@ -70,4 +70,7 @@ export const shell: Dictionary = {
   '{n} jam lalu': { one: '{n} hour ago', other: '{n} hours ago' },
   '{n} hari lalu': { one: '{n} day ago', other: '{n} days ago' },
   'Tekan Kembali sekali lagi untuk keluar. Musik akan berhenti; pakai tombol Home supaya tetap diputar.': 'Press Back again to exit. The music will stop; use the Home button to keep it playing.',
+  // BottomNav sidebar fold
+  'Ciutkan sidebar': 'Collapse sidebar',
+  'Lebarkan sidebar': 'Expand sidebar',
 };

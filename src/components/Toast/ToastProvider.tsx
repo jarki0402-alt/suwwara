@@ -35,7 +35,7 @@ const ACTION_DURATION_MS = 7000;
 // Two at most, like the Mac's own banners: a third pushes the oldest out instead of building a tower over the page.
 const MAX_VISIBLE = 2;
 // Matches the closing animation (islandClose) in Toast.module.css.
-const EXIT_MS = 300;
+const EXIT_MS = 420;
 // Dragged this far towards its exit edge, it's thrown away.
 const SWIPE_DISMISS_PX = 56;
 

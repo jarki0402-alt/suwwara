@@ -12,6 +12,8 @@
 .container {
   --island-w: 126px;
   --island-h: 37px;
+  /* How far above its place the closed pill starts: from behind the top edge, where the camera is. */
+  --island-drop: calc(-1 * (env(safe-area-inset-top) + 8px + var(--island-h) + 4px));
   position: fixed;
   top: calc(env(safe-area-inset-top) + 8px);
   left: 50%;
@@ -33,6 +35,7 @@
     transform: none;
     width: 360px;
     align-items: flex-end;
+    --island-drop: calc(-1 * (var(--titlebar-height) + var(--space-3) + var(--island-h) + 4px));
   }
 }
 
@@ -59,7 +62,7 @@
   touch-action: none;
   user-select: none;
   transition: transform 200ms ease;
-  animation: islandOpen 520ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+  animation: islandOpen 560ms ease both;
 }
 
 @media (min-width: 960px) {
@@ -70,11 +73,11 @@
 
 /* The words come once the island has opened, and go before it closes, as on the phone's own. */
 .toast > * {
-  animation: contentIn 260ms ease 160ms both;
+  animation: contentIn 220ms ease 380ms both;
 }
 
 .leaving {
-  animation: islandClose 300ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation: islandClose 420ms ease both;
   pointer-events: none;
 }
 
@@ -166,26 +169,39 @@
   filter: brightness(1.35);
 }
 
+/* Two steps, as on a Samsung's pop-ups: the small pill drops down from behind the top edge (the camera), then opens
+   out into the card. Closing is the same backwards: it folds back into the pill, which goes up again. */
 @keyframes islandOpen {
-  from {
+  0% {
     clip-path: var(--closed);
+    transform: translateY(var(--island-drop));
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
   }
-  to {
+  36% {
+    clip-path: var(--closed);
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1.12);
+  }
+  100% {
     clip-path: inset(0 0 0 0 round 22px);
+    transform: translateY(0);
   }
 }
 
 @keyframes islandClose {
-  from {
+  0% {
     clip-path: inset(0 0 0 0 round 22px);
-    opacity: 1;
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
   }
-  80% {
-    opacity: 1;
-  }
-  to {
+  60% {
     clip-path: var(--closed);
-    opacity: 0;
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.8, 0.4);
+  }
+  100% {
+    clip-path: var(--closed);
+    transform: translateY(var(--island-drop));
   }
 }
 
@@ -202,10 +218,10 @@
   }
 }
 
+/* The small Update island comes down from the top edge too. */
 @keyframes compactIn {
   from {
-    opacity: 0;
-    transform: scale(0.9);
+    transform: translateY(var(--island-drop));
   }
 }
 

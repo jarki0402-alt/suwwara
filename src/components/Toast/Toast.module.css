@@ -6,8 +6,8 @@
  * Dynamic Island (~11px down), but a web page can't tell an island from a notch or a punch-hole, only how tall the top
  * inset is: on an Android drawing edge-to-edge (Chrome does with viewport-fit=cover) or an iPhone with a notch the
  * pill landed on the camera and over the clock. Below it, it reads like the system's own banners on every phone.
- * Desktop: same island, top-right corner, growing out of its right end: a window has no camera, and the top centre is
- * the search bar.
+ * Desktop: the same black card in the top-right corner (the top centre is the search bar), but it only slides in from
+ * the right and back out, see the end of this file.
  */
 .container {
   --island-w: 126px;
@@ -35,7 +35,6 @@
     transform: none;
     width: 360px;
     align-items: flex-end;
-    --island-drop: calc(-1 * (var(--titlebar-height) + var(--space-3) + var(--island-h) + 4px));
   }
 }
 
@@ -62,13 +61,10 @@
   touch-action: none;
   user-select: none;
   transition: transform 200ms ease;
-  animation: islandOpen 560ms ease both;
-}
-
-@media (min-width: 960px) {
-  .toast {
-    --closed: inset(0 0 calc(100% - var(--island-h)) calc(100% - var(--island-w)) round 19px);
-  }
+  /* backwards, not both: once open, the animation must stop holding transform, or it would override the inline one
+     a swipe sets (animations outrank inline styles) and the card wouldn't follow the finger. Its end state is the
+     card's own look anyway. */
+  animation: islandOpen 560ms ease backwards;
 }
 
 /* The words come once the island has opened, and go before it closes, as on the phone's own. */
@@ -222,6 +218,35 @@
 @keyframes compactIn {
   from {
     transform: translateY(var(--island-drop));
+  }
+}
+
+/* Desktop: no island, no drop from the top. A window has no camera for it to come out of, so the grow-out read as
+   odd there; the card just slides in from the right edge and back out, like a Mac's own banners. */
+@media (min-width: 960px) {
+  .toast {
+    animation: slideIn 320ms cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+  }
+
+  .toast > *,
+  .leaving > * {
+    animation: none;
+  }
+
+  .leaving {
+    animation: slideOut 300ms cubic-bezier(0.5, 0, 0.8, 0.4) both;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(calc(100% + var(--space-4) + 12px));
+  }
+}
+
+@keyframes slideOut {
+  to {
+    transform: translateX(calc(100% + var(--space-4) + 12px));
   }
 }
 

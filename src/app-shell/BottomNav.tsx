@@ -1,4 +1,5 @@
 import { JamSidebarCard } from '../components/JamIndicator/JamIndicator';
+import { applyUpdate } from '../pwa/registerSW';
 import { useUpdateStore } from '../pwa/updateStore';
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { LazyImage } from '../components/Image/LazyImage';
@@ -76,6 +77,8 @@ export function BottomNav() {
   const createPlaylist = useLibraryStore((state) => state.createPlaylist);
   const [isCreating, setIsCreating] = useState(false);
   const hasUpdate = useUpdateStore((state) => state.status === 'available');
+  // The update notice closed down: on a desktop the update then waits at the foot of the sidebar (UpdateNotice).
+  const updateWaiting = useUpdateStore((state) => state.status === 'available' && !state.noticeOpen && !state.noticeHidden);
   const openJamSheet = useUiStore((state) => state.openJamSheet);
   const isDesktop = useIsDesktop();
   const sidebarFolded = useSyncExternalStore(subscribeSidebar, isSidebarCollapsed, () => false) && isDesktop;
@@ -218,6 +221,24 @@ export function BottomNav() {
           ))}
         </div>
       </div>
+
+      {isDesktop && updateWaiting && (
+        <button
+          type="button"
+          className={styles.updateRow}
+          onClick={() => applyUpdate()}
+          title={sidebarFolded ? t('Update tersedia') : undefined}
+          aria-label={t('Update tersedia · Muat ulang')}
+        >
+          <span className={styles.updateIcon}>
+            <Icon name="refresh" size={18} />
+          </span>
+          <span className={styles.updateText}>
+            <span className={styles.updateTitle}>{t('Update tersedia')}</span>
+            <span className={styles.updateSub}>{t('Muat ulang')}</span>
+          </span>
+        </button>
+      )}
 
       <PlaylistNameDialog
         isOpen={isCreating}

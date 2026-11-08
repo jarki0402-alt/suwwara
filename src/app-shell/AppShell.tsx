@@ -11,7 +11,6 @@ import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useUiStore } from '../stores/uiStore';
 import { InstallBanner } from '../components/InstallBanner/InstallBanner';
 import { ConnectionBanner } from '../components/ConnectionBanner/ConnectionBanner';
-import { DesktopUpdatePill } from '../pwa/DesktopUpdatePill';
 import { JamPill } from '../components/JamIndicator/JamIndicator';
 import { NowPlayingView } from '../views/now-playing/NowPlayingView';
 import { VideoTheater } from '../video/VideoTheater';
@@ -118,7 +117,6 @@ function ShellBody() {
       {/* Also the remote for another device of the account — it then shows and steers what plays there (PlaybackProvider). */}
       <MiniPlayer />
       <ConnectionBanner />
-      <DesktopUpdatePill rightPanel={showRightPanel} />
       <BottomNav />
       <JamPill />
       <NowPlayingView />

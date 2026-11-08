@@ -33,8 +33,8 @@ export function UpdateNotice() {
 
   if (!available || hidden) return null;
   if (!open) {
-    // Desktop: the small island lives in the top bar instead (DesktopUpdatePill), where it covers nothing; in the
-    // top-right corner it sat on the right panel's queue button for as long as the update waited.
+    // Desktop: it waits at the foot of the sidebar instead (BottomNav), like a desktop app's own "update ready" row.
+    // A pill floating at the top of the page sat on a button (the right panel's queue, then the fullscreen one).
     if (isDesktop) return null;
     return (
       <button type="button" className={styles.compact} onClick={() => setOpen(true)} aria-label={t('Update tersedia')}>

@@ -5,6 +5,7 @@ import type { Song } from '../api/types';
 // eslint-disable-next-line import/no-cycle
 import { AudioCache } from '../audio-engine/AudioCache';
 import { resolveAudioUrl } from '../audio-engine/bitrateResolver';
+import { blobHasVideoTrack } from '../audio-engine/videoTrack';
 import { useSettingsStore } from '../stores/settingsStore';
 
 const DB_NAME = 'suwwara-downloads';
@@ -73,6 +74,9 @@ export const downloadManager = {
   // whole playlist to fetch in parallel (same reasoning as AudioCache's own prefetch queue).
   queueTail: Promise.resolve() as Promise<void>,
   inFlight: new Map<string, Promise<DownloadResult>>(),
+  // Downloads already sent for an audio-only replacement this session (getBlobUrl): one try each, so a song the server
+  // can still only give as video doesn't fetch the whole file again on every play. Bounded by the user's own downloads.
+  refreshed: new Set<string>(),
 
   // Every place that shows "is this downloaded?" (a song's own "⋯" menu, the standalone Now Playing button, a
   // playlist's bulk button, the Koleksi → Diunduh tab) subscribes here instead of only checking once on mount —
@@ -103,19 +107,31 @@ export const downloadManager = {
     return tracked;
   },
 
-  async run(song: Song): Promise<DownloadResult> {
+  /** Re-downloads a song already kept, replacing its file (see getBlobUrl). Queued behind other downloads, same as one. */
+  refresh(song: Song): Promise<DownloadResult> {
+    const existing = this.inFlight.get(song.id);
+    if (existing) return existing;
+    const task = this.queueTail.then(() => this.run(song, true));
+    const tracked = task.finally(() => this.inFlight.delete(song.id));
+    this.inFlight.set(song.id, tracked);
+    this.queueTail = tracked.then(() => {});
+    return tracked;
+  },
+
+  async run(song: Song, replace = false): Promise<DownloadResult> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
     try {
       const db = await getDB();
       const already = await promisify(db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).getKey(song.id));
-      if (already !== undefined) return { ok: true }; // already downloaded — nothing to do
+      if (already !== undefined && !replace) return { ok: true }; // already downloaded — nothing to do
+      if (already === undefined && replace) return { ok: false, reason: 'network' }; // removed meanwhile: not brought back
 
       // Downloads get first claim on the shared "Tersimpan Offline" budget (settingsStore.offlineQuotaMB) — the
       // opportunistic cache only ever gets what's left over (see AudioCache.enforceLimits()), so it's never this
       // check's job to make room; a full cache never blocks a deliberate download.
       const quotaBytes = useSettingsStore.getState().offlineQuotaMB * 1024 * 1024;
-      if ((await this.usedBytes()) >= quotaBytes) return { ok: false, reason: 'quota' };
+      if (!replace && (await this.usedBytes()) >= quotaBytes) return { ok: false, reason: 'quota' };
 
       const dataSaver = useSettingsStore.getState().dataSaver;
       const quality: 'low' | 'high' = dataSaver ? 'low' : 'high';
@@ -123,6 +139,8 @@ export const downloadManager = {
       if (!response.ok) return { ok: false, reason: 'network' };
       const blob = await response.blob();
       if (blob.size < MIN_VALID_BLOB_BYTES) return { ok: false, reason: 'network' };
+      // Still a video from the server (its last-resort client): the old copy is kept rather than swapped for the same.
+      if (replace && (await blobHasVideoTrack(blob))) return { ok: false, reason: 'network' };
 
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -181,7 +199,15 @@ export const downloadManager = {
     try {
       const db = await getDB();
       const entry = await promisify<DownloadEntry | undefined>(db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(songId));
-      return entry ? URL.createObjectURL(entry.blob) : null;
+      if (!entry) return null;
+      // A download made before 2026-11 can be a video file (see videoTrack.ts). Online, the audio-only file plays
+      // from the network and replaces it in the background; offline the old copy still plays, better than nothing.
+      if (navigator.onLine && !this.refreshed.has(songId) && (await blobHasVideoTrack(entry.blob))) {
+        this.refreshed.add(songId);
+        void this.refresh(entry.song);
+        return null;
+      }
+      return URL.createObjectURL(entry.blob);
     } catch {
       return null;
     }

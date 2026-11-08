@@ -2,6 +2,7 @@ import { downloadManager } from '../downloads/downloadManager';
 import { useSettingsStore } from '../stores/settingsStore';
 import { resolveAudioUrl } from './bitrateResolver';
 import { planEviction, type CacheLimits, type CacheRecord } from './cachePolicy';
+import { blobHasVideoTrack } from './videoTrack';
 
 const DB_NAME = 'suwwara-audio-cache';
 const DB_VERSION = 2;
@@ -94,6 +95,12 @@ export const AudioCache = {
       const id = `${songId}:${dataSaver ? 'low' : 'high'}`;
       const entry = await promisify<AudioEntry | undefined>(db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(id));
       if (!entry) return null;
+      // A video file stored before 2026-11 (see videoTrack.ts): dropped, the network's audio-only file plays instead
+      // and is stored in its place by the usual keepPlaying/prefetch path.
+      if (await blobHasVideoTrack(entry.blob)) {
+        await this.forget(songId);
+        return null;
+      }
 
       if (Date.now() - entry.timestamp > TOUCH_AFTER_MS) void this.updateTimestamp(entry);
       return URL.createObjectURL(entry.blob);
@@ -165,6 +172,7 @@ export const AudioCache = {
   async store(songId: string, dataSaver: boolean, blob: Blob): Promise<void> {
     if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled || blob.size < MIN_VALID_BLOB_BYTES) return;
     try {
+      if (await blobHasVideoTrack(blob)) return;
       if (await downloadManager.has(songId)) return;
       const db = await getDB();
       const id = `${songId}:${dataSaver ? 'low' : 'high'}`;
@@ -216,7 +224,7 @@ export const AudioCache = {
       const response = await fetch(url + (url.includes('?') ? '&' : '?') + 'priority=low', { signal: controller.signal });
       if (!response.ok) return;
       const blob = await response.blob();
-      if (blob.size < MIN_VALID_BLOB_BYTES) return;
+      if (blob.size < MIN_VALID_BLOB_BYTES || (await blobHasVideoTrack(blob))) return;
 
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite');

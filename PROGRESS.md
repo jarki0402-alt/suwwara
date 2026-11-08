@@ -25,6 +25,10 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Urutan tab layar penuh: Lirik, Video, Antrean, Jam)
+
+- Tab di layar penuh sekarang **Lirik · Video · Antrean · Jam** (Video tepat di samping Lirik, sebelumnya paling kanan). Lagu tanpa video tetap Lirik · Antrean · Jam ([FullscreenStage.tsx](./src/views/now-playing/FullscreenStage.tsx)). Dicek di Chromium (Docker).
+
 ## Perubahan terbaru · 2026-11-08 (Simpan lagu di perangkat: On untuk semua)
 
 - "Simpan lagu di perangkat ini" (Tersimpan Offline, `localAudioEnabled`) dinyalakan lagi **sekali** di semua perangkat saat update (migrasi `settingsStore` v4, hitungan gagal direset). Pengguna baru sudah On dari bawaan. Kalau setelah itu dimatikan sendiri, pilihannya tetap dihormati; pengaman otomatis (mati sendiri setelah 2× gagal memutar file simpanan berturut-turut) tetap ada untuk perangkat yang memang bermasalah.

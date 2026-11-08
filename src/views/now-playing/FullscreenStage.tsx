@@ -258,7 +258,8 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
   const video = useMusicVideo(song);
   const { showToast } = useToast();
   const theaterOpen = useUiStore((state) => state.videoTheater !== null);
-  const tabs = video ? [...TABS, VIDEO_TAB] : TABS;
+  // Video next to Lirik: the two ways of watching the song come first, the queue and the Jam after (asked for).
+  const tabs = video ? [TABS[0], VIDEO_TAB, ...TABS.slice(1)] : TABS;
   // The song changed to one without a video while its tab was showing: back to the lyrics.
   const shownTab: Tab = tab === 'video' && !video ? 'lyrics' : tab;
 

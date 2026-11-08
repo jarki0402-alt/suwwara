@@ -25,6 +25,11 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Simpan lagu di perangkat: On untuk semua)
+
+- "Simpan lagu di perangkat ini" (Tersimpan Offline, `localAudioEnabled`) dinyalakan lagi **sekali** di semua perangkat saat update (migrasi `settingsStore` v4, hitungan gagal direset). Pengguna baru sudah On dari bawaan. Kalau setelah itu dimatikan sendiri, pilihannya tetap dihormati; pengaman otomatis (mati sendiri setelah 2× gagal memutar file simpanan berturut-turut) tetap ada untuk perangkat yang memang bermasalah.
+- Dites (Chromium, Docker): perangkat v3 dengan Off → On setelah update, pengaturan lain (Liquid Glass, palet) tidak berubah; dimatikan lagi → tetap Off.
+
 ## Perubahan terbaru · 2026-11-08 (Android background: pertahanan 5 detik, laporan jujur satu per kejadian)
 
 Analisis laporan resti/fatha: (1) laporan dikirim **per jeda**, bukan per kejadian, dan tanpa hasil akhir, jadi satu tarik-menarik di Jam ("Cancer 209 dtk" ×13) tampil sebagai 13 alarm padahal lagunya tetap bunyi: penjaga Jam di `usePlaybackController` memutar lagi setiap kali Chrome menjeda; (2) di luar Jam, app hanya melawan jeda dalam **2 detik** setelah app ditinggal, sedangkan di tablet resti jedanya datang ~2–2,5 detik, jadi lagu berhenti; (3) di HP fatha Chrome menjeda ~18× dalam 2 detik pertama dan app selalu menang (lagu lanjut). iPhone tidak terdampak (logika ini khusus Android).

@@ -120,13 +120,19 @@ export const useSettingsStore = create<SettingsState>()(
       // is actually seen (v1 only moved the old default, and people on a palette they once tried kept the old look).
       // The choice stays theirs: any palette picked from now on is kept.
       // v3 (2026-11): Liquid Glass off on every device once, whatever was picked before; turning it back on sticks.
-      version: 3,
+      // v4 (2026-11): "Simpan lagu di perangkat" back on once everywhere (switched off by hand, or by two blob failures
+      // on an older build); the automatic switch-off after repeated failures still protects a device where it breaks.
+      version: 4,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<SettingsState>;
         if (version < 2) state.palette = 'bara';
         if (version < 3) {
           state.glassMode = 'off';
           state.glassAutoTier = null;
+        }
+        if (version < 4) {
+          state.localAudioEnabled = true;
+          state.localAudioFailureCount = 0;
         }
         return state as SettingsState;
       },

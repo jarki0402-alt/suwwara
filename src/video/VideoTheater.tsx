@@ -96,6 +96,13 @@ function TheaterView({ session }: { session: VideoTheaterSession }) {
     };
   }, [sound, close, handleNext]);
 
+  // The MV's own sound stops for good first (not "resume the song", which closing alone would do), then the queue moves.
+  const leaveFor = (move: () => void) => {
+    stopVideoSound(false);
+    close();
+    move();
+  };
+
   const poster = bestImageUrl(session.song.image, '500x500');
   const giveUp = (reason: UnavailableReason) => {
     showToast(reason === 'slow' ? t('Koneksi terlalu lambat untuk video.') : t('Video tidak bisa diputar sekarang.'));
@@ -132,6 +139,20 @@ function TheaterView({ session }: { session: VideoTheaterSession }) {
             paused={() => sound.element.paused}
             onToggle={() => (sound.element.paused ? void sound.element.play().catch(() => {}) : sound.element.pause())}
             onSeek={(seconds) => seekElement(sound.element, seconds)}
+            onPrevious={() => {
+              // Like any player: past the first seconds, back to the start of this video; at its start, the song before.
+              if (sound.element.currentTime > RESTART_THRESHOLD_SEC) {
+                seekElement(sound.element, 0);
+                return;
+              }
+              // The song under the video is paused mid-way, where "previous" would only rewind it (and stay paused): at 0
+              // it goes to the song before, which starts playing.
+              leaveFor(() => {
+                audioEngine.seek(0);
+                handlePrevious();
+              });
+            }}
+            onNext={() => leaveFor(handleNext)}
           />
         ) : (
           <Transport
@@ -158,6 +179,9 @@ function seekElement(element: HTMLAudioElement, seconds: number): void {
   element.currentTime = seconds;
 }
 
+// Previous within this many seconds of the start goes to the song before, later it restarts the video (as songs do).
+const RESTART_THRESHOLD_SEC = 3;
+
 // The 10-second jumps of every video player: for finding the part of a video again, which a song rarely needs.
 const SKIP_SEC = 10;
 
@@ -167,12 +191,12 @@ interface TransportProps {
   paused: () => boolean;
   onToggle: () => void;
   onSeek: (seconds: number) => void;
-  /** The song's own: previous/next track. Not for a different cut playing with its own sound. */
+  /** Previous/next track. With a different cut's own sound, they leave the video for the song before/after. */
   onPrevious?: () => void;
   onNext?: () => void;
 }
 
-/** The theater's controls: seek, back/forward 10s around play/pause, and the song's previous/next when it's the song. */
+/** The theater's controls: seek, back/forward 10s around play/pause, and previous/next. */
 function Transport({ clock, durationSec, paused: isPaused, onToggle, onSeek, onPrevious, onNext }: TransportProps) {
   const t = useT();
   // Whole seconds and the play state: re-renders at most once a second while playing.

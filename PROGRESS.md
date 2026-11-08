@@ -25,6 +25,12 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 - **Containerized**: `Dockerfile` (frontend, nginx:alpine, ~69MB) + `server/Dockerfile` (backend, node:22-alpine + python3/yt-dlp, ~299MB) + `docker-compose.yml`. Diverifikasi end-to-end (build, health check, search, resolve+stream audio asli lewat yt-dlp di dalam container, render UI lewat browser) — lihat entri di bawah.
 - **Tema terang/gelap manual**: bisa dipilih di Pengaturan (Sistem/Terang/Gelap), bukan cuma ikut `prefers-color-scheme` OS. Lihat `useThemeSync`, `theme.css`, `settingsStore.ts`.
 
+## Perubahan terbaru · 2026-11-08 (Lagu | Video saat lirik terbuka, kontrol MV sama dengan video)
+
+- **Lagu | Video tetap berfungsi saat lirik terbuka** di panel Sedang Diputar: lirik menggantikan cover, jadi tombolnya dulu tidak mengubah apa pun yang terlihat. Sekarang memilih Lagu atau Video sekaligus menutup lirik dan menampilkan cover atau videonya ([MusicVideoToggle.tsx](./src/video/MusicVideoToggle.tsx)). Layar penuh (tab Lirik/Antrean/Jam/Video) tidak diubah.
+- **Kontrol "Tonton MV" (versi beda, suara sendiri) sama dengan kontrol video**: sebelumnya, mundur 10 detik, putar/jeda, maju 10 detik, berikutnya. Berikutnya: suara MV berhenti, teater tertutup, lanjut ke lagu berikutnya. Sebelumnya: lewat 3 detik pertama kembali ke awal MV, di awal pindah ke lagu sebelumnya (lagu di bawahnya dimundurkan ke 0 dulu supaya tidak sekadar "rewind" lagu yang sedang dijeda).
+- Dites di Chromium (Docker): lirik → klik Video → lirik tertutup, video jalan; teater MV "I Like Me Better" punya 6 tombol yang sama; Berikutnya menutup teater dan lagu berikutnya berputar.
+
 ## Perubahan terbaru · 2026-11-08 (Scrollbar muncul saat di-scroll saja, sidebar bisa diciutkan jadi ikon)
 
 - **Scrollbar otomatis hilang**: di semua area yang bisa di-scroll, thumb scrollbar transparan saat diam dan baru tampil selama area itu di-scroll (~0,9 detik setelah scroll terakhir) atau saat kursor tepat di atas batangnya (supaya tetap bisa diseret). Satu listener `scroll` (fase capture) untuk seluruh halaman di [autoHideScrollbars.ts](./src/utils/autoHideScrollbars.ts) memberi kelas `.is-scrolling`; gayanya di `global.css` (Firefox lewat `scrollbar-color`, hanya di browser tanpa `::-webkit-scrollbar` karena di Chrome properti itu mematikan gaya webkit).

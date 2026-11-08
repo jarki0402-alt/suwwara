@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { Song } from '../api/types';
 import { Icon } from '../components/Icon/Icon';
 import { useT } from '../i18n/i18n';
+import { useUiStore } from '../stores/uiStore';
 import { useVideoMode, warmMusicVideo, type MusicVideo } from './musicVideo';
 import { openTheater } from './theater';
 import styles from './MusicVideoToggle.module.css';
@@ -18,7 +19,14 @@ export function MusicVideoToggle({ song, video }: { song: Song; video: MusicVide
   const t = useT();
   const wanted = useVideoMode((state) => state.wanted);
   const setWanted = useVideoMode((state) => state.setWanted);
+  const setLyricsOpen = useUiStore((state) => state.setLyricsOpen);
   const showingVideo = wanted && video.synced;
+  // Lyrics take the art's place in the panel, so with them open the switch changed nothing you could see: picking
+  // either side now also brings back the art (or the picture) it is about.
+  const pick = (next: boolean) => {
+    setWanted(next);
+    if (!useUiStore.getState().isNowPlayingFullscreen) setLyricsOpen(false);
+  };
 
   useEffect(() => warmMusicVideo(video), [video]);
 
@@ -33,10 +41,10 @@ export function MusicVideoToggle({ song, video }: { song: Song; video: MusicVide
 
   return (
     <div className={styles.toggle} role="group" aria-label={t('Lagu atau video')}>
-      <button type="button" className={[styles.option, showingVideo ? '' : styles.active].join(' ')} aria-pressed={!showingVideo} onClick={() => setWanted(false)}>
+      <button type="button" className={[styles.option, showingVideo ? '' : styles.active].join(' ')} aria-pressed={!showingVideo} onClick={() => pick(false)}>
         {t('Lagu')}
       </button>
-      <button type="button" className={[styles.option, showingVideo ? styles.active : ''].join(' ')} aria-pressed={showingVideo} onClick={() => setWanted(true)}>
+      <button type="button" className={[styles.option, showingVideo ? styles.active : ''].join(' ')} aria-pressed={showingVideo} onClick={() => pick(true)}>
         <Icon name="video" size={14} />
         {t('Video')}
       </button>

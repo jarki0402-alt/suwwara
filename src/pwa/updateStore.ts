@@ -7,6 +7,12 @@ interface UpdateState {
   /** When the last manual or background check finished, ms since epoch. */
   checkedAt: number | null;
   set: (status: UpdateStatus) => void;
+  /** The update notice (UpdateNotice): opened as a card, or closed down to the small "Update" island. */
+  noticeOpen: boolean;
+  /** Closed with its × for this session (Pengaturan still offers the update). */
+  noticeHidden: boolean;
+  setNoticeOpen: (open: boolean) => void;
+  hideNotice: () => void;
 }
 
 /**
@@ -18,4 +24,8 @@ export const useUpdateStore = create<UpdateState>((set) => ({
   status: 'idle',
   checkedAt: null,
   set: (status) => set({ status, checkedAt: status === 'latest' || status === 'available' || status === 'error' ? Date.now() : null }),
+  noticeOpen: true,
+  noticeHidden: false,
+  setNoticeOpen: (noticeOpen) => set({ noticeOpen }),
+  hideNotice: () => set({ noticeHidden: true }),
 }));

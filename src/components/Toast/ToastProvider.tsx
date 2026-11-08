@@ -13,7 +13,7 @@ interface ToastItem {
   message: string;
   type: ToastType;
   action?: ToastAction;
-  /** Playing its exit animation; removed once that has run. */
+  /** Playing its closing animation (the island shrinking back); removed once that has run. */
   leaving: boolean;
 }
 
@@ -34,17 +34,18 @@ const DEFAULT_DURATION_MS = 4000;
 const ACTION_DURATION_MS = 7000;
 // Two at most, like the Mac's own banners: a third pushes the oldest out instead of building a tower over the page.
 const MAX_VISIBLE = 2;
-// Matches the exit animation in Toast.module.css.
-const EXIT_MS = 240;
+// Matches the closing animation (islandClose) in Toast.module.css.
+const EXIT_MS = 300;
 // Dragged this far towards its exit edge, it's thrown away.
 const SWIPE_DISMISS_PX = 56;
 
 /**
- * Notifications for things that just happened (a link copied, a Jam joined, a download done). They come in at the top:
- * from the right on a desktop, like a Mac's notification banners, and dropping from the top on a phone, like an
- * iPhone's, where the bottom is the player's and the connection strip's (ConnectionBanner). The same message already
- * showing is not shown twice; it just stays up longer. `pinned` sits above them and stays until dealt with (the
- * update notice), so it can never be shown twice either.
+ * Notifications for things that just happened (a link copied, a Jam joined, a download done), as an "island": a black
+ * pill that grows out of the top of the screen into a card and shrinks back (Toast.module.css). Top centre on a phone,
+ * where the camera is (an iPhone's Dynamic Island, a punch-hole); top right on a desktop, where the top centre is the
+ * search bar. The bottom is the player's and the connection strip's (ConnectionBanner). The same message already
+ * showing is not shown twice; it just stays up longer. `pinned` sits above them and stays until dealt with (the update
+ * notice), so it can never be shown twice either.
  */
 export function ToastProvider({ children, pinned }: { children: ReactNode; pinned?: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);

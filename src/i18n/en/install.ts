@@ -86,6 +86,7 @@ export const install: Dictionary = {
 
   // registerSW
   'Update tersedia': 'Update available',
+  Update: 'Update',
   'Muat ulang untuk memakai versi terbaru.': 'Reload to use the latest version.',
   'Muat ulang': 'Reload',
   'Suwwara siap digunakan secara offline.': 'Suwwara is ready to use offline.',

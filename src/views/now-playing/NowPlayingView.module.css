@@ -573,6 +573,14 @@
 @media (min-width: 960px) {
   .overlayArt {
     overflow-y: auto;
+    /* No scrollbar here, not even while scrolling: its 12px lane is outside the sheet, so the blurred art behind the
+       panel stops short of it and the page showed through as a dark stripe down the right edge. Wheel, trackpad and
+       touch still scroll it, like the sidebar's Koleksimu list. */
+    scrollbar-width: none;
+  }
+
+  .overlayArt::-webkit-scrollbar {
+    display: none;
   }
 
   .overlayArt .sheet {

@@ -29,7 +29,8 @@ Aplikasi sudah punya alur inti lengkap: cari lagu → putar → antrean/shuffle/
 
 - **Scrollbar otomatis hilang**: di semua area yang bisa di-scroll, thumb scrollbar transparan saat diam dan baru tampil selama area itu di-scroll (~0,9 detik setelah scroll terakhir) atau saat kursor tepat di atas batangnya (supaya tetap bisa diseret). Satu listener `scroll` (fase capture) untuk seluruh halaman di [autoHideScrollbars.ts](./src/utils/autoHideScrollbars.ts) memberi kelas `.is-scrolling`; gayanya di `global.css` (Firefox lewat `scrollbar-color`, hanya di browser tanpa `::-webkit-scrollbar` karena di Chrome properti itu mematikan gaya webkit).
 - **Sidebar desktop bisa diciutkan jadi ikon saja** (seperti Spotify): tombol baru di samping logo (ikon `sidebar`, "Ciutkan/Lebarkan sidebar"), atau seret tepinya ke kiri melewati 150px (langsung menyusut ke 88px; seret balik untuk melebarkan), atau panah kiri di pegangan saat sudah paling sempit. Mode ikon: label menu, judul Koleksimu, nama playlist, dan kartu Jam disembunyikan, ikon dan cover di tengah, nama muncul sebagai tooltip, playlist yang terbuka ditandai cincin aksen. Tersimpan per browser bersama lebar panel ([paneWidths.ts](./src/app-shell/paneWidths.ts), `<html data-sidebar="collapsed">`).
-- Dites di Chromium (Docker): tombol, seret buka/tutup, tersimpan setelah reload, scrollbar tampil saat scroll lalu hilang.
+- Panel Sedang Diputar (kanan) tidak punya scrollbar sama sekali: jalur scrollbar 12px-nya ada di luar latar blur cover, jadi tampil sebagai garis gelap di tepi kanan panel. Scroll lewat mouse/trackpad/sentuh tetap jalan.
+- Dites di Chromium (Docker): tombol, seret buka/tutup, tersimpan setelah reload, scrollbar tampil saat scroll lalu hilang, panel kanan utuh tanpa garis.
 
 ## Perubahan terbaru · 2026-11-08 (Video: kualitas adaptif seperti YouTube, menu Kualitas video)
 

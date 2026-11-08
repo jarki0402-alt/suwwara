@@ -85,7 +85,8 @@ export const install: Dictionary = {
   'QR code ke {url}': 'QR code to {url}',
 
   // registerSW
-  'Versi baru Suwwara tersedia.': 'A new version of Suwwara is available.',
+  'Update tersedia': 'Update available',
+  'Muat ulang untuk memakai versi terbaru.': 'Reload to use the latest version.',
   'Muat ulang': 'Reload',
   'Suwwara siap digunakan secara offline.': 'Suwwara is ready to use offline.',
 };

@@ -301,7 +301,7 @@
     /* Lined up under the page panel and the right panel (2026-11 redesign). */
     left: var(--sidebar-width);
     right: var(--panel-gap);
-    bottom: var(--pill-gap);
+    bottom: calc(var(--pill-gap) + var(--status-strip));
     transform: none;
     transition: none;
     overflow: hidden;

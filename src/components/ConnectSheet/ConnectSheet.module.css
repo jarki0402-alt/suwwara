@@ -179,7 +179,7 @@
   position: fixed;
   top: calc(var(--titlebar-height) + var(--panel-gap));
   right: var(--panel-gap);
-  bottom: calc(82px + var(--pill-gap) + var(--panel-gap));
+  bottom: calc(82px + var(--pill-gap) + var(--panel-gap) + var(--status-strip));
   width: var(--now-playing-panel-width);
   border-radius: var(--panel-radius);
   /* One above Now Playing's panel (--z-sheet) so it covers it while open. */

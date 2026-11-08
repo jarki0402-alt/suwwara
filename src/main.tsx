@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { ToastProvider } from './components/Toast/ToastProvider';
+import { UpdateNotice } from './pwa/UpdateNotice';
 import './styles/variables.css';
 import './styles/theme.css';
 import './styles/global.css';
@@ -21,7 +22,7 @@ if (!rootElement) throw new Error('Root element (#root) not found.');
 void initLanguage().then(() => {
   createRoot(rootElement).render(
     <StrictMode>
-      <ToastProvider>
+      <ToastProvider pinned={<UpdateNotice />}>
         <App />
       </ToastProvider>
     </StrictMode>,

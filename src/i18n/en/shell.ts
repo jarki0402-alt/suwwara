@@ -73,4 +73,9 @@ export const shell: Dictionary = {
   // BottomNav sidebar fold
   'Ciutkan sidebar': 'Collapse sidebar',
   'Lebarkan sidebar': 'Expand sidebar',
+  // ConnectionBanner
+  'Tidak ada koneksi internet': 'No internet connection',
+  'Lagu yang tersimpan tetap bisa diputar.': 'Saved songs can still be played.',
+  'Koneksi lambat, lagu sedang dimuat…': 'Slow connection, loading the song…',
+  'Kembali online': 'Back online',
 };

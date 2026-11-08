@@ -263,7 +263,7 @@
     /* A floating rounded panel (2026-11 redesign), like the page and the right panel beside it. */
     top: calc(var(--titlebar-height) + var(--panel-gap));
     right: auto;
-    bottom: var(--panel-gap);
+    bottom: calc(var(--panel-gap) + var(--status-strip));
     left: var(--panel-gap);
     width: calc(var(--sidebar-width) - 2 * var(--panel-gap));
     height: auto;

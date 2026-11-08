@@ -1,7 +1,10 @@
+/* Notifications live at the top (see ToastProvider): dropping from the top centre on a phone, like an iPhone's banners,
+   and from the right in the top-right corner on a desktop, like a Mac's. The bottom belongs to the player and to the
+   connection strip (ConnectionBanner). */
 .container {
   position: fixed;
+  top: calc(env(safe-area-inset-top) + var(--space-2));
   left: 50%;
-  bottom: calc(var(--dock-bottom) + var(--bottom-nav-height) + var(--mini-player-height) + var(--dock-gap) * 2 + var(--space-2));
   transform: translateX(-50%);
   z-index: var(--z-toast);
   display: flex;
@@ -11,13 +14,22 @@
   pointer-events: none;
 }
 
+@media (min-width: 960px) {
+  .container {
+    top: calc(var(--titlebar-height) + var(--space-4));
+    right: var(--space-4);
+    left: auto;
+    transform: none;
+    width: 360px;
+  }
+}
+
 .toast {
   pointer-events: auto;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
-  -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  /* Solid unless Liquid Glass is on: over the page (or a cover photo) a see-through card was hard to read. */
+  background: var(--color-bg-elevated);
   color: var(--color-text-primary);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   box-shadow: var(--glass-sheen), var(--shadow-floating);
@@ -26,7 +38,78 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  animation: slideUp 380ms var(--ease-spring);
+  touch-action: none;
+  user-select: none;
+  transition: transform 200ms ease;
+  animation: dropIn 380ms var(--ease-spring);
+}
+
+:root[data-glass='full'] .toast {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  border-color: var(--glass-border);
+}
+
+.leaving {
+  animation: riseOut 240ms ease forwards;
+  pointer-events: none;
+}
+
+@media (min-width: 960px) {
+  .toast {
+    animation-name: slideInRight;
+  }
+
+  .leaving {
+    animation-name: slideOutRight;
+  }
+}
+
+/* The update notice (UpdateNotice.tsx): the same card, marked with the accent, and it stays until dealt with. */
+.pinned {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+.pinnedText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pinnedTitle {
+  font-weight: 700;
+}
+
+.pinnedSub {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.pinnedButtons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
 }
 
 .toastError {
@@ -43,13 +126,45 @@
   flex-shrink: 0;
 }
 
-@keyframes slideUp {
+@keyframes dropIn {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(-16px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes riseOut {
+  to {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  to {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .leaving {
+    animation-duration: 1ms;
   }
 }

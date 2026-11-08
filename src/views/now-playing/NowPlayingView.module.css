@@ -155,7 +155,7 @@
        base rule's bottom:0 — otherwise this panel's higher z-index (--z-sheet) would sit on
        top of and hide the transport bar underneath it, which stays visible/usable the whole
        time here (unlike mobile, where opening Now Playing IS the fullscreen takeover). */
-    bottom: calc(82px + var(--pill-gap));
+    bottom: calc(82px + var(--pill-gap) + var(--status-strip));
     background: none;
     animation: slideInFromRight 380ms var(--ease-spring);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -165,7 +165,7 @@
   /* Docked: ends above the player bar like the page beside it (it used to run on behind the bar to the window's
      bottom edge, with a fade over that part). */
   .overlay:not(.overlayFullscreen) {
-    bottom: calc(82px + var(--pill-gap) + var(--panel-gap));
+    bottom: calc(82px + var(--pill-gap) + var(--panel-gap) + var(--status-strip));
     z-index: 5;
   }
 

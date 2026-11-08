@@ -87,6 +87,6 @@
 
 @media (min-width: 960px) {
   .view {
-    padding-bottom: calc(82px + var(--pill-gap) + var(--space-4));
+    padding-bottom: calc(82px + var(--pill-gap) + var(--space-4) + var(--status-strip));
   }
 }

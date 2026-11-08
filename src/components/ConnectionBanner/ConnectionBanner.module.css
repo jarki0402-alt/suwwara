@@ -1,0 +1,81 @@
+/* A full-width strip along the very bottom edge of the app, under the player (Spotify's place for it). While it shows,
+   <html data-connection> raises everything resting on the bottom edge by --status-strip (variables.css, and each
+   bottom offset that adds it), so nothing is covered: on a desktop the player bar and the panels, on a phone the dock,
+   which sits on --dock-bottom. Below Now Playing and the sheets. */
+.banner {
+  position: fixed;
+  z-index: calc(var(--z-mini-player) + 2);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: var(--status-strip);
+  padding: 0 var(--space-4) env(safe-area-inset-bottom);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-align: center;
+  animation: stripIn 260ms ease;
+}
+
+/* Strong colours on purpose (asked for): it has to be noticed. White or near-black text for contrast on each. */
+.offline {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.slow {
+  background: #f59e0b;
+  color: #1a1100;
+}
+
+.online {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.title {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sub {
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* A phone's width holds one short line: the title alone, so the strip stays one thin line. */
+@media (max-width: 599.98px) {
+  .sub {
+    display: none;
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes stripIn {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner,
+  .spin {
+    animation: none;
+  }
+}

@@ -10,6 +10,7 @@ import { useAppFullscreen } from './useAppFullscreen';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useUiStore } from '../stores/uiStore';
 import { InstallBanner } from '../components/InstallBanner/InstallBanner';
+import { ConnectionBanner } from '../components/ConnectionBanner/ConnectionBanner';
 import { JamPill } from '../components/JamIndicator/JamIndicator';
 import { NowPlayingView } from '../views/now-playing/NowPlayingView';
 import { VideoTheater } from '../video/VideoTheater';
@@ -115,6 +116,7 @@ function ShellBody() {
       <ConnectBridge />
       {/* Also the remote for another device of the account — it then shows and steers what plays there (PlaybackProvider). */}
       <MiniPlayer />
+      <ConnectionBanner />
       <BottomNav />
       <JamPill />
       <NowPlayingView />

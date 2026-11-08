@@ -71,6 +71,8 @@
      below the side margin, so on a phone without an inset the dock is still framed evenly. */
   --dock-side: clamp(14px, 4.5vw, 22px);
   --dock-bottom: max(calc(env(safe-area-inset-bottom) - 6px), var(--dock-side));
+  /* The connection strip along the bottom edge (ConnectionBanner): 0 unless it shows. */
+  --status-strip: 0px;
   --dock-gap: 10px;
   /* A sampled critically-ish damped spring (ζ≈0.72, ~4% overshoot) — the dock collapse/expand
      has to read as one liquid object settling, which a cubic-bezier can only approximate. */
@@ -83,4 +85,11 @@
   --panel-radius: 20px;
   --now-playing-panel-width: 380px;
   --desktop-breakpoint: 960px;
+}
+
+/* While the connection strip shows, everything that rests on the bottom edge moves up by its height (the desktop
+   offsets add --status-strip themselves; on a phone the dock and all it carries sit on --dock-bottom). */
+:root[data-connection] {
+  --status-strip: 26px;
+  --dock-bottom: calc(var(--status-strip) + env(safe-area-inset-bottom) + 8px);
 }

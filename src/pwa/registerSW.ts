@@ -3,12 +3,7 @@ import { t } from '../i18n/i18n';
 import { usePlayerStore } from '../stores/playerStore';
 import { useUpdateStore, type UpdateStatus } from './updateStore';
 
-interface ToastAction {
-  label: string;
-  onClick: () => void;
-}
-
-type ShowToastFn = (message: string, options?: { action?: ToastAction }) => void;
+type ShowToastFn = (message: string) => void;
 
 // How often a long-lived session re-checks for a new version, on top of every resume.
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -186,7 +181,12 @@ export function applyUpdate(automatic = false): void {
   waiting.postMessage({ type: 'SKIP_WAITING' });
 }
 
+let initialised = false;
+
 export function initServiceWorker(showToast: ShowToastFn): void {
+  // Once per page: a second registration (React's development double effects) would answer every event twice.
+  if (initialised) return;
+  initialised = true;
   const updateSW = registerSW({
     immediate: true,
     onRegisteredSW(_swUrl, swRegistration) {
@@ -233,9 +233,7 @@ export function initServiceWorker(showToast: ShowToastFn): void {
         applyUpdate(true);
         return;
       }
-      showToast(t('Versi baru Suwwara tersedia.'), {
-        action: { label: t('Muat ulang'), onClick: () => applyUpdate() },
-      });
+      // Otherwise the status alone: UpdateNotice shows it, once, however many times this fires.
     },
     onOfflineReady() {
       showToast(t('Suwwara siap digunakan secara offline.'));

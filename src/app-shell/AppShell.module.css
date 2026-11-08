@@ -49,7 +49,7 @@
        the panel's children instead (below), so a very wide window still centres the content. */
     width: auto;
     max-width: none;
-    margin: calc(var(--titlebar-height) + var(--panel-gap)) var(--panel-gap) calc(82px + var(--pill-gap) + var(--panel-gap))
+    margin: calc(var(--titlebar-height) + var(--panel-gap)) var(--panel-gap) calc(82px + var(--pill-gap) + var(--panel-gap) + var(--status-strip))
       var(--sidebar-width);
     padding: 0 0 var(--space-5);
     border-radius: var(--panel-radius);
@@ -65,7 +65,7 @@
   /* Reserves room for the docked Now Playing panel (NowPlayingView.module.css)
      so it sits beside the main content instead of overlapping it. */
   .contentNoPlayer {
-    margin-bottom: var(--panel-gap);
+    margin-bottom: calc(var(--panel-gap) + var(--status-strip));
     padding-bottom: var(--space-5);
   }
 

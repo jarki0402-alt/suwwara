@@ -6,6 +6,7 @@ import { useThemeSync } from './hooks/useThemeSync';
 import { initServiceWorker } from './pwa/registerSW';
 import { initLibrarySync } from './sync/librarySync';
 import { initSpotifyImport } from './import/spotifyImport';
+import { initPodcastSync } from './podcast/podcastStore';
 import { initProfileSync } from './sync/profileSync';
 import { useUiStore } from './stores/uiStore';
 import { ChangePasswordScreen } from './views/auth/ChangePasswordScreen';
@@ -41,6 +42,7 @@ function App() {
       syncStarted.current = true;
       initLibrarySync();
       initSpotifyImport();
+      initPodcastSync();
       initProfileSync();
     }
   }, [status, mustChangePassword, isAdmin]);

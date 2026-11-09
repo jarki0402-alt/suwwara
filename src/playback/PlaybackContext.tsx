@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useFollowedDevice, type RemoteDevice } from '../connect/connectStore';
+import { usePodcastPlayback } from '../podcast/usePodcastPlayback';
 import { usePlaybackController } from './usePlaybackController';
 
 type PlaybackControllerValue = ReturnType<typeof usePlaybackController> & {
@@ -21,6 +22,7 @@ const PlaybackContext = createContext<PlaybackControllerValue | null>(null);
  */
 export function PlaybackProvider({ children }: { children: ReactNode }) {
   const controller = usePlaybackController();
+  usePodcastPlayback(controller.currentSong, controller.playbackState.status);
   const remoteDevice = useFollowedDevice();
   const remoteIsPlaying = remoteDevice?.state?.isPlaying ?? false;
   const remoteDuration = remoteDevice?.state?.durationSec ?? 0;

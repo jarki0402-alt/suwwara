@@ -1,7 +1,7 @@
 import { JamSidebarCard } from '../components/JamIndicator/JamIndicator';
 import { applyUpdate } from '../pwa/registerSW';
 import { useUpdateStore } from '../pwa/updateStore';
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { LazyImage } from '../components/Image/LazyImage';
 import { PlaylistNameDialog } from '../components/PlaylistNameDialog/PlaylistNameDialog';
 import { Icon, type IconName } from '../components/Icon/Icon';
@@ -9,7 +9,7 @@ import { useLensEnabled } from '../hooks/glassQuality';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useLiquidRim } from '../hooks/useLiquidRim';
 import { useLibraryStore } from '../stores/libraryStore';
-import { useUiStore, type ViewName } from '../stores/uiStore';
+import { useUiStore, type ViewName, LIKED_SONGS_ID } from '../stores/uiStore';
 import styles from './BottomNav.module.css';
 import { LiquidGlassLensDefs } from './LiquidGlassLens';
 import { useLiquidPill } from './useLiquidPill';
@@ -29,9 +29,11 @@ const PHONE_TABS: Tab[] = [
   { view: 'home', label: msg('Beranda'), icon: 'home' },
   { view: 'search', label: msg('Cari'), icon: 'search' },
   { view: 'library', label: msg('Koleksi'), icon: 'library' },
+  { view: 'podcast', label: msg('Podcast'), icon: 'podcast' },
   { view: 'settings', label: msg('Pengaturan'), icon: 'settings' },
 ];
-const DESKTOP_TABS: Tab[] = [...PHONE_TABS.slice(0, 3), { view: 'jam', label: msg('Jam'), icon: 'users' }, PHONE_TABS[3]];
+// Indexes into PHONE_TABS are used below (the folded dock's orbs): Cari is 1, Koleksi 2.
+const DESKTOP_TABS: Tab[] = [...PHONE_TABS.slice(0, 4), { view: 'jam', label: msg('Jam'), icon: 'users' }, PHONE_TABS[4]];
 
 // No bubble ripple on the tabs: the lifted glass pill (useLiquidPill) already answers the press, as in Apple's tab bar,
 // and inside the rectangular tab the clipped ripple flashed as a coloured box.
@@ -124,6 +126,7 @@ export function BottomNav() {
     <nav
       ref={navRef}
       className={[styles.nav, 'liquid-glass', isCollapsed ? styles.collapsed : ''].join(' ')}
+      style={{ '--tab-count': TABS.length } as CSSProperties}
       onPointerDown={pill.onPointerDown}
       onPointerMove={pill.onPointerMove}
       onPointerUp={pill.onPointerUp}
@@ -184,8 +187,8 @@ export function BottomNav() {
         <div className={styles.libraryList}>
           <button
             type="button"
-            className={[styles.libraryItem, currentView === 'library' && !selectedPlaylistId ? styles.libraryItemActive : ''].join(' ')}
-            onClick={() => setView('library')}
+            className={[styles.libraryItem, selectedPlaylistId === LIKED_SONGS_ID ? styles.libraryItemActive : ''].join(' ')}
+            onClick={() => openPlaylist(LIKED_SONGS_ID)}
             title={sidebarFolded ? t('Lagu Disukai') : undefined}
             aria-label={sidebarFolded ? t('Lagu Disukai') : undefined}
           >

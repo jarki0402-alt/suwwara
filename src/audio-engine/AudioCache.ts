@@ -3,6 +3,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { resolveAudioUrl } from './bitrateResolver';
 import { planEviction, type CacheLimits, type CacheRecord } from './cachePolicy';
 import { blobHasVideoTrack } from './videoTrack';
+import { isEpisodeId } from '../podcast/episodeRegistry';
 
 const DB_NAME = 'suwwara-audio-cache';
 const DB_VERSION = 2;
@@ -152,7 +153,8 @@ export const AudioCache = {
    * this second read is mostly a memory hit there rather than another trip to googlevideo.
    */
   keepPlaying(songId: string, dataSaver: boolean): void {
-    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled) return;
+    // Podcast episodes are never kept: one is 10-70MB, heard once, and would push dozens of songs out.
+    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled || isEpisodeId(songId)) return;
     const id = `${songId}:${dataSaver ? 'low' : 'high'}`;
     this.keptId = id;
     this.wanted.add(id);
@@ -163,14 +165,15 @@ export const AudioCache = {
   prefetchTracks(songIds: string[], dataSaver: boolean): void {
     if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled) return;
     const quality = dataSaver ? 'low' : 'high';
-    this.wanted = new Set(songIds.map((songId) => `${songId}:${quality}`));
+    const songsOnly = songIds.filter((songId) => !isEpisodeId(songId));
+    this.wanted = new Set(songsOnly.map((songId) => `${songId}:${quality}`));
     if (this.keptId) this.wanted.add(this.keptId);
-    for (const songId of songIds) void this.prefetchAndCache(songId, dataSaver);
+    for (const songId of songsOnly) void this.prefetchAndCache(songId, dataSaver);
   },
 
   /** Keeps a file the player already had to download in full anyway (see AudioEngine.networkBlobFor) — free repeat plays. */
   async store(songId: string, dataSaver: boolean, blob: Blob): Promise<void> {
-    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled || blob.size < MIN_VALID_BLOB_BYTES) return;
+    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled || blob.size < MIN_VALID_BLOB_BYTES || isEpisodeId(songId)) return;
     try {
       if (await blobHasVideoTrack(blob)) return;
       if (await downloadManager.has(songId)) return;
@@ -193,7 +196,7 @@ export const AudioCache = {
    * (or skipped/failed — errors are swallowed on purpose, it's only an optimization). */
   prefetchAndCache(songId: string, dataSaver: boolean): Promise<void> {
     // No point filling storage with blobs a device with unreliable local playback won't end up using.
-    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled) return Promise.resolve();
+    if (!this.isSupported || !useSettingsStore.getState().localAudioEnabled || isEpisodeId(songId)) return Promise.resolve();
 
     const id = `${songId}:${dataSaver ? 'low' : 'high'}`;
     const existing = this.inFlight.get(id);

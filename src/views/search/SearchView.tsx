@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { SearchClearButton } from '../../components/SearchClearButton/SearchClearButton';
 import { getCategorySongs } from '../../api/endpoints/category';
 import { findArtistMatch, getSearchSuggestions, searchSongs, type ArtistHit } from '../../api/endpoints/search';
 import type { Song } from '../../api/types';
@@ -167,6 +168,7 @@ export function SearchView() {
             onFocus={() => setIsInputFocused(true)}
             onBlur={() => setTimeout(() => setIsInputFocused(false), 150)}
           />
+          {query && <SearchClearButton onClear={() => handleInputChange('')} inputId="search-input" />}
         </form>
 
         {showSuggestions && (

@@ -20,6 +20,13 @@ const LABEL: Record<string, string> = {
  * reflected instantly wherever else the same song shows up.
  */
 export function DownloadButton({ song, size = 20 }: { song: Song; size?: number }) {
+  // Podcast episodes aren't downloadable (yet): 10-70MB each, and the download path holds a whole file in memory
+  // with a 60s limit, both made for songs.
+  if (song.kind === 'episode') return null;
+  return <SongDownloadButton song={song} size={size} />;
+}
+
+function SongDownloadButton({ song, size }: { song: Song; size: number }) {
   const t = useT();
   const { status, toggle } = useSongDownload(song);
   const { showToast } = useToast();

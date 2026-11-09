@@ -1,0 +1,25 @@
+.button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: -8px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+@media (hover: hover) {
+  .button:hover {
+    background: var(--color-border);
+    color: var(--color-text-primary);
+  }
+}
+
+.button:active {
+  transform: scale(0.92);
+}

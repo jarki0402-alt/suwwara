@@ -8,14 +8,16 @@ import { Overview, PlaybackPanel, SecurityPanel, SystemPanel, UsagePanel } from 
 import styles from './AdminConsole.module.css';
 import panelStyles from './AdminView.module.css';
 import { UsersPanel } from './UsersPanel';
+import { PodcastPicksPanel } from './PodcastPicksPanel';
 
-type Tab = 'ringkasan' | 'pengguna' | 'pemakaian' | 'sistem' | 'pemutaran' | 'keamanan' | 'akun';
+type Tab = 'ringkasan' | 'pengguna' | 'pemakaian' | 'sistem' | 'pemutaran' | 'podcast' | 'keamanan' | 'akun';
 const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: 'ringkasan', label: 'Ringkasan', icon: 'home' },
   { id: 'pengguna', label: 'Pengguna', icon: 'users' },
   { id: 'pemakaian', label: 'Pemakaian', icon: 'pulse' },
   { id: 'sistem', label: 'Sistem', icon: 'database' },
   { id: 'pemutaran', label: 'Pemutaran', icon: 'speaker' },
+  { id: 'podcast', label: 'Podcast', icon: 'podcast' },
   { id: 'keamanan', label: 'Keamanan', icon: 'queue' },
   { id: 'akun', label: 'Akun', icon: 'artist' },
 ];
@@ -128,6 +130,7 @@ export default function AdminConsole() {
           {tab === 'pemakaian' && <UsagePanel />}
           {tab === 'sistem' && <SystemPanel />}
           {tab === 'pemutaran' && <PlaybackPanel />}
+          {tab === 'podcast' && <PodcastPicksPanel />}
           {tab === 'keamanan' && <SecurityPanel />}
           {tab === 'akun' && <AccountPanel />}
         </div>

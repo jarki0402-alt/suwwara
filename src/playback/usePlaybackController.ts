@@ -8,6 +8,9 @@ import { useAudioEngine } from '../audio-engine/useAudioEngine';
 import { useToast } from '../components/Toast/ToastProvider';
 import { useConnectStore } from '../connect/connectStore';
 import { remotePlayhead, remoteSeek, remoteSetPlaying, remoteTogglePlay } from '../connect/remote';
+import { isEpisode } from '../podcast/episodeRegistry';
+import { playEpisode, songToEpisode } from '../podcast/playEpisode';
+import { resumePositionFor, usePodcastStore } from '../podcast/podcastStore';
 import { applyResumePoint, clearResumePoint, consumeHold } from '../connect/sessionHold';
 import { sendJamIntent } from '../jam/jamClient';
 import { canSyncToRoom, catchUpTarget, isLoadStillCurrent } from '../jam/jamPlaybackGuards';
@@ -265,7 +268,7 @@ export function usePlaybackController() {
         loadedSongIdRef.current = null;
       }
       setCurrentSongId(restored.id);
-      cacheSongs([restored]);
+      if (!isEpisode(restored)) cacheSongs([restored]);
       audioEngine.deferStart(() => {
         // From here on it is an ordinary loaded track, so the next change crossfades instead of loading from idle.
         loadedSongIdRef.current = restored.id;
@@ -277,7 +280,11 @@ export function usePlaybackController() {
             autoplay: true,
             fadeInSec: 0.6,
           })
-          .then(() => applyResumePoint(restored.id));
+          .then(() => {
+            applyResumePoint(restored.id);
+            // An episode with no carried-over spot from another device continues where this account left it.
+            if (isEpisode(restored) && audioEngine.getCurrentTime() < 2) seekToSavedEpisodePosition(restored.id);
+          });
       });
       return;
     }
@@ -290,7 +297,8 @@ export function usePlaybackController() {
     completedRef.current = false;
     advancedForSongIdRef.current = null;
     setCurrentSongId(currentSong.id);
-    cacheSongs([currentSong]);
+    // Episodes stay out of the song cache: it feeds recently-played and the smart mixes.
+    if (!isEpisode(currentSong)) cacheSongs([currentSong]);
 
     const song = currentSong;
     const generation = ++loadGenerationRef.current;
@@ -322,7 +330,9 @@ export function usePlaybackController() {
       // needs its own fresh resolve, queued behind the one still running, so switching
       // to it made the wait longer, not shorter. Real bandwidth problems are handled
       // where they actually show up: a rebuffer mid-song (see the effect further down).
-      const action = wasIdle
+      // An episode is never crossfaded into or out of: a fade blends a story's first words with a song's last bar.
+      const hardCut = wasIdle || isEpisode(song) || isEpisode(audioEngine.getCurrentSong());
+      const action = hardCut
         ? audioEngine.loadTrack(song, { dataSaver: effectiveDataSaver, autoplay: shouldAutoplay, fadeInSec: 0.6 })
         : audioEngine.crossfadeTo(song, TRANSITION_FADE_SEC, { dataSaver: effectiveDataSaver });
 
@@ -331,6 +341,12 @@ export function usePlaybackController() {
           // A newer load began meanwhile: this one was abandoned (it resolves normally when overtaken), and the audio
           // element that is audible now may still be the OLD track — seeking it would replay a skipped song.
           if (generation !== loadGenerationRef.current) return;
+          // Episodes pick up where they were left (a retry after an error reloads from 0 too, so this covers it). In a
+          // Jam the room's position decides, like for a song: the catch-up below.
+          if (isEpisode(song) && useJamStore.getState().role === 'solo') {
+            seekToSavedEpisodePosition(song.id);
+            return;
+          }
           // loadTrack/crossfadeTo always start at position 0 — a Jam participant
           // joining mid-song (or resyncing after a reconnect) needs an explicit
           // catch-up seek to the room's last-known position.
@@ -386,6 +402,24 @@ export function usePlaybackController() {
     (song: Song) => {
       if (advancedForSongIdRef.current === song.id) return;
       advancedForSongIdRef.current = song.id;
+
+      // An episode that ends just stops: no history (it would skew the music recommendations), no next song, no radio.
+      // It goes on only into an episode the listener queued themselves (podcastStore.queue); suggestions never play on
+      // their own (EpisodeNextCard offers them), so falling asleep to a story never runs into the next one.
+      if (isEpisode(song)) {
+        const podcast = usePodcastStore.getState();
+        podcast.markFinished(songToEpisode(song));
+        // In a Jam the room's queue goes on, as after a song (and the room decides what is next, not this device's
+        // own podcast queue).
+        if (jamRole !== 'solo' && jamRoomId) {
+          void sendJamIntent(jamRoomId, jamClientId, 'advance-on-ended', { songId: song.id });
+          return;
+        }
+        const queued = podcast.takeNextQueued();
+        if (queued) playEpisode(queued, [queued, ...usePodcastStore.getState().queue]);
+        else audioEngine.pause();
+        return;
+      }
 
       if (autoDataSaverTracksRemainingRef.current > 0) {
         autoDataSaverTracksRemainingRef.current -= 1;
@@ -500,6 +534,8 @@ export function usePlaybackController() {
     // like every other streaming app does when a track can't play, capped at
     // MAX_CONSECUTIVE_AUTO_SKIP so a genuine total outage doesn't rapid-fire through the
     // whole queue instead of just failing visibly once.
+    // An episode that fails is not "done": skipping would mark it heard. It stays, with its error, to be retried.
+    if (isEpisode(songToRetry)) return;
     if (consecutiveErrorsRef.current < MAX_CONSECUTIVE_AUTO_SKIP) {
       consecutiveErrorsRef.current += 1;
       // In a Jam an advance moves the queue for the whole room, so one member's bad
@@ -538,11 +574,12 @@ export function usePlaybackController() {
     AudioCache.cancelBackground();
   }, [currentSong?.id]);
   useEffect(() => {
-    if (!currentSong || !isPlaying) return;
+    // An episode plays alone (a queue of one): nothing to look ahead to.
+    if (!currentSong || !isPlaying || isEpisode(currentSong)) return;
     let stopWatchingHidden = () => {};
     const timeoutId = setTimeout(() => {
       const preferLow = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
-      const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id);
+      const upcoming = peekUpcoming(PREFETCH_LOOKAHEAD).filter((song) => song.id !== currentSong.id && !isEpisode(song));
       const [nextUp, ...later] = upcoming;
       if (!nextUp) return;
 
@@ -588,6 +625,7 @@ export function usePlaybackController() {
       // connection is metered (iOS doesn't expose this, so there it follows Data Saver only).
       const connection = (navigator as Navigator & { connection?: { saveData?: boolean; type?: string } }).connection;
       if (connection?.saveData || connection?.type === 'cellular') return;
+      if (isEpisode(currentSong)) return;
       const preferLow = dataSaver || autoDataSaverTracksRemainingRef.current > 0;
       if (dataSaver) return;
       AudioCache.keepPlaying(currentSong.id, preferLow);
@@ -630,6 +668,7 @@ export function usePlaybackController() {
     if (hasPlayedSongIdRef.current !== currentSong.id) return;
     if (qualityDroppedSongIdRef.current === currentSong.id) return;
     if (dataSaver) return; // already the lowest tier — nothing left to drop to.
+    if (isEpisode(currentSong)) return; // episodes always play the low tier
 
     const timeoutId = setTimeout(() => {
       qualityDroppedSongIdRef.current = currentSong.id;
@@ -673,6 +712,11 @@ export function usePlaybackController() {
         runCompletionAdvance(song);
         return;
       }
+
+      // An episode is only ever ended by reaching its end (above, or the native 'ended'). The watchdogs below end a
+      // song that froze in its last 10%; for a three-hour episode that is the last 18 minutes of a story, and ending
+      // it there would mark it heard. A stuck episode stays stuck and visible, to be resumed.
+      if (isEpisode(song)) return;
 
       // AudioContext silent while we still think we're playing (sound genuinely not
       // reaching the speakers, mid-song) — see isAudioSilentWhilePlaying()'s own comment.
@@ -747,6 +791,8 @@ export function usePlaybackController() {
     const lastQueueIndex = order[order.length - 1];
     const seedSong = queue[lastQueueIndex];
     if (!seedSong) return;
+    // A queue of one episode would otherwise be "running low" at once and get songs "similar to" the story.
+    if (isEpisode(seedSong) || queue.some((song) => isEpisode(song))) return;
 
     void extendQueueWithRadio(seedSong);
   }, [order, position, queue, jamRole, jamIsCreator, remoteRef]);
@@ -834,16 +880,31 @@ export function usePlaybackController() {
     }
     audioEngine.togglePlay();
   }, [jamRole, jamRoomId, jamClientId, remoteRef, stopBackgroundRecovery]);
+  // An episode's next/previous (the lock screen's buttons, the mini player's swipe, Ctrl+arrows) are skips within it
+  // instead: 15s either way.
+  const skipEpisodeBy = useCallback(
+    (deltaSec: number) => {
+      const now = remoteRef ? remotePlayhead() : audioEngine.getCurrentTime();
+      const target = Math.max(0, now + deltaSec);
+      if (remoteRef) remoteSeek(target);
+      // In a Jam a skip moves the room, like dragging the seek bar does: everyone stays at the same sentence.
+      else if (jamRole !== 'solo' && jamRoomId) void sendJamIntent(jamRoomId, jamClientId, 'seek', { positionSec: target });
+      else audioEngine.seek(target);
+    },
+    [remoteRef, jamRole, jamRoomId, jamClientId],
+  );
   const handleNext = useCallback(() => {
+    if (isEpisode(useQueueStore.getState().currentSong())) return skipEpisodeBy(EPISODE_SKIP_FORWARD_SEC);
     if (jamRole !== 'solo' && jamRoomId) {
       void sendJamIntent(jamRoomId, jamClientId, 'next');
       return;
     }
     next();
-  }, [next, jamRole, jamRoomId, jamClientId]);
+  }, [next, jamRole, jamRoomId, jamClientId, skipEpisodeBy]);
   // Skips stay plain queue moves while this device is a remote too: the mirrored queue moves (instantly, on screen
   // here) and the account session carries the move to the device that plays.
   const handlePrevious = useCallback(() => {
+    if (isEpisode(useQueueStore.getState().currentSong())) return skipEpisodeBy(-EPISODE_SKIP_BACK_SEC);
     if (remoteRef) {
       if (remotePlayhead() > RESTART_FROM_BEGINNING_THRESHOLD_SEC) remoteSeek(0);
       else previous();
@@ -863,7 +924,7 @@ export function usePlaybackController() {
       return;
     }
     previous();
-  }, [previous, jamRole, jamRoomId, jamClientId, remoteRef]);
+  }, [previous, jamRole, jamRoomId, jamClientId, remoteRef, skipEpisodeBy]);
   const handleSeek = useCallback(
     (timeSec: number) => {
       if (remoteRef) return remoteSeek(timeSec);
@@ -922,5 +983,16 @@ export function usePlaybackController() {
     handleNext,
     handlePrevious,
     handleSeek,
+    skipEpisodeBy,
   };
+}
+
+export const EPISODE_SKIP_BACK_SEC = 15;
+// The same both ways (asked for): 15s back, 15s forward.
+export const EPISODE_SKIP_FORWARD_SEC = 15;
+
+/** Seeks the just-loaded episode to where this account left it (podcastStore), if anywhere worth resuming. */
+function seekToSavedEpisodePosition(songId: string): void {
+  const at = resumePositionFor(songId);
+  if (at !== null && audioEngine.getCurrentSong()?.id === songId) audioEngine.seek(at);
 }

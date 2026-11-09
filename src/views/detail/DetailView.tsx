@@ -7,8 +7,10 @@ import styles from './Detail.module.css';
 // stay out of the initial bundle that an iPhone has to download and parse before showing Home.
 const ArtistView = lazy(() => import('./ArtistView').then((module) => ({ default: module.ArtistView })));
 const AlbumView = lazy(() => import('./AlbumView').then((module) => ({ default: module.AlbumView })));
+const PodcastChannelView = lazy(() => import('../../podcast/views/PodcastChannelView').then((module) => ({ default: module.PodcastChannelView })));
+const PodcastSeriesView = lazy(() => import('../../podcast/views/PodcastSeriesView').then((module) => ({ default: module.PodcastSeriesView })));
 
-/** The artist/album page on top of the detail stack (see uiStore.detailStack). */
+/** The artist/album/podcast channel/series page on top of the detail stack (see uiStore.detailStack). */
 export function DetailView() {
   const route = useUiStore((state) => state.detailStack[state.detailStack.length - 1]);
   if (!route) return null;
@@ -23,7 +25,15 @@ export function DetailView() {
         </div>
       }
     >
-      {route.type === 'artist' ? <ArtistView route={route} /> : <AlbumView route={route} />}
+      {route.type === 'artist' ? (
+        <ArtistView route={route} />
+      ) : route.type === 'album' ? (
+        <AlbumView route={route} />
+      ) : route.type === 'podcastChannel' ? (
+        <PodcastChannelView key={route.channelId} route={route} />
+      ) : (
+        <PodcastSeriesView key={route.seriesId} route={route} />
+      )}
     </Suspense>
   );
 }

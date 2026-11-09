@@ -204,4 +204,55 @@ create table if not exists spotify_track_matches (
   song jsonb,
   matched_at timestamptz not null default now()
 );
+
+-- Podcast tab (routes/podcast.ts). Per account and small, so plain rows written one at a time (follow, a saved
+-- position every ~15s while listening) instead of a whole synced snapshot like the library. The episode's display data
+-- rides along as jsonb so "Lanjutkan" and "Simpan" render without asking YouTube again.
+create table if not exists podcast_follows (
+  account_id text not null references accounts(id) on delete cascade,
+  channel_id text not null,
+  name text not null,
+  avatar text not null default '',
+  followed_at timestamptz not null default now(),
+  primary key (account_id, channel_id)
+);
+
+create table if not exists podcast_progress (
+  account_id text not null references accounts(id) on delete cascade,
+  video_id text not null,
+  position_sec real not null,
+  duration_sec real not null,
+  finished boolean not null default false,
+  episode jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (account_id, video_id)
+);
+create index if not exists podcast_progress_recent on podcast_progress (account_id, updated_at desc);
+
+create table if not exists podcast_saved (
+  account_id text not null references accounts(id) on delete cascade,
+  video_id text not null,
+  episode jsonb not null,
+  saved_at timestamptz not null default now(),
+  primary key (account_id, video_id)
+);
+
+-- Chapters + transcript per episode, read once through yt-dlp (the same single slot as audio) and kept: they don't
+-- change. Pruned by age and count (podcast/extras.ts).
+create table if not exists podcast_extras (
+  video_id text primary key,
+  chapters jsonb not null,
+  transcript jsonb,
+  fetched_at timestamptz not null default now()
+);
+
+-- The admin's picks shown to everyone on the Podcast tab ("Pilihan").
+create table if not exists podcast_picks (
+  channel_id text primary key,
+  name text not null,
+  avatar text not null default '',
+  subscribers text not null default '',
+  position integer not null default 0,
+  added_at timestamptz not null default now()
+);
 `;

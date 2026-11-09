@@ -35,6 +35,13 @@ export interface Song {
     all: ArtistRef[];
   };
   image: ImageVariant[];
+  /**
+   * A podcast episode: a YouTube video listened to as audio (src/podcast/). Absent for songs. It plays through the same
+   * player but is never crossfaded, prefetched, cached, logged to history or followed by radio, see isEpisode().
+   */
+  kind?: 'episode';
+  /** Episodes: the YouTube channel it is from, for the link to its page. */
+  channelId?: string;
 }
 
 export class MusicApiError extends Error {

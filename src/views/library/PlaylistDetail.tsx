@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { SearchClearButton } from '../../components/SearchClearButton/SearchClearButton';
 import { searchSongs } from '../../api/endpoints/search';
 import type { Song } from '../../api/types';
 import { CollectionHero } from '../../components/CollectionHero/CollectionHero';
@@ -9,6 +10,7 @@ import { PlaylistNameDialog } from '../../components/PlaylistNameDialog/Playlist
 import { SongRow, SongTable } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { useT } from '../../i18n/i18n';
+import { useToast } from '../../components/Toast/ToastProvider';
 import { playSongList } from '../../playback/playSongList';
 import { useLibraryStore, type UserPlaylist } from '../../stores/libraryStore';
 import { debounce } from '../../utils/debounce';
@@ -26,6 +28,15 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
   const deletePlaylist = useLibraryStore((state) => state.deletePlaylist);
   const renamePlaylist = useLibraryStore((state) => state.renamePlaylist);
 
+  const { showToast } = useToast();
+  const inPlaylist = useMemo(() => new Set(playlist.songs.map((song) => song.id)), [playlist.songs]);
+  // Says where it went, since the result row stays where it is; a second tap on the same song does nothing (the
+  // button is a grey check by then).
+  const addSong = (song: Song) => {
+    if (inPlaylist.has(song.id)) return;
+    addSongToPlaylist(playlist.id, song);
+    showToast(t('Ditambahkan ke {name}', { name: playlist.name }));
+  };
   const [query, setQuery] = useState('');
   const [addResults, setAddResults] = useState<Song[]>([]);
   const [isRenameOpen, setRenameOpen] = useState(false);
@@ -92,30 +103,38 @@ export function PlaylistDetail({ playlist, onBack }: PlaylistDetailProps) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        {query && <SearchClearButton onClear={() => setQuery('')} />}
       </div>
 
       {query.trim().length > 0 && addResults.length > 0 && (
         <div className={styles.addSongResults}>
-          {addResults.map((song) => (
+          {addResults.map((song) => {
+            const added = inPlaylist.has(song.id);
+            return (
             <SongRow
               key={song.id}
               song={song}
-              onClick={() => addSongToPlaylist(playlist.id, song)}
+              onClick={() => addSong(song)}
               trailing={
                 <>
                   <button
                     type="button"
                     className={styles.iconButton}
-                    onClick={() => addSongToPlaylist(playlist.id, song)}
-                    aria-label={t('Tambahkan ke playlist ini')}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      addSong(song);
+                    }}
+                    disabled={added}
+                    aria-label={added ? t('Sudah ada di playlist ini') : t('Tambahkan ke playlist ini')}
                   >
-                    <Icon name="plus" size={20} />
+                    <Icon name={added ? 'check' : 'plus'} size={20} />
                   </button>
                   <SongRowActions song={song} />
                 </>
               }
             />
-          ))}
+            );
+          })}
         </div>
       )}
 

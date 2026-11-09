@@ -92,20 +92,10 @@
   transform: scale(0.92);
 }
 
+/* Desktop: the greeting sits in the top bar, level with the search (TopBar), with the avatar on the right like the
+   phone's. Nothing of this header is left to show here. */
 @media (min-width: 960px) {
   .header {
-    padding: 0 var(--space-5);
-  }
-
-  .title {
-    font-size: 2.5rem;
-  }
-
-  .eyebrow {
-    font-size: 0.9rem;
-  }
-
-  .actions {
     display: none;
   }
 }

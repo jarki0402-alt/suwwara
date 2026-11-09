@@ -97,6 +97,8 @@ let queueExtensionInFlight = false;
  * appending, in case the queue moved on to something unrelated while this awaited.
  */
 export async function extendQueueWithRadio(seedSong: Song, guard?: () => boolean): Promise<void> {
+  // Never from a podcast episode: "songs similar to" a story is noise (the controller already holds it back).
+  if (seedSong.kind === 'episode') return;
   // In a Jam, only the room's creator auto-extends the shared queue (see
   // canAutoExtendQueue's own doc comment) — avoids several devices
   // independently adding different filler songs at the same moment.

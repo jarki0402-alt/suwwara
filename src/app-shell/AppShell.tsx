@@ -18,6 +18,7 @@ import styles from './AppShell.module.css';
 import { BottomNav } from './BottomNav';
 
 import { MiniPlayer } from './MiniPlayer';
+import { EpisodeNextCard } from '../podcast/components/EpisodeNextCard';
 import { PaneResizers } from './PaneResizers';
 import { TopBar } from './TopBar';
 import { ViewRouter } from './ViewRouter';
@@ -116,6 +117,7 @@ function ShellBody() {
       <ConnectBridge />
       {/* Also the remote for another device of the account — it then shows and steers what plays there (PlaybackProvider). */}
       <MiniPlayer />
+      <EpisodeNextCard />
       <ConnectionBanner />
       <BottomNav />
       <JamPill />

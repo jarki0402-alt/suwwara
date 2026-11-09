@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import yt_dlp
+import json
 import logging
+import urllib.request
 import os
 import threading
 import time
@@ -79,7 +81,11 @@ def format_selector(quality: str, kind: str) -> str:
         # still plays muted). The ladder itself is read from the formats list, see video_variants.
         return 'bestvideo[height<=720][vcodec^=avc1][ext=mp4]/bestvideo[height<=720][ext=mp4]/best[height<=720][ext=mp4]'
     if quality == 'low':
-        return 'worstaudio[ext=m4a]/worstaudio/worst[ext=mp4]/worst'
+        # A video YouTube has auto-dubbed carries several audio tracks, and "worst" sorts the original LAST: plain
+        # worstaudio picked the English AI dub of an Indonesian story (139-0 "English (US)" over 139-1 "Indonesian
+        # original"). The original is the one labelled so; a video with a single track has no label and falls through.
+        # bestaudio below already prefers the original (yt-dlp ranks it by language_preference).
+        return 'worstaudio[ext=m4a][format_note*=original]/worstaudio[ext=m4a]/worstaudio/worst[ext=mp4]/worst'
     return 'bestaudio[ext=m4a]/bestaudio/best[ext=mp4]/best'
 
 # visionos first: it gets the real adaptive formats (m4a audio, 720p H.264 video) without a JavaScript challenge, ~1.8s
@@ -168,6 +174,93 @@ def resolve_audio(req: ResolveRequest):
             if too_many:
                 logger.error('%s network failures in a row; exiting so the container restarts.', MAX_CONSECUTIVE_INFRA_FAILURES)
                 os._exit(1)
+        raise HTTPException(status_code=502, detail=str(e))
+    finally:
+        with _state_lock:
+            _inflight.pop(token, None)
+
+
+# ---- Podcast episodes: chapters + transcript -------------------------------------------------------------------
+
+class ExtrasRequest(BaseModel):
+    video_id: str
+
+MAX_CUES = 6000
+CAPTION_FETCH_TIMEOUT_S = 15
+
+def caption_track(info):
+    """The captions in the video's own language: the creator's own first, else YouTube's speech recognition of the
+    original audio ("<lang>-orig"; plain "<lang>" in automatic_captions can be a machine translation)."""
+    lang = info.get('language')
+    subs = info.get('subtitles') or {}
+    auto = info.get('automatic_captions') or {}
+    candidates = []
+    if lang:
+        candidates += [(subs.get(lang), False), (auto.get(f'{lang}-orig'), True), (auto.get(lang), True)]
+    candidates += [(subs[k], False) for k in subs if k != 'live_chat']
+    candidates += [(auto[k], True) for k in auto if k.endswith('-orig')]
+    for tracks, is_auto in candidates:
+        for track in tracks or []:
+            if track.get('ext') == 'json3' and track.get('url'):
+                return track['url'], is_auto
+    return None, False
+
+def compact_cues(data):
+    """json3 (one event per caption window, ~500KB for half an hour) -> short sentences with a start time, ~10x smaller.
+    Lines are joined until a sentence ends, ~8s pass, or the line gets long, so the transcript reads like text."""
+    cues = []
+    current = None
+    for event in data.get('events') or []:
+        segs = event.get('segs')
+        if not segs:
+            continue
+        text = ''.join(seg.get('utf8', '') for seg in segs).replace('\n', ' ').strip()
+        if not text:
+            continue
+        start = (event.get('tStartMs') or 0) / 1000
+        if current and start - current['s'] < 8 and len(current['t']) < 160 and not current['t'].endswith(('.', '?', '!')):
+            current['t'] += ' ' + text
+        else:
+            current = {'s': round(start, 1), 't': text}
+            cues.append(current)
+            if len(cues) >= MAX_CUES:
+                break
+    return cues
+
+@app.post("/extras")
+def episode_extras(req: ExtrasRequest):
+    # One extraction for both, through the same clients as /resolve; the caption file itself is a plain GET.
+    token = threading.get_ident()
+    with _state_lock:
+        _inflight[token] = time.time()
+    try:
+        info = None
+        order = attempts_for(req.video_id)
+        for position, attempt in enumerate(order):
+            try:
+                info = extract(req.video_id, format_selector('low', 'audio'), CLIENT_ATTEMPTS[attempt])
+                break
+            except Exception:
+                if position == len(order) - 1:
+                    raise
+        chapters = [
+            {'title': c.get('title') or '', 'start': round(c.get('start_time') or 0, 1)}
+            for c in (info.get('chapters') or [])
+        ]
+        transcript = None
+        url, is_auto = caption_track(info)
+        if url:
+            try:
+                request = urllib.request.Request(url, headers=info.get('http_headers') or {})
+                body = urllib.request.urlopen(request, timeout=CAPTION_FETCH_TIMEOUT_S).read()
+                cues = compact_cues(json.loads(body)) if body else []
+                if cues:
+                    transcript = {'lang': info.get('language'), 'auto': is_auto, 'cues': cues}
+            except Exception as e:
+                logger.warning(f"{req.video_id}: captions failed ({str(e)[:160]})")
+        return {'duration': info.get('duration'), 'chapters': chapters, 'transcript': transcript}
+    except Exception as e:
+        logger.error(f"yt-dlp failed to read extras for {req.video_id}: {str(e)}")
         raise HTTPException(status_code=502, detail=str(e))
     finally:
         with _state_lock:

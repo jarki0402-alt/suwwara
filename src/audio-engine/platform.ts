@@ -16,6 +16,17 @@ export function usesPlainMediaElements(userAgent: string, platform: string, maxT
   return iOS || isAndroidDevice(userAgent, maxTouchPoints);
 }
 
+/**
+ * Safari's engine with native HLS: every browser on iPhone/iPad (they are all WebKit) and Safari on a Mac. Podcast
+ * episodes play through an HLS playlist there (routes/audio.ts hls.m3u8): Safari won't start a long YouTube audio
+ * file before walking all of it. Chrome, Firefox and Android play the file directly and start at once.
+ */
+export function prefersNativeHls(userAgent: string, platform: string, maxTouchPoints: number): boolean {
+  const iOS = /iPad|iPhone|iPod/.test(userAgent) || (platform === 'MacIntel' && maxTouchPoints > 1);
+  const desktopSafari = /Macintosh/.test(userAgent) && /AppleWebKit/.test(userAgent) && /Version\/[\d.]+.*Safari/.test(userAgent) && !/Chrome|Chromium|Edg|Firefox|OPR/.test(userAgent);
+  return iOS || desktopSafari;
+}
+
 /** Android phones and tablets, including a tablet's desktop-site user agent (see above). */
 export function isAndroidDevice(userAgent: string, maxTouchPoints: number): boolean {
   return /Android/i.test(userAgent) || (maxTouchPoints > 0 && /Linux/i.test(userAgent) && !/CrOS/.test(userAgent));

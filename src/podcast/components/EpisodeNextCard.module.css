@@ -1,0 +1,106 @@
+/* Floats just above the mini player, with the same dock variables it is placed by (MiniPlayer.module.css). */
+.card {
+  position: fixed;
+  left: var(--dock-side);
+  right: var(--dock-side);
+  bottom: var(--dock-bottom);
+  transform: translateY(calc(-1 * (var(--bottom-nav-height) + var(--dock-gap) * 2 + var(--mini-player-height))));
+  z-index: var(--z-mini-player);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-2);
+  border-radius: 18px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-sheen), 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: rise 320ms var(--ease-spring);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+.thumb {
+  flex: 0 0 auto;
+  width: 64px;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.play {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.close {
+  display: flex;
+  padding: 8px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+/* Inside Now Playing, in the flow between the artwork and the title. */
+.inline {
+  position: static;
+  transform: none;
+  width: 100%;
+  margin: var(--space-2) 0;
+}
+
+@media (min-width: 960px) {
+  .card:not(.inline) {
+    left: auto;
+    right: var(--panel-gap);
+    bottom: calc(var(--pill-gap) + var(--status-strip) + 82px + var(--space-3));
+    width: 420px;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+}

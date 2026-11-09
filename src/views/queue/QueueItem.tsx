@@ -9,6 +9,8 @@ import { useT } from '../../i18n/i18n';
 import { playAtPosition, removeFromQueue, reorder } from '../../jam/jamQueueActions';
 import { useLibraryStore } from '../../stores/libraryStore';
 import { useQueueStore } from '../../stores/queueStore';
+import { usePodcastStore } from '../../podcast/podcastStore';
+import { songToEpisode } from '../../podcast/playEpisode';
 import styles from './QueueItem.module.css';
 
 interface QueueItemProps {
@@ -30,6 +32,10 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
   const currentPosition = useQueueStore((state) => state.position);
   const isLiked = useLibraryStore((state) => state.isLiked(song.id));
   const toggleLike = useLibraryStore((state) => state.toggleLike);
+  // A podcast episode: saved for later instead of liked, and never added to a (music) playlist.
+  const episode = song.kind === 'episode';
+  const isSaved = usePodcastStore((state) => state.isSaved(song.id));
+  const toggleSaved = usePodcastStore((state) => state.toggleSaved);
 
   const [addToPlaylistOpen, setAddToPlaylistOpen] = useState(false);
 
@@ -72,18 +78,27 @@ export const QueueItem = forwardRef<HTMLDivElement, QueueItemProps>(function Que
         </span>
       </button>
 
-      <button type="button" className={styles.iconButton} onClick={() => setAddToPlaylistOpen(true)} aria-label={t('Tambah ke playlist')}>
-        <Icon name="plus" size={20} />
-      </button>
+      {!episode && (
+        <button type="button" className={styles.iconButton} onClick={() => setAddToPlaylistOpen(true)} aria-label={t('Tambah ke playlist')}>
+          <Icon name="plus" size={20} />
+        </button>
+      )}
 
       <OptionsMenu
         items={[
-          {
-            key: 'like',
-            icon: isLiked ? 'heart-filled' : 'heart',
-            label: isLiked ? t('Batal Sukai') : t('Sukai Lagu'),
-            onClick: () => toggleLike(song),
-          },
+          episode
+            ? {
+                key: 'save',
+                icon: isSaved ? 'check' : 'plus',
+                label: isSaved ? t('Hapus dari simpanan') : t('Simpan untuk nanti'),
+                onClick: () => toggleSaved(songToEpisode(song)),
+              }
+            : {
+                key: 'like',
+                icon: isLiked ? 'heart-filled' : 'heart',
+                label: isLiked ? t('Batal Sukai') : t('Sukai Lagu'),
+                onClick: () => toggleLike(song),
+              },
           {
             key: 'play-next',
             icon: 'next',

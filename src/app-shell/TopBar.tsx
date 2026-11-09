@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { SearchClearButton } from '../components/SearchClearButton/SearchClearButton';
 import { findArtistMatch, searchSongs, type ArtistHit } from '../api/endpoints/search';
 import type { Song } from '../api/types';
 import { primaryArtistNames } from '../api/mappers';
 import { Icon } from '../components/Icon/Icon';
 import { SongRowActions } from '../components/SongMenu/SongRowActions';
 import { LazyImage } from '../components/Image/LazyImage';
-import { useLiquidRim } from '../hooks/useLiquidRim';
 import { useRecentSearches } from '../hooks/useRecentSearches';
 import { playSongRadio } from '../playback/playSongRadio';
 import { useUiStore } from '../stores/uiStore';
@@ -13,6 +13,9 @@ import { debounce, type Debounced } from '../utils/debounce';
 import { isFullscreenSupported, toggleAppFullscreen, useIsDocumentFullscreen } from '../utils/documentFullscreen';
 import styles from './TopBar.module.css';
 import { useT } from '../i18n/i18n';
+import { useAuthStore } from '../auth/authStore';
+import { useUpdateStore } from '../pwa/updateStore';
+import { useHomeGreeting } from '../views/home/HomeHeader';
 
 const DEBOUNCE_MS = 300;
 const MAX_RESULTS = 8;
@@ -29,6 +32,7 @@ export function TopBar() {
   const t = useT();
   const currentView = useUiStore((state) => state.currentView);
   const detailDepth = useUiStore((state) => state.detailStack.length);
+  const hasPageOpen = useUiStore((state) => state.selectedPlaylistId !== null || state.openedCollectionId !== null);
   const openArtist = useUiStore((state) => state.openArtist);
   const recent = useRecentSearches();
   const isFullscreen = useIsDocumentFullscreen();
@@ -42,7 +46,11 @@ export function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
-  useLiquidRim(fieldRef, currentView === 'home' && detailDepth === 0);
+  const greeting = useHomeGreeting();
+  const username = useAuthStore((state) => state.user?.username ?? '');
+  const hasUpdate = useUpdateStore((state) => state.status === 'available');
+  const setView = useUiStore((state) => state.setView);
+
   const requestIdRef = useRef(0);
 
   // Built in an effect (not useMemo) so the debounced callback's ref reads never happen during render.
@@ -148,7 +156,8 @@ export function TopBar() {
     }
   };
 
-  if (currentView !== 'home' || detailDepth > 0) return null;
+  // Only on Beranda itself: a playlist, Lagu Disukai or a mix opened from it is a page of its own, with its own header.
+  if (currentView !== 'home' || detailDepth > 0 || hasPageOpen) return null;
 
   const trimmed = query.trim();
   const showRecent = isOpen && trimmed.length === 0 && recent.items.length > 0;
@@ -156,21 +165,39 @@ export function TopBar() {
 
   return (
     <div className={styles.bar}>
-      {/* Whole-app fullscreen, top right like a native app's window control (the F key does the same). */}
-      {isFullscreenSupported && (
+      {/* Three columns, the search exactly in the middle: the greeting on the left, the window controls on the right. */}
+      <div className={styles.greeting}>
+        <span className={styles.greetingEyebrow}>{greeting.eyebrow}</span>
+        <span className={styles.greetingTitle}>{greeting.title}</span>
+      </div>
+      <div className={styles.corner}>
+        {/* Whole-app fullscreen, like a native app's window control (the F key does the same). */}
+        {isFullscreenSupported && (
+          <button
+            type="button"
+            className={styles.fullscreenButton}
+            onClick={toggleAppFullscreen}
+            aria-label={isFullscreen ? t('Keluar dari layar penuh') : t('Layar penuh')}
+            title={isFullscreen ? t('Keluar dari layar penuh (F)') : t('Layar penuh (F)')}
+          >
+            <Icon name={isFullscreen ? 'fullscreen-exit' : 'fullscreen'} size={18} />
+          </button>
+        )}
+        {/* The account, as on the phone's home: its initial, into Pengaturan, with the update dot. */}
         <button
           type="button"
-          className={[styles.fullscreenButton, 'liquid-glass'].join(' ')}
-          onClick={toggleAppFullscreen}
-          aria-label={isFullscreen ? t('Keluar dari layar penuh') : t('Layar penuh')}
-          title={isFullscreen ? t('Keluar dari layar penuh (F)') : t('Layar penuh (F)')}
+          className={styles.avatar}
+          onClick={() => setView('settings')}
+          aria-label={hasUpdate ? t('Pengaturan, ada pembaruan') : t('Pengaturan')}
+          title={username || undefined}
         >
-          <Icon name={isFullscreen ? 'fullscreen-exit' : 'fullscreen'} size={18} />
+          {username.charAt(0).toUpperCase() || 'S'}
+          {hasUpdate && <span className={styles.updateDot} aria-hidden="true" />}
         </button>
-      )}
+      </div>
       <div className={styles.inner} ref={boxRef}>
-        <div ref={fieldRef} className={[styles.field, 'liquid-glass'].join(' ')}>
-          <Icon name="search" size={19} />
+        <div ref={fieldRef} className={styles.field}>
+          <Icon name="search" size={18} />
           <input
             ref={inputRef}
             className={styles.input}
@@ -183,6 +210,7 @@ export function TopBar() {
             onKeyDown={onKeyDown}
             aria-label={t('Cari lagu, artis, atau album')}
           />
+          {query && <SearchClearButton onClear={() => handleChange('')} />}
         </div>
 
         {(showRecent || showResults) && (

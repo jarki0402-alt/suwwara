@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAndroidDevice, usesPlainMediaElements } from '../../src/audio-engine/platform';
+import { isAndroidDevice, prefersNativeHls, usesPlainMediaElements } from '../../src/audio-engine/platform';
 
 const UA = {
   androidPhone: 'Mozilla/5.0 (Linux; Android 14; SM-A155F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36',
@@ -51,5 +51,28 @@ describe('isAndroidDevice', () => {
     expect(isAndroidDevice(UA.windows, 10)).toBe(false);
     expect(isAndroidDevice(UA.androidTabletDesktopMode, 0)).toBe(false);
     expect(isAndroidDevice(UA.chromebook, 10)).toBe(false);
+  });
+});
+
+
+describe('prefersNativeHls (podcast episodes through HLS in Safari only)', () => {
+  const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+  const iphoneChrome = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0 Mobile/15E148 Safari/604.1';
+  const macSafari = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+  const macChrome = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+  const android = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+  const windows = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+
+  it('is on for every iPhone browser, iPad and Safari on a Mac', () => {
+    expect(prefersNativeHls(iphone, 'iPhone', 5)).toBe(true);
+    expect(prefersNativeHls(iphoneChrome, 'iPhone', 5)).toBe(true);
+    expect(prefersNativeHls(macSafari, 'MacIntel', 5)).toBe(true); // iPad asking for the desktop site
+    expect(prefersNativeHls(macSafari, 'MacIntel', 0)).toBe(true);
+  });
+
+  it('is off for Chrome on a Mac, Android and Windows', () => {
+    expect(prefersNativeHls(macChrome, 'MacIntel', 0)).toBe(false);
+    expect(prefersNativeHls(android, 'Linux armv8l', 5)).toBe(false);
+    expect(prefersNativeHls(windows, 'Win32', 0)).toBe(false);
   });
 });

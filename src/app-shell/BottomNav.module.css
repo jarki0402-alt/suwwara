@@ -107,7 +107,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 25%;
+  /* One tab wide: the count comes from BottomNav (--tab-count), 5 since the Podcast tab. */
+  width: calc(100% / var(--tab-count, 5));
   height: 100%;
   display: flex;
   align-items: center;

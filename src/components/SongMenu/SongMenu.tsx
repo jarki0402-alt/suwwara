@@ -13,6 +13,8 @@ import { LazyImage } from '../Image/LazyImage';
 import { OptionsMenu } from '../OptionsMenu/OptionsMenu';
 import { useToast } from '../Toast/ToastProvider';
 import styles from './SongMenu.module.css';
+import { EpisodeMenu } from '../../podcast/components/EpisodeRow';
+import { songToEpisode } from '../../podcast/playEpisode';
 
 /** YT Music album ids. Songs saved before albums were tracked carry the album *name* here — no page to open for those. */
 const ALBUM_ID = /^MPREb_/;
@@ -30,7 +32,13 @@ interface SongMenuProps {
  * The "⋯" menu of a song row — the same actions everywhere a song is listed. Essentials of what Spotify offers:
  * play next / add to queue, like, add to playlist (or remove from this one), song radio, go to artist / album, share.
  */
-export function SongMenu({ song, onRemoveFromPlaylist, onRemoveFromQueue }: SongMenuProps) {
+export function SongMenu(props: SongMenuProps) {
+  // A podcast episode has its own actions (save for later, mark heard, its channel, YouTube), never like/playlist/radio.
+  if (props.song.kind === 'episode') return <EpisodeMenu episode={songToEpisode(props.song)} />;
+  return <SongMenuForSong {...props} />;
+}
+
+function SongMenuForSong({ song, onRemoveFromPlaylist, onRemoveFromQueue }: SongMenuProps) {
   const t = useT();
   const isLiked = useLibraryStore((state) => state.isLiked(song.id));
   const toggleLike = useLibraryStore((state) => state.toggleLike);

@@ -1,4 +1,6 @@
 import { canSetVolume } from '../audio-engine/volumeSupport';
+import { MarqueeText } from '../components/MarqueeText/MarqueeText';
+import { SleepButton, SpeedButton } from '../podcast/components/EpisodeControls';
 import { useEffect, useRef } from 'react';
 import { ArtistLinks } from '../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../connect/connectStore';
@@ -77,6 +79,8 @@ export function MiniPlayer() {
   }, []);
 
   if (!currentSong) return null;
+  // A podcast episode: its previous/next are -15s/+30s skips (usePlaybackController), so only the icons differ.
+  const episode = currentSong.kind === 'episode';
 
   const isPlaying = playbackState.status === 'playing';
   const isBuffering = playbackState.status === 'loading';
@@ -115,7 +119,9 @@ export function MiniPlayer() {
         <button ref={mainRef} type="button" className={styles.main} onClick={openNowPlaying}>
           <LazyImage images={currentSong.image} quality="50x50" alt={currentSong.name} className={styles.art} />
           <span className={styles.text}>
-            <span className={styles.title}>{currentSong.name}</span>
+            <span className={styles.title}>
+              <MarqueeText text={currentSong.name} />
+            </span>
             <span className={[styles.subtitle, isRemote ? styles.subtitleBesideRemote : ''].join(' ')}><ArtistLinks song={currentSong} /></span>
             {remoteDevice && (
               <span className={styles.remoteLine}>
@@ -137,6 +143,9 @@ export function MiniPlayer() {
 
       <div className={styles.centerColumn}>
         <div className={styles.actions}>
+          {episode ? (
+            <SpeedButton className={styles.desktopOnly} />
+          ) : (
           <button
             ref={shuffleRipple.ref}
             type="button"
@@ -148,15 +157,16 @@ export function MiniPlayer() {
           >
             <Icon name="shuffle" size={20} />
           </button>
+          )}
           <button
             ref={prevRipple.ref}
             type="button"
             className={[styles.actionButton, styles.desktopOnly, 'glass-ripple-host'].join(' ')}
             onClick={handlePrevious}
             onPointerDown={prevRipple.onPointerDown}
-            aria-label={t('Lagu sebelumnya')}
+            aria-label={episode ? t('Mundur 15 detik') : t('Lagu sebelumnya')}
           >
-            <Icon name="previous" size={20} />
+            <Icon name={episode ? 'replay-15' : 'previous'} size={episode ? 28 : 20} />
           </button>
           {/* Phone (2026-11 redesign): save the song without opening Now Playing. Desktop has it in the panel. */}
           <span className={styles.phoneOnly}>
@@ -178,10 +188,13 @@ export function MiniPlayer() {
             className={[styles.actionButton, styles.nextButton, 'glass-ripple-host'].join(' ')}
             onClick={handleNext}
             onPointerDown={nextRipple.onPointerDown}
-            aria-label={t('Lagu berikutnya')}
+            aria-label={episode ? t('Maju 15 detik') : t('Lagu berikutnya')}
           >
-            <Icon name="next" size={22} />
+            <Icon name={episode ? 'forward-15' : 'next'} size={episode ? 28 : 22} />
           </button>
+          {episode ? (
+            <SleepButton className={styles.desktopOnly} />
+          ) : (
           <button
             ref={repeatRipple.ref}
             type="button"
@@ -192,6 +205,7 @@ export function MiniPlayer() {
           >
             <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={20} />
           </button>
+          )}
         </div>
 
         {/* Desktop only (see .desktopSeekBar), below the transport buttons like Spotify's bottom bar — the docked Now Playing panel no

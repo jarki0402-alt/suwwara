@@ -3,7 +3,13 @@ import { withViewTransition } from '../utils/viewTransition';
 import type { Song } from '../api/types';
 import type { MusicVideo } from '../video/musicVideo';
 
-export type ViewName = 'home' | 'search' | 'library' | 'settings';
+/**
+ * selectedPlaylistId's value for Lagu Disukai: it opens like a playlist (a page over the current menu, closed the same
+ * way) without being one.
+ */
+export const LIKED_SONGS_ID = '__liked__';
+
+export type ViewName = 'home' | 'search' | 'library' | 'podcast' | 'settings';
 /**
  * `artist-mix:{artistName}` is a template literal type, not a fixed union
  * member — there can be several artist-mix tiles at once (see
@@ -28,7 +34,12 @@ export type GeneratedCollectionId =
  * being a menu of their own; the back button pops one level, and switching menu clears them.
  * `name` is only there for songs saved before artist ids existed — the page resolves it on open.
  */
-export type DetailRoute = { type: 'artist'; artistId: string | null; name?: string } | { type: 'album'; albumId: string };
+export type DetailRoute =
+  | { type: 'artist'; artistId: string | null; name?: string }
+  | { type: 'album'; albumId: string }
+  // Podcast tab: a YouTube channel's page and one of its playlists ("Seri"). `name`/`title` show while it loads.
+  | { type: 'podcastChannel'; channelId: string; name?: string }
+  | { type: 'podcastSeries'; seriesId: string; title?: string };
 
 interface UiState {
   currentView: ViewName;
@@ -71,6 +82,8 @@ interface UiState {
   setView: (view: ViewName) => void;
   openArtist: (target: { artistId?: string | null; name?: string }) => void;
   openAlbum: (albumId: string) => void;
+  openPodcastChannel: (channel: { channelId: string; name?: string }) => void;
+  openPodcastSeries: (series: { seriesId: string; title?: string }) => void;
   closeDetail: () => void;
   openNowPlaying: () => void;
   closeNowPlaying: () => void;
@@ -131,7 +144,7 @@ export const useUiStore = create<UiState>((set) => ({
   // On desktop this is a docked right panel that reserves room from the page, so it opens/closes as one relayout step.
   openConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: true })),
   closeConnectSheet: () => withViewTransition(() => set({ isConnectSheetOpen: false })),
-  setView: (view) => set({ currentView: view, detailStack: [] }),
+  setView: (view) => set({ currentView: view, detailStack: [], selectedPlaylistId: null }),
   setDockCollapsed: (value) => set((state) => (state.isDockCollapsed === value ? state : { isDockCollapsed: value })),
   openArtist: ({ artistId, name }) =>
     set((state) => ({
@@ -139,6 +152,10 @@ export const useUiStore = create<UiState>((set) => ({
       ...leaveNowPlaying(),
     })),
   openAlbum: (albumId) => set((state) => ({ detailStack: [...state.detailStack, { type: 'album', albumId }], ...leaveNowPlaying() })),
+  openPodcastChannel: ({ channelId, name }) =>
+    set((state) => ({ detailStack: [...state.detailStack, { type: 'podcastChannel', channelId, name }], ...leaveNowPlaying() })),
+  openPodcastSeries: ({ seriesId, title }) =>
+    set((state) => ({ detailStack: [...state.detailStack, { type: 'podcastSeries', seriesId, title }], ...leaveNowPlaying() })),
   closeDetail: () => set((state) => ({ detailStack: state.detailStack.slice(0, -1) })),
   // Also closes the desktop Perangkat panel, which docks in the same column and would otherwise sit on top of it.
   openNowPlaying: () => withViewTransition(() => set({ isNowPlayingOpen: true, isConnectSheetOpen: false })),
@@ -150,7 +167,9 @@ export const useUiStore = create<UiState>((set) => ({
   closeJamSheet: () => set({ isJamSheetOpen: false }),
   openJoinJamSheet: (roomId) => set({ joinJamRoomId: roomId }),
   closeJoinJamSheet: () => set({ joinJamRoomId: null }),
-  openPlaylist: (playlistId) => set({ currentView: 'library', selectedPlaylistId: playlistId, detailStack: [] }),
+  // A playlist (or Lagu Disukai) opens over whatever menu is showing, like an artist page does: the menu stays, and
+  // closing it goes back there (it used to jump to Koleksi first, so back landed in Koleksi wherever it came from).
+  openPlaylist: (playlistId) => set({ selectedPlaylistId: playlistId, detailStack: [], ...leaveNowPlaying() }),
   closePlaylist: () => set({ selectedPlaylistId: null }),
   openCollection: (collectionId) => set({ openedCollectionId: collectionId }),
   closeCollection: () => set({ openedCollectionId: null }),

@@ -6,6 +6,7 @@ import { SpotifyImportSheet } from '../../components/SpotifyImport/SpotifyImport
 import { useSpotifyImportStore } from '../../import/spotifyImport';
 import { useT } from '../../i18n/i18n';
 import { useLibraryStore } from '../../stores/libraryStore';
+import { LIKED_SONGS_ID } from '../../stores/uiStore';
 import styles from './LibraryView.module.css';
 
 interface PlaylistsListProps {
@@ -15,6 +16,7 @@ interface PlaylistsListProps {
 export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
   const t = useT();
   const playlists = useLibraryStore((state) => state.playlists);
+  const likedCount = useLibraryStore((state) => state.likedSongs.length);
   const createPlaylist = useLibraryStore((state) => state.createPlaylist);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [isImportOpen, setImportOpen] = useState(false);
@@ -27,31 +29,35 @@ export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
     onSelectPlaylist(playlist.id);
   };
 
+  const importLabel =
+    importStatus && !importFinished
+      ? t('Mengimpor {done} dari {total} lagu', { done: importStatus.done, total: importStatus.total })
+      : importFinished
+        ? t('Impor selesai')
+        : t('Impor dari Spotify');
+
   return (
-    <div className={styles.grid}>
-      <button type="button" className={styles.createCard} onClick={() => setCreateOpen(true)}>
-        <div className={styles.createCardArt}>
-          <Icon name="plus" size={22} />
-        </div>
-        <span className={styles.cardTitle}>{t('Playlist Baru')}</span>
-        {/* Empty second line matching .cardSubtitle's height below a real playlist's
-            song count — keeps both card shapes exactly the same total height. */}
-        <span className={styles.cardSubtitle} aria-hidden="true">
-          {'\u00a0'}
-        </span>
+    <>
+    {/* Actions above the grid, so the grid holds only what is in the library (it used to mix "new" and "import" in as
+        if they were empty playlists). */}
+    <div className={styles.actionsRow}>
+      <button type="button" className={styles.actionPill} onClick={() => setCreateOpen(true)}>
+        <Icon name="plus" size={16} />
+        {t('Playlist baru')}
       </button>
-      <button type="button" className={styles.createCard} onClick={() => setImportOpen(true)}>
-        <div className={styles.createCardArt}>
-          <Icon name="download" size={22} />
+      <button type="button" className={styles.actionPill} onClick={() => setImportOpen(true)}>
+        <Icon name="download" size={16} />
+        {importLabel}
+      </button>
+    </div>
+    <div className={styles.grid}>
+      {/* Lagu Disukai first, as a playlist among the playlists (its own page: LikedSongsList with onBack). */}
+      <button type="button" className={styles.card} onClick={() => onSelectPlaylist(LIKED_SONGS_ID)}>
+        <div className={[styles.cardArt, styles.likedArt].join(' ')}>
+          <Icon name="heart-filled" size={44} />
         </div>
-        <span className={styles.cardTitle}>{t('Impor dari Spotify')}</span>
-        <span className={styles.cardSubtitle}>
-          {importStatus && !importFinished
-            ? t('{done} dari {total} lagu', { done: importStatus.done, total: importStatus.total })
-            : importFinished
-              ? t('Impor selesai')
-              : '\u00a0'}
-        </span>
+        <span className={styles.cardTitle}>{t('Lagu Disukai')}</span>
+        <span className={styles.cardSubtitle}>{t('{n} lagu', { n: likedCount })}</span>
       </button>
       {playlists.map((playlist) => (
         <button key={playlist.id} type="button" className={styles.card} onClick={() => onSelectPlaylist(playlist.id)}>
@@ -76,5 +82,6 @@ export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
         onClose={() => setCreateOpen(false)}
       />
     </div>
+    </>
   );
 }

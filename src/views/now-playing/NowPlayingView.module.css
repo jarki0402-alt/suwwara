@@ -338,6 +338,21 @@
   /* No border: a 1px light outline drawn over the photo's edge read as a grey line cutting into the art. */
 }
 
+/* A podcast episode's picture is its video's thumbnail: 16:9 like the video, never cropped to a square (the title
+   is often written on it). The 4:3 hqdefault's letterbox bars fall outside this box (the image covers it). */
+.episodeArt {
+  width: min(92vw, 560px);
+  height: auto;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.episodeArt img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* The music video in the cover's place: wider than the square cover (16:9), as wide as the sheet allows. */
 .videoArt {
   width: min(92vw, 640px);

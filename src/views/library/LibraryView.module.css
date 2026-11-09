@@ -123,6 +123,52 @@
   height: 100%;
 }
 
+/* "Playlist baru" and "Impor dari Spotify": actions, so pills above the grid, not cards in it. */
+.actionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.actionPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text-primary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.actionPill svg {
+  color: var(--color-accent);
+}
+
+.actionPill:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .actionPill:hover {
+    background: var(--color-bg-elevated);
+  }
+}
+
+/* Lagu Disukai's cover: the same orange square with a white heart as in the sidebar and on its own page. */
+.likedArt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
 .artPlaceholder {
   width: 100%;
   height: 100%;
@@ -184,15 +230,31 @@
   flex-shrink: 0;
 }
 
+.iconButton:disabled {
+  /* Already in this playlist: a grey check, not a button to press again. */
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: default;
+}
+
+/* The same search box as Beranda, Cari and Podcast (SearchView.module.css .searchBox): 48px, a 1px border that turns
+   accent on focus. */
 .addSongBox {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 48px;
   background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   margin-bottom: var(--space-3);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
+  transition: border-color var(--transition-fast);
+}
+
+.addSongBox:focus-within {
+  border-color: var(--color-accent);
 }
 
 .addSongInput {

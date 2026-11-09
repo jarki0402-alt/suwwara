@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import { recordAudio } from '../metrics/usage';
 import { getCachedTrack, openTrackStream, storeTrack, type CachedTrack } from '../youtube/diskCache';
 import { invalidateAudio, resolveAudio, ResolveAbortedError, type AudioQuality, type ResolvedAudio } from '../youtube/stream';
+import { buildHlsPlaylist } from './video';
 
 // The resolve-only route below exists purely to warm the cache for a track
 // nobody's about to hear yet (frontend's lookahead prefetch); the plain audio
@@ -165,6 +166,12 @@ interface TrackContext {
   audio: ResolvedAudio;
   /** 'high' = a track being loaded to play right now; 'low' = the spare element's background preload. */
   priority: 'high' | 'low';
+  /**
+   * A podcast episode (`?podcast=1`): streamed like a song but never warmed into the chunk cache nor kept on disk.
+   * A half-hour episode at the low bitrate is ~12MB, under the size caps below, yet one would push dozens of songs'
+   * chunks out of the 40MB chunk cache and a full disk-cache slot is wasted on something heard once.
+   */
+  episode: boolean;
 }
 
 class UpstreamIgnoresRangeError extends Error {}
@@ -344,7 +351,7 @@ function readAhead(ctx: TrackContext, fromIndex: number, total: number): void {
  * WebKit: it consumed chunks about as fast as a single upstream round trip produced them, so
  * every request of its chain ended up waiting on a fresh fetch. */
 function warmTrack(ctx: TrackContext, total: number): void {
-  if (total > WARM_MAX_FILE_BYTES || warming.has(ctx.cacheKey) || warming.size >= MAX_CONCURRENT_WARMS) return;
+  if (ctx.episode || total > WARM_MAX_FILE_BYTES || warming.has(ctx.cacheKey) || warming.size >= MAX_CONCURRENT_WARMS) return;
   warming.add(ctx.cacheKey);
 
   const count = Math.ceil(total / CHUNK_SIZE);
@@ -502,6 +509,38 @@ function serveFromFullBuffer(res: Response, entry: FullBufferEntry, range: { sta
  * song is still playing is what removes the multi-second buffering spinner
  * that otherwise shows up right when the user hits "next".
  */
+/**
+ * A podcast episode as an HLS playlist, for Safari (iPhone, iPad, Mac) only. Safari won't start a YouTube audio file
+ * (fragmented MP4) until it has walked the whole file to learn its length: measured 24.7s for a 36-minute episode,
+ * against 0.02s in Chrome, and it then reports twice the real duration. Given the file's own segment index (the sidx
+ * box in its first chunk, 221 entries for that episode) it starts after the first ~10s segment instead. The playlist
+ * is byte ranges of the same file through the route below (episode flag included), the same thing the music video
+ * does (buildHlsPlaylist): no remux, no new copy, and songs never come here.
+ */
+audioRouter.get('/audio/:videoId/hls.m3u8', async (req, res) => {
+  const { videoId } = req.params;
+  const quality: AudioQuality = 'low';
+  const gone = new AbortController();
+  res.once('close', () => gone.abort());
+  try {
+    const audio = await resolveAudio(videoId, quality, PLAYBACK_PRIORITY, gone.signal);
+    const ctx: TrackContext = { videoId, quality, cacheKey: `${videoId}:${quality}`, audio, priority: 'high', episode: true };
+    const head = await getChunk(ctx, 0);
+    const playlist = buildHlsPlaylist(head.buffer, `/api/audio/${encodeURIComponent(videoId)}?quality=low&podcast=1`);
+    if (!playlist) {
+      // No index in the file: the client plays the file directly instead (slow to start in Safari, but it plays).
+      res.status(415).json({ error: 'no segment index' });
+      return;
+    }
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+    res.setHeader('Cache-Control', 'private, max-age=600');
+    res.send(playlist);
+  } catch (error) {
+    if (error instanceof ResolveAbortedError || gone.signal.aborted) return;
+    res.status(502).json({ error: 'Failed to load the episode.', message: (error as Error).message });
+  }
+});
+
 audioRouter.get('/audio/:videoId/resolve', async (req, res) => {
   const { videoId } = req.params;
   const quality: AudioQuality = req.query.quality === 'low' ? 'low' : 'high';
@@ -574,8 +613,9 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
       return;
     }
 
-    const ctx: TrackContext = { videoId, quality, cacheKey, audio, priority: priority === PLAYBACK_PRIORITY ? 'high' : 'low' };
-    if (priority === PLAYBACK_PRIORITY) persistCtx = ctx;
+    const episode = req.query.podcast === '1';
+    const ctx: TrackContext = { videoId, quality, cacheKey, audio, priority: priority === PLAYBACK_PRIORITY ? 'high' : 'low', episode };
+    if (priority === PLAYBACK_PRIORITY && !episode) persistCtx = ctx;
     try {
       await streamRange(res, ctx, range, isRangeLess, timing);
     } catch (error) {

@@ -10,6 +10,7 @@ suwwara/
 │   ├── api/            klien REST (musicClient: search/audio, authClient: library/perangkat; auth/authApi+authStore: login & sesi)
 │   ├── auth/            login (authStore, authApi) + id perangkat (deviceIdentity.ts)
 │   ├── sync/            write-through sync library ⇄ server (src/sync/librarySync.ts)
+│   ├── podcast/         tab Podcast: channel YouTube didengar sebagai audio (store, putar episode, halaman channel/seri, transkrip)
 │   ├── import/          impor dari Spotify: baca ZIP/CSV Exportify di browser, pantau progres, masukkan playlist yang selesai ke library
 │   ├── audio-engine/   AudioEngine singleton (Web Audio + crossfade di desktop; `<audio>` langsung di iOS/Android, lihat platform.ts)
 │   ├── media-session/  integrasi lock-screen / notification media controls
@@ -36,6 +37,7 @@ suwwara/
 │       ├── diagnostics/  laporan gangguan pemutaran dari perangkat (in-memory, maks 200, tab admin Pemutaran)
 │       ├── connect/      hub in-memory perangkat per akun (kontrol jarak jauh) + sesi pemutaran akun (Postgres)
 │       ├── library/      penggabungan library dua akun
+│       ├── podcast/      tab Podcast: cari channel/halaman/seri/RSS dari youtube.com (youtubeClient.ts) + bab & transkrip lewat yt-dlp (extras.ts)
 │       ├── importer/     impor Spotify: pencocokan lagu Spotify → YT Music (spotifyMatch.ts, murni) + worker background (antre di Postgres)
 │       ├── jam/          state room "Jam" in-memory + reducer antrean (mirror queueStore.ts)
 │       └── youtube/     resolusi audio via yt-dlp (cache Postgres + memori, antrean prioritas maks 1 proses: high/low/idle) — `priorityLimiter.ts`; video musik di `video.ts`/`videoMatch.ts`/`videoPlaylist.ts`

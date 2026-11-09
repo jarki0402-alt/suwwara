@@ -1,4 +1,6 @@
 import { useRef, useState, type CSSProperties } from 'react';
+import { MarqueeText } from '../../components/MarqueeText/MarqueeText';
+import { EpisodeOverviewPanel } from '../../podcast/components/EpisodeOverviewPanel';
 import type { Song } from '../../api/types';
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
@@ -242,6 +244,11 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 // Only while the song has a music video (FullscreenStage adds it).
 const VIDEO_TAB: { id: Tab; label: string } = { id: 'video', label: msg('Video') };
+const EPISODE_TABS: { id: Tab; label: string }[] = [
+  { id: 'lyrics', label: msg('Transkrip') },
+  { id: 'queue', label: msg('Antrean') },
+  { id: 'jam', label: msg('Jam') },
+];
 const songStarving = () => audioEngine.getSnapshot().status === 'loading';
 
 /**
@@ -259,7 +266,11 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
   const { showToast } = useToast();
   const theaterOpen = useUiStore((state) => state.videoTheater !== null);
   // Video next to Lirik: the two ways of watching the song come first, the queue and the Jam after (asked for).
-  const tabs = video ? [TABS[0], VIDEO_TAB, ...TABS.slice(1)] : TABS;
+  // A podcast episode: its transcript in the lyrics tab, its overview in the queue tab (in a Jam the room's queue,
+  // which everyone edits), and the Jam as for a song: a podcast can be listened to together.
+  const episode = song.kind === 'episode';
+  const inJam = useJamStore((state) => state.role !== 'solo');
+  const tabs = episode ? EPISODE_TABS : video ? [TABS[0], VIDEO_TAB, ...TABS.slice(1)] : TABS;
   // The song changed to one without a video while its tab was showing: back to the lyrics.
   const shownTab: Tab = tab === 'video' && !video ? 'lyrics' : tab;
 
@@ -297,10 +308,19 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
           repeat what the video shows and push the video off-centre). */}
       <div className={[styles.columns, shownTab === 'video' ? styles.columnsVideo : '', shownTab === 'video' && !video?.synced ? styles.columnsVideoCut : ''].join(' ')}>
         <section className={styles.songColumn} aria-label={t('Lagu yang diputar')}>
-          {shownTab !== 'video' && <LazyImage images={song.image} quality="500x500" alt={song.name} className={styles.art} />}
+          {shownTab !== 'video' && (
+            <LazyImage
+              images={song.image}
+              quality="500x500"
+              alt={song.name}
+              className={[styles.art, song.kind === 'episode' ? styles.episodeArt : ''].join(' ')}
+            />
+          )}
           <div className={styles.meta}>
             <div className={styles.metaText}>
-              <h1 className={styles.title}>{song.name}</h1>
+              <h1 className={styles.title}>
+                <MarqueeText text={song.name} />
+              </h1>
               <span className={styles.artist}>
                 <ArtistLinks song={song} />
               </span>
@@ -350,7 +370,12 @@ export function FullscreenStage({ song, chromeHidden, onMinimize }: { song: Song
               <LyricsPanel song={song} isFullscreen />
             </div>
           )}
-          {shownTab === 'queue' && (
+          {shownTab === 'queue' && episode && !inJam && (
+            <div className={styles.panel}>
+              <EpisodeOverviewPanel song={song} />
+            </div>
+          )}
+          {shownTab === 'queue' && (!episode || inJam) && (
             <div className={styles.panel}>
               <span className={styles.panelHeading}>{t('Berikutnya')}</span>
               <StageQueue />

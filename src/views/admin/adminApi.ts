@@ -92,6 +92,13 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
+export interface PodcastPick {
+  channelId: string;
+  name: string;
+  avatar: string;
+  subscribers: string;
+}
+
 export const adminApi = {
   overview: () => call<Overview>('/overview'),
   users: () => call<{ users: AdminUser[] }>('/users').then((r) => r.users),
@@ -105,6 +112,18 @@ export const adminApi = {
   update: (id: string, change: { disabled?: boolean; role?: 'user' | 'admin' }) => call<void>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(change) }),
   signOutAll: (id: string) => call<void>(`/users/${id}/sign-out`, { method: 'POST' }),
   remove: (id: string) => call<void>(`/users/${id}`, { method: 'DELETE' }),
+  // Podcast tab's "Pilihan" (routes/podcast.ts). The list itself is read where every user reads it.
+  podcastPicks: () =>
+    fetch('/api/podcast/picks', { cache: 'no-store' })
+      .then((r) => r.json() as Promise<{ picks: PodcastPick[] }>)
+      .then((r) => r.picks),
+  podcastSearch: (q: string) =>
+    call<{ channels: { id: string; name: string; avatar: string; subscribers: string }[] }>(`/podcast/search?q=${encodeURIComponent(q)}`).then((r) =>
+      r.channels.map((c) => ({ channelId: c.id, name: c.name, avatar: c.avatar, subscribers: c.subscribers })),
+    ),
+  addPodcastPick: (c: PodcastPick) =>
+    call<void>(`/podcast/picks/${encodeURIComponent(c.channelId)}`, { method: 'PUT', body: JSON.stringify(c) }),
+  removePodcastPick: (channelId: string) => call<void>(`/podcast/picks/${encodeURIComponent(channelId)}`, { method: 'DELETE' }),
   unlock: (key: string) => call<void>('/locks/unlock', { method: 'POST', body: JSON.stringify({ key }) }),
   playbackReports: () => call<{ reports: PlaybackReport[] }>('/playback-reports').then((r) => r.reports),
   clearPlaybackReports: () => call<void>('/playback-reports', { method: 'DELETE' }),

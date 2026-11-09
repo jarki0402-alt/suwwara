@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { useJamStore } from '../../stores/jamStore';
+import { EpisodeOverviewPanel } from '../../podcast/components/EpisodeOverviewPanel';
 import { Icon } from '../../components/Icon/Icon';
 import { msg, useT } from '../../i18n/i18n';
 import { cycleRepeat, reorder, toggleShuffle } from '../../jam/jamQueueActions';
@@ -82,6 +84,25 @@ export function QueueView() {
     return { transform: `translateY(${shift}px)`, transition: 'transform 150ms ease' };
   };
 
+  // A podcast episode plays alone (its own queue is podcastStore.queue): the panel shows the episode's overview, its
+  // queue and similar episodes instead of the song list.
+  // In a Jam the room's queue shows as usual: everyone edits it, episodes and songs alike.
+  const inJam = useJamStore((state) => state.role !== 'solo');
+  const playingEpisode = !inJam && queue[order[position]]?.kind === 'episode' ? queue[order[position]] : null;
+  if (playingEpisode) {
+    return (
+      <div className={styles.view}>
+        <div className={styles.header}>
+          <span className={styles.title}>{t('Antrean podcast')}</span>
+          <button type="button" className={styles.closeButton} onClick={closeQueue} aria-label={t('Tutup antrean')}>
+            <Icon name="close" size={18} />
+          </button>
+        </div>
+        <EpisodeOverviewPanel song={playingEpisode} />
+      </div>
+    );
+  }
+
   return (
     <div className={styles.view}>
       <div className={styles.header}>
@@ -91,6 +112,8 @@ export function QueueView() {
         </button>
       </div>
 
+      {/* Shuffle/repeat are for music: a podcast episode plays on its own and ends where it ends. */}
+      {!queue.some((song) => song.kind === 'episode') && (
       <div className={styles.controlsRow}>
         <button
           type="button"
@@ -109,6 +132,7 @@ export function QueueView() {
           {t(REPEAT_LABEL[repeatMode])}
         </button>
       </div>
+      )}
 
       {visibleOrder.length === 0 ? (
         <p className={styles.empty}>{t('Antrean kosong.')}</p>

@@ -178,6 +178,7 @@ class AudioEngine {
   private gains: [GainNode | null, GainNode | null] | null = null;
   private activeIndex: 0 | 1 = 0;
   private volume = 1;
+  private playbackRate = 1;
   /**
    * A track that is on screen but has deliberately not been loaded yet — the last song of the previous session, shown
    * paused when the app opens. The first play() (button, lock screen, another device, Jam) runs it; loading anything
@@ -301,6 +302,7 @@ class AudioEngine {
 
     this.context = context;
     this.elements = [chainA.element, chainB.element];
+    this.applyPlaybackRate();
     this.gains = [chainA.gain, chainB.gain];
 
     AudioCache.warm();
@@ -678,7 +680,8 @@ class AudioEngine {
     let url = '';
     if (!usePreload) {
       this.dropStalePreload(song);
-      url = (await localUrlFor(song.id, dataSaver)) ?? (await this.networkBlobFor(song.id, dataSaver)) ?? networkUrl;
+      // Never the whole-file fetch for an episode: on iOS that would pull 50-200MB into memory before the first sound.
+      url = (await localUrlFor(song.id, dataSaver)) ?? (song.kind === 'episode' ? null : await this.networkBlobFor(song.id, dataSaver)) ?? networkUrl;
       if (requestId !== this.playRequestId) {
         if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         return; // a newer request took over while the file was being fetched
@@ -949,6 +952,28 @@ class AudioEngine {
 
   getVolume(): number {
     return this.volume;
+  }
+
+  /**
+   * Podcast speed (1x to 2x; songs always 1x). Set on both elements, and as defaultPlaybackRate too: element.load(),
+   * which every change of track runs, resets playbackRate to that. Works on every platform: on desktop the Web Audio
+   * graph follows its element's rate, on iOS/Android it is the element itself. Pitch is kept (preservesPitch).
+   */
+  setPlaybackRate(rate: number): void {
+    this.playbackRate = Math.min(Math.max(rate, 0.5), 3);
+    this.applyPlaybackRate();
+  }
+
+  getPlaybackRate(): number {
+    return this.playbackRate;
+  }
+
+  private applyPlaybackRate(): void {
+    for (const element of this.elements ?? []) {
+      element.preservesPitch = true;
+      element.defaultPlaybackRate = this.playbackRate;
+      if (element.playbackRate !== this.playbackRate) element.playbackRate = this.playbackRate;
+    }
   }
 
   getCurrentTime(): number {

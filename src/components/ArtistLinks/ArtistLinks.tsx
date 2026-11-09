@@ -14,6 +14,7 @@ import styles from './ArtistLinks.module.css';
 export function ArtistLinks({ song }: { song: Song }) {
   const t = useT();
   const openArtist = useUiStore((state) => state.openArtist);
+  const openPodcastChannel = useUiStore((state) => state.openPodcastChannel);
   const artists = song.artists.primary;
   if (artists.length === 0) return <>{t('Unknown Artist')}</>;
 
@@ -23,6 +24,11 @@ export function ArtistLinks({ song }: { song: Song }) {
         const open = (event: MouseEvent | KeyboardEvent) => {
           event.stopPropagation();
           event.preventDefault();
+          // An episode's "artist" is its YouTube channel: its podcast page, not a YT Music artist page.
+          if (song.kind === 'episode') {
+            if (song.channelId) openPodcastChannel({ channelId: song.channelId, name: artist.name });
+            return;
+          }
           openArtist({ artistId: artist.browseId, name: artist.name });
         };
         return (

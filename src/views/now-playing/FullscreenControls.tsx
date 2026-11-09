@@ -1,4 +1,5 @@
 import { canSetVolume } from '../../audio-engine/volumeSupport';
+import { MarqueeText } from '../../components/MarqueeText/MarqueeText';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import type { Song } from '../../api/types';
 import { DownloadButton } from '../../components/DownloadButton/DownloadButton';
@@ -47,7 +48,9 @@ export function FullscreenControls({ song, isPlaying, isBuffering, onTogglePlay,
       <div className={styles.main}>
         <LazyImage images={song.image} quality="50x50" alt={song.name} className={styles.art} />
         <span className={styles.text}>
-          <span className={styles.title}>{song.name}</span>
+          <span className={styles.title}>
+            <MarqueeText text={song.name} />
+          </span>
           <span className={styles.subtitle}><ArtistLinks song={song} /></span>
         </span>
       </div>

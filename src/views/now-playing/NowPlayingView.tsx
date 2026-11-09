@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
+import { MarqueeText } from '../../components/MarqueeText/MarqueeText';
 import { bestImageUrl, primaryArtistNames } from '../../api/mappers';
 import { ArtistLinks } from '../../components/ArtistLinks/ArtistLinks';
 import { useConnectStore } from '../../connect/connectStore';
@@ -24,6 +25,8 @@ import { ArtistInfo } from './ArtistInfo';
 import { FullscreenControls } from './FullscreenControls';
 import { FullscreenStage, JamCard, UpNextList } from './FullscreenStage';
 import { LyricsPanel } from './LyricsPanel';
+import { EpisodeNextCard } from '../../podcast/components/EpisodeNextCard';
+import { EpisodeOverviewPanel } from '../../podcast/components/EpisodeOverviewPanel';
 import styles from './NowPlayingView.module.css';
 import { PlayerControls } from './PlayerControls';
 import { SeekBar } from './SeekBar';
@@ -215,17 +218,25 @@ export function NowPlayingView() {
               </button>
             </VideoSurface>
           ) : (
-            <LazyImage images={currentSong.image} quality="500x500" alt={currentSong.name} className={styles.art} />
+            <LazyImage
+              images={currentSong.image}
+              quality="500x500"
+              alt={currentSong.name}
+              className={[styles.art, currentSong.kind === 'episode' ? styles.episodeArt : ''].join(' ')}
+            />
           )}
         </div>
 
         {/* Folded into FullscreenControls' own left section in fullscreen
             mode instead — title/artist/like there sit inline with the rest
             of the transport bar, not as a separate row above it. */}
+        {!isFullscreen && <EpisodeNextCard inline />}
         {!isFullscreen && (
           <div className={styles.meta}>
             <div className={styles.metaText}>
-              <span className={styles.title}>{currentSong.name}</span>
+              <span className={styles.title}>
+                <MarqueeText text={currentSong.name} />
+              </span>
               <span className={styles.subtitle}>
                 <ArtistLinks song={currentSong} />
               </span>
@@ -242,7 +253,7 @@ export function NowPlayingView() {
             reads oddly wedged between lyric lines, and fullscreen is meant to
             be lyrics-focused with nothing else competing for attention. */}
         {/* Docked panel (2026-11 redesign): what plays next and the Jam card, like the design's "Sedang diputar" panel. */}
-        {!showLyrics && !isFullscreen && isDesktop && (
+        {!showLyrics && !isFullscreen && isDesktop && currentSong.kind !== 'episode' && (
           <div className={styles.dockedExtras}>
             <div className={styles.upNextBox}>
               <span className={styles.upNextHeading}>{t('Berikutnya')}</span>
@@ -251,7 +262,14 @@ export function NowPlayingView() {
             <JamCard />
           </div>
         )}
-        {!showLyrics && !isFullscreen && isDesktop && <ArtistInfo artistName={primaryArtistNames(currentSong)} />}
+        {!showLyrics && !isFullscreen && isDesktop && currentSong.kind !== 'episode' && <ArtistInfo artistName={primaryArtistNames(currentSong)} />}
+        {/* An episode's overview (channel, description, its queue, similar episodes) in the docked panel. */}
+        {!showLyrics && !isFullscreen && isDesktop && currentSong.kind === 'episode' && (
+          <div className={styles.dockedExtras}>
+            <EpisodeOverviewPanel song={currentSong} />
+            <JamCard />
+          </div>
+        )}
 
         {isFullscreen ? (
           <div className={[styles.fullscreenBar, chromeHidden ? styles.chromeHidden : ''].join(' ')}>

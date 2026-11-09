@@ -3,7 +3,7 @@ import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { useT, type Translate } from '../../i18n/i18n';
 import { useLibraryStore } from '../../stores/libraryStore';
-import { useUiStore, type GeneratedCollectionId } from '../../stores/uiStore';
+import { useUiStore, type GeneratedCollectionId, LIKED_SONGS_ID } from '../../stores/uiStore';
 import { MixCover } from './HomeMixes';
 import { useRequestMixArtwork } from './mixArtwork';
 import { useHomeMixCards, type MixCard } from './mixCatalog';
@@ -37,7 +37,6 @@ export function QuickTiles() {
   const t = useT();
   const recent = useRecentCollections();
   const playlists = useLibraryStore((state) => state.playlists);
-  const setView = useUiStore((state) => state.setView);
   const openPlaylist = useUiStore((state) => state.openPlaylist);
   const openCollection = useUiStore((state) => state.openCollection);
 
@@ -76,7 +75,7 @@ export function QuickTiles() {
   const open = (tile: Tile) => {
     if (tile.kind === 'liked') {
       recordRecentCollection({ type: 'liked' });
-      setView('library');
+      openPlaylist(LIKED_SONGS_ID);
     } else if (tile.kind === 'playlist') {
       openPlaylist(tile.id);
     } else {

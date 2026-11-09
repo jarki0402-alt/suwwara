@@ -3,6 +3,7 @@ import type { Song } from '../../api/types';
 import { audioEngine } from '../../audio-engine/AudioEngine';
 import { sendJamIntent } from '../../jam/jamClient';
 import { resolveLyrics, type LyricsResult } from '../../lyrics/lyricsResolver';
+import { podcastApi } from '../../podcast/podcastApi';
 import { useLyricsSync } from '../../lyrics/useLyricsSync';
 import { useJamStore } from '../../stores/jamStore';
 import styles from './LyricsPanel.module.css';
@@ -56,6 +57,20 @@ const LyricsLine = memo(function LyricsLine({
   );
 });
 
+/**
+ * A podcast episode's transcript (the video's own captions, server/src/podcast/extras.ts) shown exactly like synced
+ * lyrics: the line being said is highlighted and followed, a tap jumps there. Chapters, when the video has them, sit
+ * in it as marked lines at their start; with no captions they are the whole list (still a way to jump around).
+ */
+async function resolveTranscript(song: Song): Promise<LyricsResult> {
+  const { chapters, transcript } = await podcastApi.extras(song.id);
+  const lines = [
+    ...chapters.map((c) => ({ time: c.start, text: `\u25B8 ${c.title}` })),
+    ...(transcript?.cues ?? []).map((cue) => ({ time: cue.s, text: cue.t })),
+  ].sort((a, b) => a.time - b.time);
+  return lines.length > 0 ? { type: 'synced', lines } : { type: 'none' };
+}
+
 type LyricsState = { status: 'loading' } | { status: 'ready'; result: LyricsResult } | { status: 'error' };
 
 /** Wait before the one automatic retry after a failed lookup — long enough for a network blip to pass. */
@@ -75,7 +90,7 @@ function LyricsBody({ song, isFullscreen }: { song: Song; isFullscreen: boolean 
   useEffect(() => {
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    resolveLyrics(song)
+    (song.kind === 'episode' ? resolveTranscript(song) : resolveLyrics(song))
       .then((result) => {
         if (!cancelled) setState({ status: 'ready', result });
       })
@@ -113,7 +128,8 @@ function LyricsBody({ song, isFullscreen }: { song: Song; isFullscreen: boolean 
     container.scrollTo({ top: Math.max(target, 0), behavior: 'smooth' });
   }, [activeIndex]);
 
-  if (state.status === 'loading') return <div className={styles.state}>{t('Memuat lirik...')}</div>;
+  const episode = song.kind === 'episode';
+  if (state.status === 'loading') return <div className={styles.state}>{episode ? t('Memuat transkrip...') : t('Memuat lirik...')}</div>;
   if (state.status === 'error') {
     return (
       <div className={styles.state}>
@@ -135,7 +151,9 @@ function LyricsBody({ song, isFullscreen }: { song: Song; isFullscreen: boolean 
   }
 
   if (result?.type === 'instrumental') return <div className={styles.state}>{t('Lagu instrumental, tidak ada lirik.')}</div>;
-  if (!result || result.type === 'none') return <div className={styles.state}>{t('Lirik belum tersedia untuk lagu ini.')}</div>;
+  if (!result || result.type === 'none') {
+    return <div className={styles.state}>{episode ? t('Transkrip belum tersedia untuk episode ini.') : t('Lirik belum tersedia untuk lagu ini.')}</div>;
+  }
 
   if (result.type === 'plain') {
     return (

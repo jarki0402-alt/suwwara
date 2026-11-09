@@ -52,6 +52,10 @@ export type IconName =
   | 'video'
   | 'replay-10'
   | 'forward-10'
+  | 'replay-15'
+  | 'forward-15'
+  | 'moon'
+  | 'podcast'
   | 'sidebar';
 
 interface IconProps {
@@ -445,6 +449,34 @@ function IconPaths({ name }: { name: IconName }) {
           <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" />
           <path d="M19.8 3.8v3.7h-3.7" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
           <text x="12" y="15.3" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor">10</text>
+        </>
+      );
+    case 'replay-15':
+      // Podcast skips (15s either way): the same circles as the video ones, with the podcast app numbers.
+      return (
+        <>
+          <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" />
+          <path d="M4.2 3.8v3.7h3.7" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+          <text x="12" y="15.3" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor">15</text>
+        </>
+      );
+    case 'forward-15':
+      return (
+        <>
+          <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" />
+          <path d="M19.8 3.8v3.7h-3.7" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+          <text x="12" y="15.3" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor">15</text>
+        </>
+      );
+    case 'moon':
+      // Sleep timer.
+      return <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" stroke="currentColor" fill="none" strokeWidth={1.8} strokeLinejoin="round" />;
+    case 'podcast':
+      // A microphone: the Podcast tab.
+      return (
+        <>
+          <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" fill="none" strokeWidth={2} />
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" stroke="currentColor" fill="none" strokeWidth={2} strokeLinecap="round" />
         </>
       );
     case 'sidebar':

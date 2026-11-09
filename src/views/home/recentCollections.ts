@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { useUiStore, type GeneratedCollectionId } from '../../stores/uiStore';
+import { useUiStore, type GeneratedCollectionId, LIKED_SONGS_ID } from '../../stores/uiStore';
 
 /**
  * What the Home shortcut tiles show (2026-11 redesign): the collections this device opened last, Spotify's "jump back
@@ -53,7 +53,8 @@ useUiStore.subscribe((state, previous) => {
   if (state.openedCollectionId && state.openedCollectionId !== previous.openedCollectionId) {
     recordRecentCollection({ type: 'mix', id: state.openedCollectionId });
   }
-  if (state.selectedPlaylistId && state.selectedPlaylistId !== previous.selectedPlaylistId) {
+  // Lagu Disukai records itself as 'liked' where it is opened (QuickTiles); it isn't a playlist id.
+  if (state.selectedPlaylistId && state.selectedPlaylistId !== LIKED_SONGS_ID && state.selectedPlaylistId !== previous.selectedPlaylistId) {
     recordRecentCollection({ type: 'playlist', id: state.selectedPlaylistId });
   }
 });

@@ -91,4 +91,6 @@ export const library: Dictionary = {
     'Exportify only reads your playlists, and the file is read on this device. Your liked songs and playlists are matched with YouTube Music and added to your library.',
   'Membaca...': 'Reading...',
   'Pilih file': 'Choose file',
+  'Ditambahkan ke {name}': 'Added to {name}',
+  'Sudah ada di playlist ini': 'Already in this playlist',
 };

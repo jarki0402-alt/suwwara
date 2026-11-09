@@ -13,7 +13,8 @@ import { lookupMusicVideo, peekMusicVideo, subscribeLookups, useVideoMode, type 
 export function useMusicVideo(song: Song | null): MusicVideo | null {
   const { remoteDevice } = usePlayback();
   const jam = useJamStatus();
-  const enabled = song !== null && remoteDevice === null && !jam.active;
+  // Not for podcast episodes: the Podcast tab is audio only on purpose (bandwidth, and it is what it is for).
+  const enabled = song !== null && song.kind !== 'episode' && remoteDevice === null && !jam.active;
   const wanted = useVideoMode((state) => state.wanted);
   const nextSong = useQueueStore((state) => (wanted ? (state.queue[state.order[state.position + 1]] ?? null) : null));
 

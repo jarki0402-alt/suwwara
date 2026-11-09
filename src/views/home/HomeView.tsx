@@ -1,4 +1,5 @@
 import { useT } from '../../i18n/i18n';
+import { PodcastHomeShelf } from '../../podcast/components/PodcastHomeShelf';
 import { useUiStore } from '../../stores/uiStore';
 import { ArtistMixesSection } from './ArtistMixesSection';
 import { GeneratedCollectionView } from './GeneratedCollectionView';
@@ -44,6 +45,7 @@ export function HomeView() {
       <MixFilterChips value={mixFilter} onChange={setMixFilter} />
       <QuickTiles />
       <HomeMixes filter={mixFilter} />
+      <PodcastHomeShelf />
       <TopChartSection />
       <RecentlyPlayedSection />
       <RecommendedSection />

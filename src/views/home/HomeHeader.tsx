@@ -32,6 +32,17 @@ function dayLine(now: Date, t: Translate): string {
   return `${t(DAYS[now.getDay()])} ${t(PART_WORD[partOfDay(now.getHours())])}`;
 }
 
+/** The greeting's two lines, shared with the desktop top bar (TopBar), which shows them beside the search. */
+export function useHomeGreeting(): { eyebrow: string; title: string } {
+  const username = useAuthStore((state) => state.user?.username ?? '');
+  const t = useT();
+  const now = new Date();
+  return {
+    eyebrow: dayLine(now, t),
+    title: username ? t('Halo, {name}', { name: username }) : t(GREETING[partOfDay(now.getHours())]),
+  };
+}
+
 /**
  * A personal greeting ("Halo, fajar" under "Kamis malam") on every size since the 2026-11 redesign. On a phone the
  * corner holds Jam (the pill while in one, otherwise a button that opens the Jam sheet so starting one is a tap from

@@ -2,6 +2,8 @@ import { Icon } from '../../components/Icon/Icon';
 import { useBubbleRipple } from '../../hooks/useBubbleRipple';
 import { cycleRepeat, toggleShuffle } from '../../jam/jamQueueActions';
 import { useQueueStore } from '../../stores/queueStore';
+import { isEpisode } from '../../podcast/episodeRegistry';
+import { SleepButton, SpeedButton } from '../../podcast/components/EpisodeControls';
 import styles from './PlayerControls.module.css';
 import { useT } from '../../i18n/i18n';
 
@@ -22,9 +24,15 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
   const playRipple = useBubbleRipple<HTMLButtonElement>();
   const nextRipple = useBubbleRipple<HTMLButtonElement>();
   const repeatRipple = useBubbleRipple<HTMLButtonElement>();
+  // A podcast episode: speed and sleep timer in place of shuffle/repeat, and next/previous are -15s/+30s skips
+  // (usePlaybackController maps them), so only their icons and labels change here.
+  const episode = useQueueStore((state) => isEpisode(state.currentSong()));
 
   return (
     <div className={styles.row}>
+      {episode ? (
+        <SpeedButton />
+      ) : (
       <button
         ref={shuffleRipple.ref}
         type="button"
@@ -37,6 +45,7 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
         <Icon name="shuffle" size={24} />
         <span className={styles.activeDot} aria-hidden="true" />
       </button>
+      )}
 
       <div className={styles.transportGroup}>
         <button
@@ -45,9 +54,9 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
           className={[styles.transportButton, 'glass-ripple-host'].join(' ')}
           onClick={onPrevious}
           onPointerDown={prevRipple.onPointerDown}
-          aria-label={t('Lagu sebelumnya')}
+          aria-label={episode ? t('Mundur 15 detik') : t('Lagu sebelumnya')}
         >
-          <Icon name="previous" size={28} />
+          <Icon name={episode ? 'replay-15' : 'previous'} size={episode ? 40 : 28} />
         </button>
         <button
           ref={playRipple.ref}
@@ -66,12 +75,15 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
           className={[styles.transportButton, 'glass-ripple-host'].join(' ')}
           onClick={onNext}
           onPointerDown={nextRipple.onPointerDown}
-          aria-label={t('Lagu berikutnya')}
+          aria-label={episode ? t('Maju 15 detik') : t('Lagu berikutnya')}
         >
-          <Icon name="next" size={28} />
+          <Icon name={episode ? 'forward-15' : 'next'} size={episode ? 40 : 28} />
         </button>
       </div>
 
+      {episode ? (
+        <SleepButton />
+      ) : (
       <button
         ref={repeatRipple.ref}
         type="button"
@@ -83,6 +95,7 @@ export function PlayerControls({ isPlaying, isBuffering, onTogglePlay, onNext, o
         <Icon name={repeatMode === 'one' ? 'repeat-one' : 'repeat'} size={24} />
         <span className={styles.activeDot} aria-hidden="true" />
       </button>
+      )}
     </div>
   );
 }

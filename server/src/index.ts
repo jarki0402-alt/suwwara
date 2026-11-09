@@ -19,6 +19,8 @@ import { detailsRouter } from './routes/details';
 import { jamRouter } from './routes/jam';
 import { libraryRouter } from './routes/library';
 import { spotifyImportRouter } from './routes/spotifyImport';
+import { podcastRouter } from './routes/podcast';
+import { pruneEpisodeExtras } from './podcast/extras';
 import { kickImportWorker, pruneImports } from './importer/importWorker';
 import { adminRouter } from './routes/admin';
 import { linkRouter } from './routes/link';
@@ -67,6 +69,8 @@ app.use('/api', artistRouter);
 app.use('/api', linkRouter);
 // Per-route deviceAuth like linkRouter, so it is safe ahead of authRouter/libraryRouter.
 app.use('/api', spotifyImportRouter);
+// Same: deviceAuth (or requireAdmin for /admin/podcast/*) per route, so its place among the routers doesn't matter.
+app.use('/api', podcastRouter);
 app.use('/api', connectRouter);
 app.use('/api', diagnosticsRouter);
 // Like the routers above, profile (and admin) must sit BEFORE authRouter/libraryRouter, whose router-wide deviceAuth would
@@ -90,6 +94,7 @@ async function start(): Promise<void> {
   startResolveWarmer();
   // Resumes an import that was still matching when the process stopped.
   void pruneImports().then(kickImportWorker);
+  void pruneEpisodeExtras();
   app.listen(PORT, '0.0.0.0', () => {
     // eslint-disable-next-line no-console
     console.log(`Suwwara music backend listening on http://0.0.0.0:${PORT}`);

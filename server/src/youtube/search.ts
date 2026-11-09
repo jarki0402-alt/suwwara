@@ -54,7 +54,12 @@ export async function searchSongs(query: string, limit = 20): Promise<SearchSong
   return songSearches.getOrLoad(`${trimmed.toLowerCase()}|${limit}`, () => searchSongsUncached(trimmed, limit));
 }
 
-async function searchSongsUncached(trimmed: string, limit: number): Promise<SearchSong[]> {
+/**
+ * Bypasses `songSearches`: the Spotify importer (importer/importWorker.ts) runs a search a second for minutes, each
+ * one never repeated (its results are kept in Postgres instead), which would push every user's cached searches out of
+ * that 300-entry cache.
+ */
+export async function searchSongsUncached(trimmed: string, limit: number): Promise<SearchSong[]> {
   const ytmusic = await getYTMusic();
   const results = await withTimeout(ytmusic.searchSongs(trimmed));
 

@@ -1,0 +1,129 @@
+/* The sheet panel caps its height (Modal.module.css). Only the list scrolls, so the title above it and the buttons below
+   stay in view: with 17 playlists "Mulai impor" was otherwise below the fold. */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The global reset drops list markers; the numbers are the point of a step list. */
+.steps {
+  margin: 0;
+  padding-left: 1.2em;
+  list-style: decimal;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.steps a {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 88px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.list > li {
+  flex-shrink: 0;
+}
+
+.row,
+.checkRow,
+.missingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.missingRow {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.checkRow {
+  cursor: pointer;
+}
+
+.checkRow input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+}
+
+.rowTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.missingRow .rowTitle {
+  flex: none;
+  max-width: 100%;
+}
+
+.rowMeta {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.missingRow .rowMeta {
+  flex-shrink: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progressTrack {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width 400ms ease;
+}
+
+.linkButton {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.error {
+  font-size: 0.86rem;
+  color: var(--color-danger);
+}

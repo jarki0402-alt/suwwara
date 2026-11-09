@@ -168,4 +168,40 @@ create table if not exists jam_rooms (
   last_auto_advance_at bigint not null default 0,
   last_activity_at bigint not null
 );
+
+-- Spotify import (importer/importWorker.ts). The matching (one YT Music search per song, paced) takes minutes for a
+-- big library, so it runs here in the background instead of in the browser: it carries on when the app is closed and
+-- resumes after a restart. One row per unique track (an ISRC can sit in several playlists) and the playlists as lists
+-- of those keys. Rows are deleted a few days after the import ends; nothing here is needed once the client has the songs.
+create table if not exists spotify_imports (
+  id text primary key,
+  account_id text not null references accounts(id) on delete cascade,
+  status text not null default 'running',
+  playlists jsonb not null,
+  created_at timestamptz not null default now(),
+  finished_at timestamptz
+);
+create index if not exists spotify_imports_account on spotify_imports (account_id, created_at desc);
+
+create table if not exists spotify_import_tracks (
+  import_id text not null references spotify_imports(id) on delete cascade,
+  key text not null,
+  position integer not null,
+  name text not null,
+  artists jsonb not null,
+  duration_sec integer not null,
+  status text not null default 'pending',
+  song jsonb,
+  primary key (import_id, key)
+);
+create index if not exists spotify_import_tracks_pending on spotify_import_tracks (import_id, position) where status = 'pending';
+
+-- Shared across accounts on purpose: friends' libraries overlap, and a song matched once never costs a search again.
+-- Keyed by ISRC (or the Spotify URI when a track has none). On disk, not in RAM.
+create table if not exists spotify_track_matches (
+  key text primary key,
+  verdict text not null,
+  song jsonb,
+  matched_at timestamptz not null default now()
+);
 `;

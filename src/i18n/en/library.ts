@@ -57,4 +57,38 @@ export const library: Dictionary = {
   'Ulang Semua': 'Repeat All',
   'Ulang Satu': 'Repeat One',
   'Antrean kosong.': 'The queue is empty.',
+
+  // Spotify import (Koleksi -> Playlist -> Impor dari Spotify)
+  'Impor dari Spotify': 'Import from Spotify',
+  'Tidak ada lagu yang bisa dibaca. Pastikan filenya ZIP atau CSV dari Exportify.': "No songs could be read. Make sure it's the ZIP or CSV from Exportify.",
+  'File ini tidak bisa dibuka. Pastikan filenya ZIP atau CSV dari Exportify.': "This file can't be opened. Make sure it's the ZIP or CSV from Exportify.",
+  'Terlalu banyak lagu sekaligus. Pilih lebih sedikit playlist, lalu impor sisanya setelah ini selesai.': 'Too many songs at once. Pick fewer playlists, then import the rest after this one finishes.',
+  'Impor belum bisa dimulai. Coba lagi sebentar lagi.': "The import couldn't start. Try again in a moment.",
+  'Impor dibatalkan': 'Import cancelled',
+  'Impor selesai': 'Import finished',
+  '{n} lagu ditambahkan ke koleksimu.': { one: '{n} song was added to your library.', other: '{n} songs were added to your library.' },
+  '{n} lagu tidak ditemukan di YouTube Music.': { one: "{n} song wasn't found on YouTube Music.", other: "{n} songs weren't found on YouTube Music." },
+  'Sembunyikan daftar': 'Hide the list',
+  'Lihat yang tidak ditemukan': "See what wasn't found",
+  Selesai: 'Done',
+  'Mengimpor dari Spotify': 'Importing from Spotify',
+  'Lagu dicocokkan satu per satu dengan YouTube Music. Tiap playlist langsung masuk koleksi begitu selesai. Kamu boleh menutup ini, impor tetap jalan.':
+    'Songs are matched one by one with YouTube Music. Each playlist joins your library as soon as it finishes. You can close this, the import keeps going.',
+  '{done} dari {total} lagu': '{done} of {total} songs',
+  'Sudah masuk': 'Added',
+  'Batalkan impor': 'Cancel import',
+  'Pilih yang mau diimpor': 'Choose what to import',
+  'Album Tersimpan': 'Saved Albums',
+  '{n} lagu berbeda akan dicocokkan. Lagu yang sama di beberapa playlist cukup dicari sekali.': {
+    one: '{n} distinct song will be matched. A song in several playlists is only looked up once.',
+    other: '{n} distinct songs will be matched. A song in several playlists is only looked up once.',
+  },
+  'Mulai impor': 'Start import',
+  Buka: 'Open',
+  ', masuk dengan akun Spotify, lalu tekan Export All.': ', sign in with Spotify, then press Export All.',
+  'Pilih file ZIP yang terunduh (atau beberapa file CSV) di sini.': 'Pick the downloaded ZIP file (or a few CSV files) here.',
+  'Exportify hanya membaca playlist-mu, dan filenya dibaca di perangkat ini. Lagu disukai dan playlist akan dicocokkan dengan YouTube Music lalu masuk ke koleksimu.':
+    'Exportify only reads your playlists, and the file is read on this device. Your liked songs and playlists are matched with YouTube Music and added to your library.',
+  'Membaca...': 'Reading...',
+  'Pilih file': 'Choose file',
 };

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { PlaylistNameDialog } from '../../components/PlaylistNameDialog/PlaylistNameDialog';
+import { SpotifyImportSheet } from '../../components/SpotifyImport/SpotifyImportSheet';
+import { useSpotifyImportStore } from '../../import/spotifyImport';
 import { useT } from '../../i18n/i18n';
 import { useLibraryStore } from '../../stores/libraryStore';
 import styles from './LibraryView.module.css';
@@ -15,6 +17,9 @@ export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
   const playlists = useLibraryStore((state) => state.playlists);
   const createPlaylist = useLibraryStore((state) => state.createPlaylist);
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [isImportOpen, setImportOpen] = useState(false);
+  const importStatus = useSpotifyImportStore((state) => (state.importId ? state.status : null));
+  const importFinished = useSpotifyImportStore((state) => state.finished);
 
   const handleConfirmCreate = (name: string) => {
     const playlist = createPlaylist(name);
@@ -35,6 +40,19 @@ export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
           {'\u00a0'}
         </span>
       </button>
+      <button type="button" className={styles.createCard} onClick={() => setImportOpen(true)}>
+        <div className={styles.createCardArt}>
+          <Icon name="download" size={22} />
+        </div>
+        <span className={styles.cardTitle}>{t('Impor dari Spotify')}</span>
+        <span className={styles.cardSubtitle}>
+          {importStatus && !importFinished
+            ? t('{done} dari {total} lagu', { done: importStatus.done, total: importStatus.total })
+            : importFinished
+              ? t('Impor selesai')
+              : '\u00a0'}
+        </span>
+      </button>
       {playlists.map((playlist) => (
         <button key={playlist.id} type="button" className={styles.card} onClick={() => onSelectPlaylist(playlist.id)}>
           <div className={styles.cardArt}>
@@ -49,6 +67,7 @@ export function PlaylistsList({ onSelectPlaylist }: PlaylistsListProps) {
         </button>
       ))}
 
+      <SpotifyImportSheet isOpen={isImportOpen} onClose={() => setImportOpen(false)} />
       <PlaylistNameDialog
         isOpen={isCreateOpen}
         title={t('Playlist Baru')}

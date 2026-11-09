@@ -28,6 +28,10 @@ interface LibraryState {
   renamePlaylist: (playlistId: string, name: string) => void;
   addSongToPlaylist: (playlistId: string, song: Song) => void;
   removeSongFromPlaylist: (playlistId: string, songId: string) => void;
+  /** Spotify import: adds the songs not liked yet, each at its Spotify like date. Returns how many were new. */
+  importLikedSongs: (songs: SavedSong[]) => number;
+  /** Spotify import: a new playlist with these songs (a name already taken gets " (Spotify)"). */
+  importPlaylist: (name: string, songs: SavedSong[]) => UserPlaylist;
 }
 
 export const useLibraryStore = create<LibraryState>()(
@@ -83,6 +87,34 @@ export const useLibraryStore = create<LibraryState>()(
             p.id === playlistId ? { ...p, songs: p.songs.filter((s) => s.id !== songId) } : p,
           ),
         });
+      },
+
+      importLikedSongs: (songs) => {
+        const { likedSongs } = get();
+        const have = new Set(likedSongs.map((s) => s.id));
+        const fresh: SavedSong[] = [];
+        for (const song of songs) {
+          if (have.has(song.id)) continue;
+          have.add(song.id);
+          fresh.push(song);
+        }
+        if (fresh.length === 0) return 0;
+        // Newest like first, like the list already is. Likes from before the date was kept have none and sink to the
+        // bottom, where they already were relative to anything recent.
+        const merged = [...likedSongs, ...fresh].sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
+        set({ likedSongs: merged });
+        return fresh.length;
+      },
+
+      importPlaylist: (name, songs) => {
+        const taken = new Set(get().playlists.map((p) => p.name.toLowerCase()));
+        const base = name.trim() || 'Spotify';
+        const finalName = taken.has(base.toLowerCase()) ? `${base} (Spotify)` : base;
+        const seen = new Set<string>();
+        const unique = songs.filter((song) => (seen.has(song.id) ? false : (seen.add(song.id), true)));
+        const playlist: UserPlaylist = { id: generateId(), name: finalName, songs: unique, createdAt: Date.now() };
+        set({ playlists: [playlist, ...get().playlists] });
+        return playlist;
       },
     }),
     { name: 'suwwara-library' },

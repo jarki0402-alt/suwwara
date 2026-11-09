@@ -5,6 +5,7 @@ import { useToast } from './components/Toast/ToastProvider';
 import { useThemeSync } from './hooks/useThemeSync';
 import { initServiceWorker } from './pwa/registerSW';
 import { initLibrarySync } from './sync/librarySync';
+import { initSpotifyImport } from './import/spotifyImport';
 import { initProfileSync } from './sync/profileSync';
 import { useUiStore } from './stores/uiStore';
 import { ChangePasswordScreen } from './views/auth/ChangePasswordScreen';
@@ -39,6 +40,7 @@ function App() {
     if (status === 'signed-in' && !mustChangePassword && !isAdmin && !syncStarted.current) {
       syncStarted.current = true;
       initLibrarySync();
+      initSpotifyImport();
       initProfileSync();
     }
   }, [status, mustChangePassword, isAdmin]);

@@ -57,28 +57,45 @@
   white-space: nowrap;
 }
 
+.actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Play and close read as one pair at the card's end: same height, close right beside it, so the X no longer floats
+   off on its own past a gap. */
 .play {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 34px;
-  padding: 0 14px;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px 0 13px;
   border: none;
   border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-on-accent);
+  font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
 }
 
 .close {
-  display: flex;
-  padding: 8px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
   border: none;
   border-radius: var(--radius-full);
   background: none;
   color: var(--color-text-secondary);
   cursor: pointer;
+}
+
+.close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
 }
 
 /* Inside Now Playing, in the flow between the artwork and the title. */
@@ -90,13 +107,26 @@
 }
 
 @media (min-width: 960px) {
-  .card:not(.inline) {
+  .card:not(.inline):not(.fullscreen) {
     left: auto;
     right: var(--panel-gap);
     bottom: calc(var(--pill-gap) + var(--status-strip) + 82px + var(--space-3));
     width: 420px;
     transform: none;
   }
+}
+
+/* Fullscreen: the stage's bottom-right corner (FullscreenStage has nothing along its bottom edge), lined up with the
+   stage's own side padding. */
+.fullscreen {
+  position: absolute;
+  left: auto;
+  right: clamp(var(--space-4), 3vw, var(--space-7));
+  bottom: clamp(var(--space-4), 3vw, var(--space-7));
+  width: 420px;
+  max-width: calc(100% - 2 * var(--space-4));
+  transform: none;
+  z-index: 2;
 }
 
 @media (prefers-reduced-motion: reduce) {

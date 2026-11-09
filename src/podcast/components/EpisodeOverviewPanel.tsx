@@ -10,12 +10,14 @@ import type { Episode } from '../types';
 import { useEpisodeOverview } from '../useEpisodeOverview';
 import { formatEpisodeLength, usePlayEpisode } from './EpisodeRow';
 import styles from './EpisodeOverviewPanel.module.css';
+import { useYtText } from '../ytText';
 
 const DESCRIPTION_PREVIEW = 220;
 
 /** A small episode row for the panel: tap plays, the side button queues it (or takes it out). */
 function MiniEpisode({ episode, list, queued }: { episode: Episode; list: Episode[]; queued?: boolean }) {
   const t = useT();
+  const yt = useYtText();
   const play = usePlayEpisode();
   const isQueued = usePodcastStore((state) => state.isQueued(episode.id));
   const removeFromQueue = usePodcastStore((state) => state.removeFromQueue);
@@ -33,7 +35,7 @@ function MiniEpisode({ episode, list, queued }: { episode: Episode; list: Episod
         </span>
         <span className={styles.miniText}>
           <span className={styles.miniTitle}>{episode.title}</span>
-          <span className={styles.miniMeta}>{[episode.channelName, episode.publishedText].filter(Boolean).join(' · ')}</span>
+          <span className={styles.miniMeta}>{[episode.channelName, yt(episode.publishedText)].filter(Boolean).join(' · ')}</span>
         </span>
       </button>
       <button
@@ -55,6 +57,7 @@ function MiniEpisode({ episode, list, queued }: { episode: Episode; list: Episod
  */
 export function EpisodeOverviewPanel({ song }: { song: Song }) {
   const t = useT();
+  const yt = useYtText();
   const overview = useEpisodeOverview(song.id);
   const queue = usePodcastStore((state) => state.queue);
   const following = usePodcastStore((state) => (overview?.channel ? state.isFollowing(overview.channel.id) : false));
@@ -73,7 +76,7 @@ export function EpisodeOverviewPanel({ song }: { song: Song }) {
             {channel.avatar && <img className={styles.avatar} src={channel.avatar} alt="" />}
             <span className={styles.channelText}>
               <span className={styles.channelName}>{channel.name}</span>
-              <span className={styles.meta}>{channel.subscribers}</span>
+              <span className={styles.meta}>{yt(channel.subscribers)}</span>
             </span>
           </button>
           <button
@@ -89,7 +92,7 @@ export function EpisodeOverviewPanel({ song }: { song: Song }) {
       {overview && (
         <section className={styles.about}>
           <span className={styles.meta}>
-            {[overview.dateText, overview.viewsText, song.duration > 0 ? formatEpisodeLength(song.duration) : null].filter(Boolean).join(' · ')}
+            {[yt(overview.dateText), yt(overview.viewsText), song.duration > 0 ? formatEpisodeLength(song.duration) : null].filter(Boolean).join(' · ')}
           </span>
           {description && (
             <>

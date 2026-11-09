@@ -10,6 +10,7 @@ export const podcast: Dictionary = {
   Channel: 'Channels',
   Episode: 'Episodes',
   'Sisa {time}': '{time} left',
+  'Lanjut dari {time}, posisi terakhir di perangkat lain': 'Continuing from {time}, where you left off on another device',
   'Episode baru': 'New episodes',
   'Episode baru belum bisa dimuat.': "New episodes couldn't be loaded.",
   'Semua episode baru sudah kamu dengar.': "You've heard every new episode.",

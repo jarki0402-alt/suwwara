@@ -9,6 +9,7 @@ import styles from '../components/Podcast.module.css';
 import { podcastApi } from '../podcastApi';
 import { usePodcastStore } from '../podcastStore';
 import type { ChannelPage, Episode, Series } from '../types';
+import { useYtText } from '../ytText';
 
 type Tab = 'latest' | 'popular' | 'series';
 interface List {
@@ -66,6 +67,7 @@ export function PodcastChannelView({ route }: { route: Extract<DetailRoute, { ty
 
 function ChannelBody({ page, back }: { page: ChannelPage; back: ReactNode }) {
   const t = useT();
+  const yt = useYtText();
   const play = usePlayEpisode();
   const following = usePodcastStore((state) => state.isFollowing(page.id));
   const toggleFollow = usePodcastStore((state) => state.toggleFollow);
@@ -118,7 +120,7 @@ function ChannelBody({ page, back }: { page: ChannelPage; back: ReactNode }) {
           {page.avatar && <img className={styles.avatar} src={page.avatar} alt="" />}
           <div className={styles.channelText}>
             <h1 className={styles.channelTitle}>{page.name}</h1>
-            <span className={styles.channelMeta}>{[page.handle, page.subscribers].filter(Boolean).join(' · ')}</span>
+            <span className={styles.channelMeta}>{[page.handle, yt(page.subscribers)].filter(Boolean).join(' · ')}</span>
           </div>
         </div>
         <div className={styles.headerActions}>
@@ -166,7 +168,7 @@ function ChannelBody({ page, back }: { page: ChannelPage; back: ReactNode }) {
                 <button key={s.id} type="button" className={styles.seriesCard} onClick={() => openSeries({ seriesId: s.id, title: s.title })}>
                   <span className={styles.thumb}>{s.thumbnail && <img src={s.thumbnail} alt="" loading="lazy" />}</span>
                   <span className={styles.episodeTitle}>{s.title}</span>
-                  <span className={styles.episodeMeta}>{s.countText}</span>
+                  <span className={styles.episodeMeta}>{yt(s.countText)}</span>
                 </button>
               ))}
             </div>

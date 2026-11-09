@@ -14,6 +14,7 @@ import styles from '../components/Podcast.module.css';
 import { podcastApi } from '../podcastApi';
 import { usePodcastStore } from '../podcastStore';
 import type { ChannelHit, Episode } from '../types';
+import { useYtText } from '../ytText';
 
 const SEARCH_DEBOUNCE_MS = 450;
 
@@ -46,6 +47,7 @@ export function PodcastView() {
 
 export function ChannelList({ channels }: { channels: { id: string; name: string; avatar: string; subscribers?: string }[] }) {
   const openChannel = useUiStore((state) => state.openPodcastChannel);
+  const yt = useYtText();
   return (
     <div className={styles.episodeList}>
       {channels.map((c) => (
@@ -53,7 +55,7 @@ export function ChannelList({ channels }: { channels: { id: string; name: string
           <img className={styles.avatar} src={c.avatar} alt="" loading="lazy" />
           <span className={styles.channelText}>
             <span className={styles.channelName}>{c.name}</span>
-            {c.subscribers && <span className={styles.channelMeta}>{c.subscribers}</span>}
+            {c.subscribers && <span className={styles.channelMeta}>{yt(c.subscribers)}</span>}
           </span>
         </button>
       ))}

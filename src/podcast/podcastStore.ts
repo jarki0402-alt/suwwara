@@ -55,6 +55,28 @@ interface PodcastState {
   takeNextQueued: () => Episode | null;
 }
 
+// When this device last saved each episode, by the server's clock (what PUT answers). A saved spot newer than this
+// came from another device. Bounded: only the few episodes touched in this session ever land here.
+const MAX_WRITES_TRACKED = 50;
+const writtenHere = new Map<string, number>();
+
+function writeProgress(episode: Episode, p: { positionSec: number; durationSec: number; finished: boolean }): void {
+  void podcastApi
+    .progress(episode.id, { ...p, episode })
+    .then((at) => {
+      if (!at) return;
+      writtenHere.delete(episode.id);
+      writtenHere.set(episode.id, at);
+      if (writtenHere.size > MAX_WRITES_TRACKED) writtenHere.delete(writtenHere.keys().next().value!);
+    })
+    .catch(() => {});
+}
+
+/** Server time of this device's last save of `id`, or 0 if it hasn't saved it since the app opened. */
+export function lastWrittenHere(id: string): number {
+  return writtenHere.get(id) ?? 0;
+}
+
 export function isFinishedAt(positionSec: number, durationSec: number): boolean {
   return durationSec > 0 && (durationSec - positionSec <= FINISHED_REMAINING_SEC || positionSec / durationSec >= FINISHED_FRACTION);
 }
@@ -108,7 +130,7 @@ export const usePodcastStore = create<PodcastState>()(
         const finished = isFinishedAt(positionSec, durationSec);
         const entry: Progress = { positionSec, durationSec, finished, updatedAt: Date.now(), episode };
         set({ progress: trimProgress({ ...get().progress, [episode.id]: entry }) });
-        void podcastApi.progress(episode.id, { positionSec, durationSec, finished, episode }).catch(() => {});
+        writeProgress(episode, { positionSec, durationSec, finished });
       },
 
       markFinished: (episode, finished = true) => {
@@ -117,7 +139,7 @@ export const usePodcastStore = create<PodcastState>()(
         const positionSec = finished ? durationSec : 0;
         const entry: Progress = { positionSec, durationSec, finished, updatedAt: Date.now(), episode };
         set({ progress: trimProgress({ ...get().progress, [episode.id]: entry }) });
-        void podcastApi.progress(episode.id, { positionSec, durationSec, finished, episode }).catch(() => {});
+        writeProgress(episode, { positionSec, durationSec, finished });
       },
 
       isSaved: (id) => get().saved.some((e) => e.id === id),
@@ -173,7 +195,11 @@ export function initPodcastSync(): void {
   started = true;
   const pull = () => void usePodcastStore.getState().hydrate().catch(() => {});
   pull();
-  document.addEventListener('visibilitychange', () => {
+  const pullIfStale = () => {
     if (document.visibilityState === 'visible' && Date.now() - usePodcastStore.getState().loadedAt > 60_000) pull();
-  });
+  };
+  document.addEventListener('visibilitychange', pullIfStale);
+  // A laptop's window brought back to the front stays "visible" the whole time it sat behind another app, so focus is
+  // the moment it comes back there (to see what the phone listened to meanwhile, in Lanjutkan).
+  window.addEventListener('focus', pullIfStale);
 }

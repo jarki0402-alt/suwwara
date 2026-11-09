@@ -238,6 +238,20 @@ podcastRouter.delete('/podcast/follows/:channelId', deviceAuth, async (req, res)
   }
 });
 
+// One episode's spot, asked for the moment it starts playing on a device: a primary-key read, so cheap enough to ask
+// every time rather than trusting a copy pulled minutes ago while another device kept listening.
+podcastRouter.get('/podcast/progress/:videoId', deviceAuth, async (req, res) => {
+  try {
+    const [row] = await sql`
+      select position_sec as "positionSec", duration_sec as "durationSec", finished, (extract(epoch from updated_at) * 1000)::bigint as "updatedAt"
+      from podcast_progress where account_id = ${req.accountId!} and video_id = ${String(req.params.videoId)}`;
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ progress: row ? { ...row, updatedAt: Number(row.updatedAt) } : null });
+  } catch (error) {
+    fail(res, error, 'progress');
+  }
+});
+
 podcastRouter.put('/podcast/progress/:videoId', deviceAuth, async (req, res) => {
   const episode = cleanEpisode({ ...req.body?.episode, id: req.params.videoId });
   const position = Number(req.body?.positionSec);
@@ -248,15 +262,17 @@ podcastRouter.put('/podcast/progress/:videoId', deviceAuth, async (req, res) => 
   }
   const account = req.accountId!;
   try {
-    await sql`
+    const [row] = await sql<{ updatedAt: string }[]>`
       insert into podcast_progress (account_id, video_id, position_sec, duration_sec, finished, episode, updated_at)
       values (${account}, ${episode.id as string}, ${position}, ${duration}, ${req.body?.finished === true}, ${sql.json(episode as never)}, now())
       on conflict (account_id, video_id) do update set position_sec = excluded.position_sec, duration_sec = excluded.duration_sec,
-        finished = excluded.finished, episode = excluded.episode, updated_at = now()`;
+        finished = excluded.finished, episode = excluded.episode, updated_at = now()
+      returning (extract(epoch from updated_at) * 1000)::bigint as "updatedAt"`;
     await sql`
       delete from podcast_progress where account_id = ${account} and video_id in (
         select video_id from podcast_progress where account_id = ${account} order by updated_at desc offset ${MAX_PROGRESS_ROWS})`;
-    res.status(204).end();
+    // The server's clock, so a device can later tell its own write from a newer one by another device (usePodcastPlayback).
+    res.json({ updatedAt: Number(row?.updatedAt ?? 0) });
   } catch (error) {
     fail(res, error, 'progress');
   }

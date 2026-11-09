@@ -1,6 +1,5 @@
 import { notifyUnauthorized } from '../auth/authStore';
 import { getDeviceId } from '../auth/deviceIdentity';
-import { useLanguageStore } from '../i18n/i18n';
 import { parseJsonWithoutEmDash } from '../utils/noEmDash';
 import type { ChannelHit, ChannelPage, Episode, EpisodeExtras, EpisodeOverview, Follow, Pick, Progress, Series, SeriesPage } from './types';
 
@@ -22,9 +21,20 @@ async function call<T>(path: string, init?: RequestInit): Promise<T | null> {
   return parseJsonWithoutEmDash<T>(await res.text());
 }
 
-// YouTube writes counts and dates in the asked language ("18,6 jt subscriber" / "18.6M subscribers").
-const hl = () => (useLanguageStore.getState().locale === 'en' ? 'en' : 'id');
+// Always Indonesian, whatever the app's language: asked in English, YouTube replaces Indonesian episode titles (and
+// descriptions) with machine translations, and an episode should be listed under the title its creator gave it. The
+// counts and dates that come back in Indonesian are put into English on screen instead (ytText.ts). One language
+// also means one server cache entry per page, not one per language.
+const hl = () => 'id';
 const q = encodeURIComponent;
+
+export interface RemoteProgress {
+  positionSec: number;
+  durationSec: number;
+  finished: boolean;
+  /** Server clock, epoch ms. */
+  updatedAt: number;
+}
 
 export const podcastApi = {
   search: async (query: string) =>
@@ -48,8 +58,19 @@ export const podcastApi = {
     }>('/api/podcast/state')) ?? { follows: [], progress: [], saved: [] },
   follow: (f: Follow) => call(`/api/podcast/follows/${q(f.channelId)}`, { method: 'PUT', body: JSON.stringify({ name: f.name, avatar: f.avatar }) }),
   unfollow: (channelId: string) => call(`/api/podcast/follows/${q(channelId)}`, { method: 'DELETE' }),
-  progress: (videoId: string, p: { positionSec: number; durationSec: number; finished: boolean; episode: Episode }) =>
-    call(`/api/podcast/progress/${q(videoId)}`, { method: 'PUT', body: JSON.stringify(p), keepalive: true }),
+  /** Resolves with the server's time of the write (its clock, not this device's). */
+  progress: async (videoId: string, p: { positionSec: number; durationSec: number; finished: boolean; episode: Episode }) =>
+    (await call<{ updatedAt: number }>(`/api/podcast/progress/${q(videoId)}`, { method: 'PUT', body: JSON.stringify(p), keepalive: true }))?.updatedAt ?? 0,
+  /** One episode's saved spot. Short timeout: it is asked as the episode starts, and a late answer is no use. */
+  progressOf: async (videoId: string) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      return (await call<{ progress: RemoteProgress | null }>(`/api/podcast/progress/${q(videoId)}`, { signal: controller.signal, cache: 'no-store' }))?.progress ?? null;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
   save: (episode: Episode) => call(`/api/podcast/saved/${q(episode.id)}`, { method: 'PUT', body: JSON.stringify({ episode }) }),
   unsave: (videoId: string) => call(`/api/podcast/saved/${q(videoId)}`, { method: 'DELETE' }),
   picks: async () => (await call<{ picks: Pick[] }>('/api/podcast/picks'))?.picks ?? [],

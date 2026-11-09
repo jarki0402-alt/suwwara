@@ -15,10 +15,11 @@ import styles from './EpisodeNextCard.module.css';
 const OFFER_BEFORE_END_SEC = 30;
 
 /**
- * "Berikutnya: <judul> · Putar" near and after the end of an episode. `inline` is the copy inside Now Playing; the
- * floating one sits above the mini player and steps aside while the phone's full-screen Now Playing covers it.
+ * "Berikutnya: <judul> · Putar" near and after the end of an episode. `inline` is the copy inside Now Playing,
+ * `fullscreen` the one in the fullscreen stage's bottom-right corner (above the transport bar); the floating one sits
+ * above the mini player and steps aside while Now Playing covers it.
  */
-export function EpisodeNextCard({ inline = false }: { inline?: boolean }) {
+export function EpisodeNextCard({ inline = false, fullscreen = false }: { inline?: boolean; fullscreen?: boolean }) {
   const t = useT();
   const { currentSong, remoteDevice } = usePlayback();
   const play = usePlayEpisode();
@@ -42,24 +43,26 @@ export function EpisodeNextCard({ inline = false }: { inline?: boolean }) {
   }, [episodeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!episodeId || remoteDevice || dismissedFor === episodeId || !(nearEnd || finished)) return null;
-  if (!inline && nowPlayingCovers) return null;
+  if (!inline && !fullscreen && nowPlayingCovers) return null;
   const next: Episode | null = context ? nextEpisodeFor(episodeId) : null;
   if (!next) return null;
 
   return (
-    <div className={[styles.card, inline ? styles.inline : ''].join(' ')} role="status">
+    <div className={[styles.card, inline ? styles.inline : '', fullscreen ? styles.fullscreen : ''].join(' ')} role="status">
       <img className={styles.thumb} src={next.thumbnail} alt="" />
       <span className={styles.text}>
         <span className={styles.label}>{t('Berikutnya')}</span>
         <span className={styles.title}>{next.title}</span>
       </span>
-      <button type="button" className={styles.play} onClick={() => play(next, context?.episodes ?? [next])}>
-        <Icon name="play" size={16} />
-        {t('Putar')}
-      </button>
-      <button type="button" className={styles.close} onClick={() => setDismissedFor(episodeId)} aria-label={t('Tutup')}>
-        <Icon name="close" size={16} />
-      </button>
+      <span className={styles.actions}>
+        <button type="button" className={styles.play} onClick={() => play(next, context?.episodes ?? [next])}>
+          <Icon name="play" size={14} />
+          {t('Putar')}
+        </button>
+        <button type="button" className={styles.close} onClick={() => setDismissedFor(episodeId)} aria-label={t('Tutup')}>
+          <Icon name="close" size={16} />
+        </button>
+      </span>
     </div>
   );
 }

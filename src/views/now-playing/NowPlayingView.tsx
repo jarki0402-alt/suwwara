@@ -152,6 +152,8 @@ export function NowPlayingView() {
       <div className={styles.sheet}>
         {ambientUrl && <img src={ambientUrl} alt="" aria-hidden="true" className={styles.ambientBackdrop} />}
         <div className={styles.ambientScrim} aria-hidden="true" />
+        {/* An episode's "Berikutnya" in fullscreen: the stage's bottom-right corner, over whichever tab is showing. */}
+        {isFullscreen && <EpisodeNextCard fullscreen />}
         {isFullscreen && isDesktop ? (
           <FullscreenStage song={currentSong} chromeHidden={chromeHidden} onMinimize={closeFullscreenLyrics} />
         ) : (

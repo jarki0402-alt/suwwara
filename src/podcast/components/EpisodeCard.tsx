@@ -4,10 +4,12 @@ import { usePodcastStore } from '../podcastStore';
 import type { Episode } from '../types';
 import { EpisodeMenu, formatEpisodeLength, usePlayEpisode } from './EpisodeRow';
 import styles from './EpisodeCard.module.css';
+import { useYtText } from '../ytText';
 
 /** An episode as a card in a shelf: its 16:9 picture (with length and how far you got), title, channel. */
 export function EpisodeCard({ episode, list }: { episode: Episode; list: Episode[] }) {
   const t = useT();
+  const yt = useYtText();
   const play = usePlayEpisode();
   const progress = usePodcastStore((state) => state.progress[episode.id]);
   const duration = episode.durationSec || progress?.durationSec || 0;
@@ -15,7 +17,11 @@ export function EpisodeCard({ episode, list }: { episode: Episode; list: Episode
   const note =
     progress && !progress.finished && duration > 0
       ? t('Sisa {time}', { time: formatEpisodeLength(duration - progress.positionSec) })
-      : (episode.publishedText ?? (episode.publishedAt ? new Date(episode.publishedAt).toLocaleDateString() : ''));
+      : episode.publishedText
+        ? yt(episode.publishedText)
+        : episode.publishedAt
+          ? new Date(episode.publishedAt).toLocaleDateString()
+          : '';
   return (
     <div className={styles.card}>
       <button type="button" className={styles.main} onClick={() => play(episode, list)}>

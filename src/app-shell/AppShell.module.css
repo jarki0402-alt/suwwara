@@ -28,6 +28,29 @@
   padding-bottom: calc(var(--dock-bottom) + var(--bottom-nav-height) + var(--dock-gap) + var(--mini-player-height) + var(--space-4));
 }
 
+/* Phone, installed on an iPhone (status bar style black-translucent): iOS 26 blurs whatever scrolls under the status
+   bar itself, above the web page, and nothing on the page can switch that off (WebKit bugs 301994/316008, Apple's
+   "scroll edge effect"). So nothing scrolls there: a band of the page's own colour, as tall as the status bar, stays
+   pinned at the top of the panel, and the system then blurs a flat colour, which looks like a clean status bar. It
+   takes no room (pulled back by its own height). iPhone only, installed only: -webkit-touch-callout exists in iOS
+   WebKit alone, so Android (its own status bar, its own behaviour) never gets this rule at all, nor does a browser
+   tab or a desktop. --page-bg is the coloured page's colour on an artist/album/playlist/channel page. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 959.98px) and (display-mode: standalone) {
+    .content::before {
+      content: '';
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: block;
+      height: env(safe-area-inset-top, 0px);
+      margin-bottom: calc(-1 * env(safe-area-inset-top, 0px));
+      background: var(--page-bg, var(--color-bg));
+      pointer-events: none;
+    }
+  }
+}
+
 /* Nothing played yet, so no player is showing: the page runs to the bottom instead of keeping an empty band where the
    player would be (the dock alone on a phone, the panel to the window's bottom gap on desktop). */
 .contentNoPlayer {

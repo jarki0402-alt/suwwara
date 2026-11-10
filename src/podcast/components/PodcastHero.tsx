@@ -3,6 +3,7 @@ import { useT } from '../../i18n/i18n';
 import type { Progress } from '../types';
 import { EpisodeMenu, formatEpisodeLength, usePlayEpisode } from './EpisodeRow';
 import styles from './PodcastHero.module.css';
+import { ChannelName } from './ChannelName';
 
 /** The top of the Podcast tab: the episode you were in the middle of, big, one tap from carrying on. */
 export function PodcastHero({ progress, list }: { progress: Progress; list: Progress[] }) {
@@ -19,7 +20,9 @@ export function PodcastHero({ progress, list }: { progress: Progress; list: Prog
       <div className={styles.body}>
         <span className={styles.kicker}>{t('Lanjutkan')}</span>
         <h2 className={styles.title}>{episode.title}</h2>
-        <span className={styles.channel}>{episode.channelName}</span>
+        <span className={styles.channel}>
+          <ChannelName episode={episode} />
+        </span>
         <div className={styles.progressRow}>
           <span className={styles.track}>
             <span style={{ width: `${fraction * 100}%` }} />

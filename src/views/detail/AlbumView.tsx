@@ -2,6 +2,7 @@ import { getAlbumPage, type AlbumPageData } from '../../api/endpoints/artistPage
 import { Icon } from '../../components/Icon/Icon';
 import { LazyImage } from '../../components/Image/LazyImage';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
+import { usePageTint } from '../../hooks/useImageTint';
 import { SongRow } from '../../components/SongRow/SongRow';
 import { SongRowActions } from '../../components/SongMenu/SongRowActions';
 import { useT } from '../../i18n/i18n';
@@ -25,6 +26,8 @@ export function AlbumView({ route }: { route: Extract<DetailRoute, { type: 'albu
   const closeDetail = useUiStore((state) => state.closeDetail);
   const openArtist = useUiStore((state) => state.openArtist);
   const page = useLoaded<AlbumPageData>(route.albumId, () => getAlbumPage(route.albumId));
+  // The cover's colour fills the page behind it (Apple Music style); see usePageTint.
+  usePageTint(page.status === 'ready' ? page.data.thumbnail : null);
 
   const back = (
     <div className={styles.albumBackRow}>

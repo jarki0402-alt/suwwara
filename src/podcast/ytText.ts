@@ -77,3 +77,21 @@ export function useYtText(): (text: string | null | undefined) => string {
   const english = useLanguageStore((state) => state.locale === 'en');
   return (text) => (!text ? '' : english ? ytTextToEnglish(text) : text);
 }
+
+/**
+ * A release date (the RSS feed's, for new episodes) as day, month name, year: "9 November 2026", not "11/9/2026",
+ * whose order depends on the device's own settings and reads either way. en-GB keeps the same day-first order in
+ * English. Empty when there is no usable date.
+ */
+export function formatEpisodeDate(iso: string | null | undefined, locale: 'id' | 'en'): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(locale === 'en' ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/** formatEpisodeDate in the app's current language. */
+export function useEpisodeDate(): (iso: string | null | undefined) => string {
+  const locale = useLanguageStore((state) => (state.locale === 'en' ? 'en' : 'id'));
+  return (iso) => formatEpisodeDate(iso, locale);
+}

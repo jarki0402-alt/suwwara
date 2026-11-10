@@ -209,9 +209,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  background: var(--color-bg-elevated);
+  /* Frosted like the round buttons beside it (tokens: AppShell.module.css --page-glass-*). */
+  background: var(--page-glass-bg);
+  border: 1px solid var(--page-glass-border);
+  box-shadow: var(--page-glass-sheen);
   color: var(--color-text-primary);
   cursor: pointer;
 }
@@ -237,19 +239,22 @@
   cursor: default;
 }
 
-/* The same search box as Beranda, Cari and Podcast (SearchView.module.css .searchBox): 48px, a 1px border that turns
-   accent on focus. */
+/* The same size as the search boxes of Beranda, Cari and Podcast (SearchView.module.css .searchBox): 48px, a 1px
+   border that turns accent on focus. Frosted here, on the playlist's own coloured page, like its round buttons
+   (tokens: AppShell.module.css --page-glass-*). */
 .addSongBox {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: 48px;
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
+  background: var(--page-glass-bg);
+  border: 1px solid var(--page-glass-border);
+  box-shadow: var(--page-glass-sheen);
   border-radius: var(--radius-full);
   padding: var(--space-2) var(--space-4);
   margin-bottom: var(--space-3);
-  color: var(--color-text-secondary);
+  /* The icon: bright, on a coloured page the secondary grey all but disappeared. */
+  color: var(--color-text-primary);
   transition: border-color var(--transition-fast);
 }
 
@@ -266,6 +271,12 @@
      SearchView's .input. */
   font-size: 1rem;
   color: var(--color-text-primary);
+}
+
+/* Bright too (the default placeholder grey was barely readable on a coloured page), a step under typed text. */
+.addSongInput::placeholder {
+  color: var(--color-text-primary);
+  opacity: 0.8;
 }
 
 .addSongResults {

@@ -8,7 +8,8 @@ import { playEpisode, queueEpisode } from '../playEpisode';
 import { usePodcastStore } from '../podcastStore';
 import type { Episode } from '../types';
 import styles from './Podcast.module.css';
-import { useYtText } from '../ytText';
+import { useEpisodeDate, useYtText } from '../ytText';
+import { ChannelName } from './ChannelName';
 
 export function formatEpisodeLength(sec: number): string {
   if (!(sec > 0)) return '';
@@ -109,16 +110,15 @@ interface EpisodeRowProps {
 export function EpisodeRow({ episode, list, showChannel = false }: EpisodeRowProps) {
   const t = useT();
   const yt = useYtText();
+  const episodeDate = useEpisodeDate();
   const play = usePlayEpisode();
   const progress = usePodcastStore((state) => state.progress[episode.id]);
   const isCurrent = useQueueStore((state) => state.currentSong()?.id === episode.id);
   const duration = episode.durationSec || progress?.durationSec || 0;
   const fraction = progress && duration > 0 ? Math.min(1, progress.positionSec / duration) : 0;
   const remaining = progress && !progress.finished && duration > 0 ? duration - progress.positionSec : 0;
-  const meta = [
-    showChannel ? episode.channelName : null,
-    episode.publishedText ? yt(episode.publishedText) : episode.publishedAt ? new Date(episode.publishedAt).toLocaleDateString() : null,
-  ].filter(Boolean);
+  const date = episode.publishedText ? yt(episode.publishedText) : episodeDate(episode.publishedAt) || null;
+  const withChannel = showChannel && !!episode.channelName;
 
   return (
     <div className={[styles.episodeRow, isCurrent ? styles.episodeRowCurrent : ''].join(' ')}>
@@ -139,7 +139,13 @@ export function EpisodeRow({ episode, list, showChannel = false }: EpisodeRowPro
               ? t('Sudah didengar')
               : remaining > 0
                 ? t('Sisa {time}', { time: formatEpisodeLength(remaining) })
-                : meta.join(' · ')}
+                : (
+                  <>
+                    {withChannel && <ChannelName episode={episode} nested />}
+                    {withChannel && date ? ' · ' : ''}
+                    {date}
+                  </>
+                )}
           </span>
         </span>
       </button>

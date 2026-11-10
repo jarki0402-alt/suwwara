@@ -95,7 +95,7 @@ export function QueueView() {
         <div className={styles.header}>
           <span className={styles.title}>{t('Antrean podcast')}</span>
           <button type="button" className={styles.closeButton} onClick={closeQueue} aria-label={t('Tutup antrean')}>
-            <Icon name="close" size={18} />
+            <Icon name="close" size={20} />
           </button>
         </div>
         <EpisodeOverviewPanel song={playingEpisode} />
@@ -108,7 +108,7 @@ export function QueueView() {
       <div className={styles.header}>
         <span className={styles.title}>{t('Antrean Putar')}</span>
         <button type="button" className={styles.closeButton} onClick={closeQueue} aria-label={t('Tutup antrean')}>
-          <Icon name="close" size={18} />
+          <Icon name="close" size={20} />
         </button>
       </div>
 

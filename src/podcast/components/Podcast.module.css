@@ -149,6 +149,25 @@
   color: var(--color-text-secondary);
 }
 
+/* ChannelName: the channel under an episode, a way to its page. Looks like the text around it until pointed at. */
+.channelLink {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .channelLink:hover {
+    color: var(--color-text-primary);
+    text-decoration: underline;
+  }
+}
+
 /* ---- episode rows ---- */
 
 .episodeList {
@@ -298,16 +317,42 @@
 .banner {
   position: relative;
   width: 100%;
-  aspect-ratio: 32 / 9;
-  max-height: 220px;
-  overflow: hidden;
+  /* Below the status bar on a phone: the page's own colour fills above it. */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* The whole banner, at its own shape. YouTube sends the desktop banner, about 6:1 (1060x175 up to 2560x424); a fixed
+   32:9 box capped at 220px cut its sides on a phone and its top and bottom on a wide window, often through the
+   channel's name written on it. */
+.banner img {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 56px;
+  object-fit: cover;
   background: var(--color-bg-elevated);
 }
 
-.banner img {
+/* While the page loads, and for a channel without a banner: the same band, so the back button has its place. */
+.bannerPlaceholder {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  aspect-ratio: 1060 / 175;
+  min-height: 56px;
+  background: var(--color-bg-elevated);
+}
+
+@media (min-width: 960px) {
+  /* Edge to edge across the panel, also on a window wide enough for the page to be centred with side margins
+     (AppShell .content --reading-pad), like an artist's banner. */
+  .banner {
+    margin-inline: calc(-1 * var(--reading-pad, 0px));
+    width: auto;
+  }
+
+  .bannerBack {
+    left: calc(var(--space-3) + var(--reading-pad, 0px));
+  }
 }
 
 .bannerBack {
@@ -346,9 +391,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  background: none;
+  /* Frosted like an artist's or a playlist's buttons (tokens: AppShell.module.css --page-glass-*). */
+  background: var(--page-glass-bg);
+  border: 1px solid var(--page-glass-border);
+  box-shadow: var(--page-glass-sheen);
   color: var(--color-text-primary);
   font-size: 0.9rem;
   font-weight: 600;
@@ -358,6 +405,7 @@
 .pillPrimary {
   border-color: transparent;
   background: var(--color-accent);
+  box-shadow: none;
   color: var(--color-on-accent);
 }
 
@@ -367,12 +415,16 @@
 }
 
 .tab {
-  height: 36px;
-  padding: 0 16px;
-  border: 1px solid var(--color-border);
+  /* The same pill as the buttons above (.pillButton): height, text size and colour, frosted (tokens:
+     AppShell.module.css --page-glass-*); the chosen one is solid. */
+  height: 40px;
+  padding: 0 18px;
   border-radius: var(--radius-full);
-  background: none;
-  color: var(--color-text-secondary);
+  background: var(--page-glass-bg);
+  border: 1px solid var(--page-glass-border);
+  box-shadow: var(--page-glass-sheen);
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -380,6 +432,7 @@
 .tabActive {
   border-color: transparent;
   background: var(--color-text-primary);
+  box-shadow: none;
   color: var(--color-bg);
 }
 

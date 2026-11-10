@@ -57,9 +57,23 @@
     background: var(--color-bg-sidebar);
     /* The 1400px reading width, kept by padding the panel on very wide windows (the children keep their own margins). */
     --right-space: var(--panel-gap);
-    padding-inline: max(0px, calc((100vw - var(--sidebar-width) - var(--right-space) - 1400px) / 2));
+    /* As a variable too, inherited by the page: a header that should run edge to edge (an artist's banner, a
+       collection's wash) steps out over this padding with a negative margin and pads its text back in by the same. */
+    --reading-pad: max(0px, calc((100vw - var(--sidebar-width) - var(--right-space) - 1400px) / 2));
+    padding-inline: var(--reading-pad);
     /* No transition on padding: animating it re-laid out the whole page on every frame (the stutter when
        the right panel opened). The change is one cross-faded step now — see utils/viewTransition.ts. */
+  }
+
+  /* Its own scrollbar is drawn over the page (PanelScrollbar.tsx) instead of in a 12px gutter beside it, which the
+     page could never paint into: coloured and bannered pages now reach the panel's edge. */
+  .content {
+    scrollbar-width: none;
+  }
+
+  .content::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 
   /* Reserves room for the docked Now Playing panel (NowPlayingView.module.css)
@@ -83,6 +97,61 @@
     background: rgba(var(--glass-tint), min(0.92, calc(0.5 * var(--glass-alpha-factor, 1))));
     border-color: var(--glass-border);
     box-shadow: var(--glass-sheen);
+  }
+}
+
+/* The page's frosted controls (an artist's or a collection's round buttons, a playlist's search box): the same
+   see-through white as the fullscreen view's chips (FullscreenStage.module.css .chip), so they take on the page's
+   colour instead of sitting on it as grey discs. No backdrop blur: over the page's flat colour it changes nothing
+   visible, and a blur that moves with the scroll is the costly kind. */
+.content {
+  --page-glass-bg: rgba(255, 255, 255, 0.55);
+  --page-glass-bg-hover: rgba(255, 255, 255, 0.75);
+  --page-glass-border: rgba(255, 255, 255, 0.7);
+  --page-glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.9), 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .content {
+    --page-glass-bg: rgba(255, 255, 255, 0.1);
+    --page-glass-bg-hover: rgba(255, 255, 255, 0.16);
+    --page-glass-border: rgba(255, 255, 255, 0.16);
+    --page-glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+  }
+}
+
+:global(:root[data-theme='dark']) .content {
+  --page-glass-bg: rgba(255, 255, 255, 0.1);
+  --page-glass-bg-hover: rgba(255, 255, 255, 0.16);
+  --page-glass-border: rgba(255, 255, 255, 0.16);
+  --page-glass-sheen: inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* A page coloured by its picture (pageTintStore, hooks/useImageTint): the whole scroll panel, to the bottom and
+   under the scrollbar, in one solid colour like Apple Music. A deep shade in the dark theme, a pastel in the light
+   one. --page-bg is inherited by the page, so its own fades (an artist banner's lower edge, a playlist header's wash)
+   end in exactly this colour. Switched at once, no fade: the colour arrives with the picture it comes from. */
+.contentTinted {
+  --page-tint-mix: 26%;
+  --page-bg: color-mix(in srgb, rgb(var(--page-tint)) var(--page-tint-mix), var(--color-bg));
+  background-color: var(--page-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .contentTinted {
+    --page-tint-mix: 62%;
+  }
+}
+
+:global(:root[data-theme='dark']) .contentTinted {
+  --page-tint-mix: 62%;
+}
+
+@media (min-width: 960px) {
+  /* Above the panel's own colour and its glass variant. */
+  .content.contentTinted,
+  :root[data-glass='full'] .content.contentTinted {
+    background-color: var(--page-bg);
   }
 }
 

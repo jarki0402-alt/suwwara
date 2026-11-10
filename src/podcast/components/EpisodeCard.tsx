@@ -2,14 +2,16 @@ import { useT } from '../../i18n/i18n';
 import { formatTime } from '../../utils/formatTime';
 import { usePodcastStore } from '../podcastStore';
 import type { Episode } from '../types';
+import { ChannelName } from './ChannelName';
 import { EpisodeMenu, formatEpisodeLength, usePlayEpisode } from './EpisodeRow';
 import styles from './EpisodeCard.module.css';
-import { useYtText } from '../ytText';
+import { useEpisodeDate, useYtText } from '../ytText';
 
 /** An episode as a card in a shelf: its 16:9 picture (with length and how far you got), title, channel. */
 export function EpisodeCard({ episode, list }: { episode: Episode; list: Episode[] }) {
   const t = useT();
   const yt = useYtText();
+  const episodeDate = useEpisodeDate();
   const play = usePlayEpisode();
   const progress = usePodcastStore((state) => state.progress[episode.id]);
   const duration = episode.durationSec || progress?.durationSec || 0;
@@ -19,9 +21,7 @@ export function EpisodeCard({ episode, list }: { episode: Episode; list: Episode
       ? t('Sisa {time}', { time: formatEpisodeLength(duration - progress.positionSec) })
       : episode.publishedText
         ? yt(episode.publishedText)
-        : episode.publishedAt
-          ? new Date(episode.publishedAt).toLocaleDateString()
-          : '';
+        : episodeDate(episode.publishedAt);
   return (
     <div className={styles.card}>
       <button type="button" className={styles.main} onClick={() => play(episode, list)}>
@@ -42,7 +42,11 @@ export function EpisodeCard({ episode, list }: { episode: Episode; list: Episode
         <span className={styles.title}>{episode.title}</span>
       </button>
       <div className={styles.footer}>
-        <span className={styles.meta}>{[episode.channelName, note].filter(Boolean).join(' · ')}</span>
+        <span className={styles.meta}>
+          <ChannelName episode={episode} />
+          {episode.channelName && note ? ' · ' : ''}
+          {note}
+        </span>
         <EpisodeMenu episode={episode} />
       </div>
     </div>

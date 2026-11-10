@@ -45,7 +45,6 @@ export function MusicVideoToggle({ song, video }: { song: Song; video: MusicVide
         {t('Lagu')}
       </button>
       <button type="button" className={[styles.option, showingVideo ? styles.active : ''].join(' ')} aria-pressed={showingVideo} onClick={() => pick(true)}>
-        <Icon name="video" size={14} />
         {t('Video')}
       </button>
     </div>

@@ -8,6 +8,7 @@ import { shuffledCopy } from '../../utils/shuffle';
 import { CollectionDownloadButton } from './CollectionDownloadButton';
 import { Icon, type IconName } from '../Icon/Icon';
 import { LazyImage } from '../Image/LazyImage';
+import { usePageTint } from '../../hooks/useImageTint';
 import styles from './CollectionHero.module.css';
 
 interface CollectionHeroProps {
@@ -43,12 +44,19 @@ export function CollectionHero({ kind, title, onTitleClick, description, songs, 
   const t = useT();
   const backdrop = images.length > 0 ? bestImageUrl(images, '150x150') : '';
   const showArt = images.length > 0 && !iconCover;
+  // A collection opened as its own page takes its cover's colour, like an album (usePageTint). Shown as a card inside
+  // another page it leaves that page's colour alone.
+  usePageTint(onBack && backdrop ? backdrop : null);
 
   return (
     <div className={[styles.root, onBack ? '' : styles.rootCard].join(' ')}>
-      <header className={styles.hero}>
-        {backdrop && <img className={styles.backdrop} src={backdrop} alt="" aria-hidden="true" decoding="async" referrerPolicy="no-referrer" />}
-        <span className={styles.tint} aria-hidden="true" />
+      <header className={[styles.hero, backdrop && onBack ? styles.heroWithArt : ''].join(' ')}>
+        {/* Clipped here, not by the header: the cover's shadow below may then spill past the header's edge softly
+            instead of being cut off in a straight line. */}
+        <span className={styles.backdropClip} aria-hidden="true">
+          {backdrop && <img className={styles.backdrop} src={backdrop} alt="" decoding="async" referrerPolicy="no-referrer" />}
+          <span className={styles.tint} />
+        </span>
         {onBack && (
           <button type="button" className={styles.backButton} onClick={onBack} aria-label={t('Kembali')}>
             <Icon name="chevron-left" size={20} />

@@ -3,6 +3,7 @@ import { getArtistAllSongs, getArtistPage, resolveArtistId, type ArtistAllSongsD
 import type { Song } from '../../api/types';
 import { Icon } from '../../components/Icon/Icon';
 import { Skeleton } from '../../components/Skeleton/Skeleton';
+import { usePageTint } from '../../hooks/useImageTint';
 import { useIsDesktop } from '../../hooks/useIsDesktop';
 import { formatCount } from '../../utils/formatCount';
 import { SongRow } from '../../components/SongRow/SongRow';
@@ -87,6 +88,9 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
   const playCounts: Record<string, number> = showAll && allSongs.status === 'ready' ? { ...allSongs.data.playCounts, ...data.playCounts } : data.playCounts;
   const visible = showAll ? songs : songs.slice(0, POPULAR_COUNT);
   const canShowMore = data.topSongs.length > 0 || data.albums.length > 0;
+  // The page takes the banner's colour (Apple Music style): the whole panel behind it (AppShell, pageTintStore), and
+  // in the dark theme the banner's lower edge melts into it.
+  const tint = usePageTint(data.banner && !bannerFailed ? data.banner : null);
 
   return (
     <div className={styles.view}>
@@ -94,6 +98,7 @@ function ArtistPage({ data }: { data: ArtistPageData }) {
         {/* If the banner can't load, drop the <img> — the hero falls back to its plain background instead of a broken-image icon. */}
         {data.banner && !bannerFailed && <img className={styles.heroImage} src={data.banner} alt="" decoding="async" referrerPolicy="no-referrer" onError={() => setBannerFailed(true)} />}
         <div className={styles.heroScrim} />
+        {tint && <div className={styles.heroTint} />}
         <button type="button" className={styles.backButton} onClick={closeDetail} aria-label={t('Kembali')}>
           <Icon name="chevron-left" size={18} />
         </button>

@@ -11,6 +11,7 @@ import { useEpisodeOverview } from '../useEpisodeOverview';
 import { formatEpisodeLength, usePlayEpisode } from './EpisodeRow';
 import styles from './EpisodeOverviewPanel.module.css';
 import { useYtText } from '../ytText';
+import { ChannelName } from './ChannelName';
 
 const DESCRIPTION_PREVIEW = 220;
 
@@ -35,7 +36,11 @@ function MiniEpisode({ episode, list, queued }: { episode: Episode; list: Episod
         </span>
         <span className={styles.miniText}>
           <span className={styles.miniTitle}>{episode.title}</span>
-          <span className={styles.miniMeta}>{[episode.channelName, yt(episode.publishedText)].filter(Boolean).join(' · ')}</span>
+          <span className={styles.miniMeta}>
+            <ChannelName episode={episode} nested />
+            {episode.channelName && episode.publishedText ? ' · ' : ''}
+            {yt(episode.publishedText)}
+          </span>
         </span>
       </button>
       <button

@@ -118,11 +118,16 @@ export function NowPlayingView() {
   const devicesRipple = useBubbleRipple<HTMLButtonElement>();
 
   if (!isOpen || !currentSong) return null;
+  const ambientUrl = bestImageUrl(currentSong.image, '500x500');
 
   if (isQueueOpen) {
     return (
       <div className={[styles.overlay, isFullscreen ? styles.overlayFullscreen : ''].join(' ')}>
+        {/* The queue sits on the playing song's colours too (its blurred art), like Now Playing itself, not on the
+            page's plain background. */}
         <div ref={queueSheetRef} className={styles.queueSheet}>
+          {ambientUrl && <img src={ambientUrl} alt="" aria-hidden="true" className={styles.ambientBackdrop} />}
+          <div className={styles.ambientScrim} aria-hidden="true" />
           <QueueView />
         </div>
       </div>
@@ -131,12 +136,16 @@ export function NowPlayingView() {
 
   const isPlaying = playbackState.status === 'playing';
   const isBuffering = playbackState.status === 'loading';
-  const ambientUrl = bestImageUrl(currentSong.image, '500x500');
   // Desktop's docked panel closes back to "not open at all" — but the same
   // chevron in fullscreen mode should only step back down to the docked
   // panel (closeFullscreenLyrics), not dismiss Now Playing entirely; the
   // panel is still the "default" state fullscreen was expanded from.
   const handleBack = isFullscreen ? closeFullscreenLyrics : closeNowPlaying;
+  // Phone, lyrics (or a transcript) open: the lyrics take the whole sheet, like Spotify's lyrics screen. A small
+  // header (close, title and artist) on top and just the seek bar and the three main buttons below; the chevron goes back
+  // to the cover. Only the layout changes: the same LyricsPanel, SeekBar and playback handlers as the normal sheet.
+  const lyricsFocus = showLyrics && !isDesktop && !isFullscreen;
+  const episode = currentSong.kind === 'episode';
 
   return (
     <div
@@ -147,6 +156,7 @@ export function NowPlayingView() {
         chromeHidden ? styles.cursorHidden : '',
         // Docked with the art showing (not lyrics): the panel scrolls as a whole, see .overlayArt.
         isDesktop && !isFullscreen && !showLyrics ? styles.overlayArt : '',
+        lyricsFocus ? styles.overlayLyrics : '',
       ].join(' ')}
     >
       <div className={styles.sheet}>
@@ -158,6 +168,22 @@ export function NowPlayingView() {
           <FullscreenStage song={currentSong} chromeHidden={chromeHidden} onMinimize={closeFullscreenLyrics} />
         ) : (
         <>
+        {lyricsFocus ? (
+          <div className={styles.lyricsHeader}>
+            <button type="button" className={styles.iconButton} onClick={toggleLyrics} aria-label={t('Tutup lirik')}>
+              <Icon name="chevron-down" size={22} />
+            </button>
+            <span className={styles.lyricsHeaderText}>
+              <span className={styles.title}>
+                <MarqueeText text={currentSong.name} />
+              </span>
+              <span className={styles.subtitle}>
+                <ArtistLinks song={currentSong} />
+              </span>
+            </span>
+            <LikeButton song={currentSong} size={22} />
+          </div>
+        ) : (
         <div className={[styles.topBar, chromeHidden ? styles.chromeHidden : ''].join(' ')}>
           <button
             ref={backRipple.ref}
@@ -197,6 +223,7 @@ export function NowPlayingView() {
             </button>
           </span>
         </div>
+        )}
 
         <div className={styles.artSection}>
           {showLyrics ? (
@@ -233,7 +260,7 @@ export function NowPlayingView() {
             mode instead — title/artist/like there sit inline with the rest
             of the transport bar, not as a separate row above it. */}
         {!isFullscreen && <EpisodeNextCard inline />}
-        {!isFullscreen && (
+        {!isFullscreen && !lyricsFocus && (
           <div className={styles.meta}>
             <div className={styles.metaText}>
               <span className={styles.title}>
@@ -292,6 +319,20 @@ export function NowPlayingView() {
              complaint this replaces. */
           <div className={styles.mobileOnlyControls}>
             <SeekBar duration={currentSong.duration} />
+            {lyricsFocus ? (
+              <div className={styles.lyricsControls}>
+                <button type="button" className={styles.lyricsSkip} onClick={handlePrevious} aria-label={episode ? t('Mundur 15 detik') : t('Lagu sebelumnya')}>
+                  <Icon name={episode ? 'replay-15' : 'previous'} size={episode ? 32 : 26} />
+                </button>
+                <button type="button" className={styles.lyricsPlay} onClick={handleTogglePlay} aria-label={isPlaying ? t('Jeda') : t('Putar')}>
+                  <Icon name={isPlaying || isBuffering ? 'pause' : 'play'} size={26} />
+                </button>
+                <button type="button" className={styles.lyricsSkip} onClick={handleNext} aria-label={episode ? t('Maju 15 detik') : t('Lagu berikutnya')}>
+                  <Icon name={episode ? 'forward-15' : 'next'} size={episode ? 32 : 26} />
+                </button>
+              </div>
+            ) : (
+            <>
 
             <PlayerControls
               isPlaying={isPlaying}
@@ -352,6 +393,8 @@ export function NowPlayingView() {
                 </div>
               )}
             </div>
+            </>
+            )}
           </div>
         )}
         </>

@@ -4,15 +4,32 @@
   gap: var(--space-4);
   /* Extra top clearance so the title doesn't sit flush against the status bar /
      notch — this sheet covers the full screen with no other chrome above it. */
-  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  /* Sides and top as Now Playing's sheet (.sheet), so the header lines up with the top bar it replaces. */
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-4);
   height: 100%;
   overflow-y: auto;
+  /* No scrollbar lane (like Now Playing's own panel, .overlayArt): the 12px a desktop scrollbar takes pushed the
+     header left as soon as the list was long enough to scroll, so the close button no longer sat where the queue
+     button it replaces was. Wheel, trackpad, touch and the rows' drag handles still work as before. */
+  scrollbar-width: none;
+}
+
+.view::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .view {
+    padding: var(--space-5) var(--space-5) var(--space-4);
+  }
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* = Now Playing's .topBar, so the close button sits exactly where the queue button was. */
+  min-height: 44px;
 }
 
 .title {
@@ -21,20 +38,38 @@
 }
 
 .closeButton {
+  /* The twin of Now Playing's top-bar buttons (NowPlayingView.module.css .iconButton): the queue opens in their
+     place, so its close sits where the queue button was, the same size: a plain 36px icon button, a 44px frosted
+     circle on full glass. */
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   aspect-ratio: 1 / 1;
-  border: 0.5px solid var(--glass-border);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  box-shadow: var(--glass-sheen);
-  border-radius: var(--radius-full);
   padding: var(--space-2);
+  border: none;
+  background: none;
+  border-radius: var(--radius-full);
   cursor: pointer;
   color: var(--color-text-primary);
-  transition: transform 160ms var(--ease-spring);
+  transition: background-color var(--transition-glass), transform 160ms var(--ease-spring);
+}
+
+:root[data-glass='full'] .closeButton {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+}
+
+@media (hover: hover) {
+  .closeButton:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .closeButton:active {
@@ -50,12 +85,14 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  border: 0.5px solid var(--glass-border);
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  box-shadow: var(--glass-sheen);
-  color: var(--color-text-secondary);
+  /* The fullscreen view's chips (FullscreenStage.module.css .chip): see-through white over the song's blurred art,
+     which the queue always sits on (Now Playing's .queueSheet). */
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+  color: var(--color-text-primary);
   border-radius: var(--radius-full);
   padding: var(--space-2) var(--space-4);
   font-size: 0.82rem;
@@ -66,6 +103,12 @@
 
 .pill:active {
   transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  .pill:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
 }
 
 .pillActive {

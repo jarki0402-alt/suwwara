@@ -5,7 +5,8 @@
   gap: var(--space-1);
   padding: var(--space-1) var(--space-1) var(--space-1) 0;
   border-radius: var(--radius-sm);
-  background: var(--color-bg);
+  /* --queue-row-bg: see Now Playing's .queueSheet, where the rows sit on the song's blurred art. */
+  background: var(--queue-row-bg, var(--color-bg));
 }
 
 .row.active {
@@ -15,7 +16,7 @@
 .row.dragging {
   z-index: 5;
   box-shadow: var(--shadow-floating);
-  background: var(--color-bg-elevated);
+  background: var(--queue-row-drag-bg, var(--color-bg-elevated));
 }
 
 .handle {

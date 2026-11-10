@@ -1,0 +1,37 @@
+/* PanelScrollbar.tsx: the page panel's scrollbar floating over its right edge (desktop). Same size and colours as the
+   native one it replaces (global.css): a 12px strip, a 6px thumb 3px in from the edge. */
+.track {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .track {
+    position: fixed;
+    z-index: 2;
+    width: 12px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .track[data-hidden='true'] {
+    display: none;
+  }
+
+  .thumb {
+    width: 6px;
+    border-radius: var(--radius-full);
+    background-color: var(--color-border);
+    opacity: 0;
+    transition: opacity 200ms ease;
+    will-change: transform;
+  }
+
+  .track[data-active='true'] .thumb {
+    opacity: 1;
+  }
+
+  .thumb:hover,
+  .track[data-dragging='true'] .thumb {
+    background-color: var(--color-text-tertiary);
+  }
+}

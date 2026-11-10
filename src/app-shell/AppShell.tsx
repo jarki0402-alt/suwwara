@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { ConnectSheet } from '../components/ConnectSheet/ConnectSheet';
 import { JamSheet } from '../components/JamSheet/JamSheet';
 import { JoinJamSheet } from '../components/JoinJamSheet/JoinJamSheet';
@@ -9,6 +9,7 @@ import { useBackNavigation } from '../hooks/useBackNavigation';
 import { useAppFullscreen } from './useAppFullscreen';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { useUiStore } from '../stores/uiStore';
+import { usePageTintStore } from '../stores/pageTintStore';
 import { InstallBanner } from '../components/InstallBanner/InstallBanner';
 import { ConnectionBanner } from '../components/ConnectionBanner/ConnectionBanner';
 import { JamPill } from '../components/JamIndicator/JamIndicator';
@@ -20,6 +21,7 @@ import { BottomNav } from './BottomNav';
 import { MiniPlayer } from './MiniPlayer';
 import { EpisodeNextCard } from '../podcast/components/EpisodeNextCard';
 import { PaneResizers } from './PaneResizers';
+import { PanelScrollbar } from './PanelScrollbar';
 import { TopBar } from './TopBar';
 import { ViewRouter } from './ViewRouter';
 
@@ -61,6 +63,7 @@ function ShellBody() {
   const showNowPlayingPanel = isNowPlayingOpen && currentSong !== null;
   // The Perangkat (Connect) panel docks in the same right-hand column, so the page reserves the same room for it.
   const showRightPanel = showNowPlayingPanel || isConnectSheetOpen;
+  const pageTint = usePageTintStore((state) => state.tint);
 
   // 2026-11 redesign: on a wide desktop window the right column shows what is playing from the start (the "Sedang
   // diputar" panel), as soon as there is a song. Once per session only: closing it is respected until the next launch.
@@ -107,12 +110,19 @@ function ShellBody() {
       <div className={styles.titlebar} aria-hidden="true" />
       <main
         ref={contentRef}
-        className={[styles.content, showRightPanel ? styles.contentWithPanel : '', currentSong ? '' : styles.contentNoPlayer].join(' ')}
+        className={[
+          styles.content,
+          showRightPanel ? styles.contentWithPanel : '',
+          currentSong ? '' : styles.contentNoPlayer,
+          pageTint ? styles.contentTinted : '',
+        ].join(' ')}
+        style={pageTint ? ({ '--page-tint': pageTint } as CSSProperties) : undefined}
       >
         <TopBar />
         {currentView === 'home' && detailDepth === 0 && <InstallBanner />}
         <ViewRouter />
       </main>
+      <PanelScrollbar panelRef={contentRef} />
       <PaneResizers panelOpen={showRightPanel} />
       <ConnectBridge />
       {/* Also the remote for another device of the account — it then shows and steers what plays there (PlaybackProvider). */}

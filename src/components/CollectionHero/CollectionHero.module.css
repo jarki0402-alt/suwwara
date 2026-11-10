@@ -5,11 +5,25 @@
 
 .hero {
   position: relative;
-  overflow: hidden;
   isolation: isolate;
   /* What shows if the cover can't load: a tinted wash, not a hole. */
   background: linear-gradient(135deg, var(--color-accent-soft), var(--color-bg-elevated));
   padding: calc(var(--space-7) + env(safe-area-inset-top)) var(--space-4) var(--space-5);
+}
+
+/* A collection's own page with a cover: the wash is the cover itself, over the page's own colour (the coloured page's, when it is one): the
+   fallback gradient above would tint it off towards the app's accent. */
+.heroWithArt {
+  background: none;
+}
+
+.backdropClip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* A card's rounded corners (.rootCard .hero), which the header's own overflow used to clip to. */
+  border-radius: inherit;
+  z-index: -1;
 }
 
 /* The cover, enlarged and heavily blurred, as the colour of the page's top. Small source (the 150px tier): it is
@@ -22,15 +36,25 @@
   object-fit: cover;
   filter: blur(36px) saturate(1.5);
   opacity: 0.55;
-  z-index: -2;
 }
 
-/* Fades the wash into the page so the list below starts on the plain background. */
+/* Fades the wash into the page so the list below starts on the page's own colour (--page-bg: the colour the panel
+   takes from this cover on a collection's own page, AppShell .contentTinted). Eased, not one straight ramp: a
+   linear fade that stops dead at the header's edge reads as a line there. */
 .tint {
+  --fade-to: var(--page-bg, var(--color-bg));
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 0%, transparent 35%, var(--color-bg) 100%);
-  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 22%,
+    color-mix(in srgb, var(--fade-to) 15%, transparent) 40%,
+    color-mix(in srgb, var(--fade-to) 40%, transparent) 58%,
+    color-mix(in srgb, var(--fade-to) 68%, transparent) 74%,
+    color-mix(in srgb, var(--fade-to) 88%, transparent) 88%,
+    var(--fade-to) 100%
+  );
 }
 
 .backButton {
@@ -39,16 +63,18 @@
   left: var(--space-3);
   width: 36px;
   height: 36px;
-  border: none;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(var(--blur-sm)) saturate(160%);
-  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(160%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  /* Frosted like the round buttons below it and the fullscreen view's chips (tokens: AppShell.module.css
+     --page-glass-*), not a dark disc. */
+  background: var(--page-glass-bg);
+  border: 1px solid var(--page-glass-border);
+  box-shadow: var(--page-glass-sheen);
+  backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  color: var(--color-text-primary);
   cursor: pointer;
   transition: transform 160ms var(--ease-spring);
 }
@@ -189,14 +215,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-sheen);
+  /* Frosted like the fullscreen view's chips (tokens: AppShell.module.css --page-glass-*). */
+  background: var(--page-glass-bg);
+  border: 1px solid var(--page-glass-border);
+  box-shadow: var(--page-glass-sheen);
   color: var(--color-text-primary);
   cursor: pointer;
-  transition: transform 160ms var(--ease-spring);
+  transition: background-color var(--transition-fast), transform 160ms var(--ease-spring);
+}
+
+@media (hover: hover) {
+  .roundButton:hover:not(:disabled) {
+    background: var(--page-glass-bg-hover);
+  }
 }
 
 .roundButton:active {
@@ -238,6 +269,13 @@
 @media (min-width: 960px) {
   .hero {
     padding: var(--space-5) var(--space-5) var(--space-5);
+  }
+
+  /* A collection's own page: the wash runs edge to edge across the panel, also on a window wide enough for the page
+     to be centred with side margins (AppShell .content --reading-pad); cover and title stay in line with the list. */
+  .root:not(.rootCard) .hero {
+    margin-inline: calc(-1 * var(--reading-pad, 0px));
+    padding-inline: calc(var(--space-5) + var(--reading-pad, 0px));
   }
 
   /* On a phone the button floats in the corner above the centred cover. On desktop the cover is at the left edge,

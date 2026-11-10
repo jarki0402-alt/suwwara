@@ -10,6 +10,7 @@ import { podcastApi } from '../podcastApi';
 import { usePodcastStore } from '../podcastStore';
 import type { ChannelPage, Episode, Series } from '../types';
 import { useYtText } from '../ytText';
+import { usePageTint } from '../../hooks/useImageTint';
 
 type Tab = 'latest' | 'popular' | 'series';
 interface List {
@@ -52,7 +53,10 @@ export function PodcastChannelView({ route }: { route: Extract<DetailRoute, { ty
   if (!page) {
     return (
       <div>
-        <div className={styles.banner}>{back}</div>
+        <div className={styles.banner}>
+          <span className={styles.bannerPlaceholder} />
+          {back}
+        </div>
         <div className={styles.view}>
           <h1 className={styles.channelTitle}>{route.name ?? ''}</h1>
           {Array.from({ length: 5 }).map((_, i) => (
@@ -77,6 +81,8 @@ function ChannelBody({ page, back }: { page: ChannelPage; back: ReactNode }) {
   const [popular, setPopular] = useState<List | null>(null);
   const [series, setSeries] = useState<Series[] | null>(null);
   const [busy, setBusy] = useState(false);
+  // The page takes the banner's colour (or the photo's, for a channel without a banner), like an artist's page.
+  usePageTint(page.banner || page.avatar || null);
 
   useEffect(() => {
     if (tab === 'popular' && !popular && page.popular) {
@@ -112,7 +118,7 @@ function ChannelBody({ page, back }: { page: ChannelPage; back: ReactNode }) {
   return (
     <div>
       <div className={styles.banner}>
-        {page.banner && <img src={page.banner} alt="" />}
+        {page.banner ? <img src={page.banner} alt="" /> : <span className={styles.bannerPlaceholder} />}
         {back}
       </div>
       <div className={styles.view}>

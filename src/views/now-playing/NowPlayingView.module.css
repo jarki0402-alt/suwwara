@@ -86,6 +86,26 @@
 
 .queueSheet {
   height: 100%;
+  /* Same always-dark stage as .sheet (its blurred-art backdrop and scrim are drawn in here too, NowPlayingView.tsx),
+     with the same light-on-dark tokens so the list reads on it whatever the app's theme. */
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: #0b0b0f;
+  /* Queue rows (QueueItem) show the art through them here; only the one being dragged is solid, so the rows it
+     passes over don't show through it. */
+  --queue-row-bg: transparent;
+  --queue-row-drag-bg: #26262c;
+  --color-bg: #0b0b0f;
+  --color-bg-elevated: rgba(255, 255, 255, 0.14);
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.78);
+  --color-text-tertiary: rgba(255, 255, 255, 0.55);
+  --color-border: rgba(255, 255, 255, 0.22);
+  --color-accent: var(--color-accent-on-dark);
+  --color-accent-rgb: var(--pd-accent-rgb);
+  --color-accent-strong: var(--color-accent-on-dark-strong);
+  --color-on-accent: var(--pd-on-accent);
 }
 
 /* Transparent to layout on mobile (children act as direct flex items of
@@ -205,7 +225,7 @@
        so the ambient blurred backdrop shows through for the normal sheet) —
        but swapping to the queue list bypasses .sheet entirely, so it needs
        its own opaque background here or the main page behind would show
-       through the transparent panel. */
+       through the transparent panel. Its own blurred art covers that now; this stays under it. */
     background: var(--color-bg);
   }
 
@@ -257,6 +277,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* Fixed, whatever sits in the middle (a label, the Lagu | Video switch): the queue's header (QueueView .header) has
+     the same height, so its close button lands exactly where this bar's queue button was. */
+  min-height: 44px;
 }
 
 .topBarActions {
@@ -308,6 +331,99 @@
   .iconButton:hover {
     background: rgba(255, 255, 255, 0.1);
   }
+}
+
+/* ---- phone lyrics screen (lyricsFocus in NowPlayingView.tsx) ---- */
+
+.lyricsHeader {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 48px;
+}
+
+/* Title and artist centred at the top (Spotify's lyrics screen), between the close button and Like. */
+.lyricsHeaderText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.lyricsHeaderText .title {
+  max-width: 100%;
+  font-size: 1rem;
+}
+
+.lyricsHeaderText .subtitle {
+  max-width: 100%;
+  font-size: 0.82rem;
+}
+
+.lyricsHeader > :last-child {
+  justify-self: center;
+}
+
+/* The lyrics get every pixel between the header and the controls, starting at the top instead of centred. Lines
+   fade out at both edges instead of being cut off flat under the header and above the seek bar. */
+.overlayLyrics .artSection {
+  align-items: stretch;
+  margin: 0 calc(-1 * var(--space-2));
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 7%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 7%, #000 90%, transparent 100%);
+}
+
+.overlayLyrics .sheet {
+  gap: var(--space-3);
+}
+
+/* LyricsPanel's scroll box is its root element. Its right padding is sized for the desktop fullscreen column's wide
+   lines; on a phone the active line's 6% growth needs only ~24px, so the words get the width back. */
+.overlayLyrics .artSection > * {
+  width: 100%;
+  padding-left: var(--space-3);
+  padding-right: calc(var(--space-3) + 24px);
+}
+
+.lyricsControls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-7);
+  padding-bottom: var(--space-1);
+}
+
+.lyricsSkip,
+.lyricsPlay {
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: transform 160ms var(--ease-spring);
+}
+
+.lyricsSkip {
+  width: 48px;
+  height: 48px;
+  background: none;
+  color: var(--color-text-primary);
+}
+
+.lyricsPlay {
+  width: 60px;
+  height: 60px;
+  /* Same as the normal sheet's play button (PlayerControls .playButton), so the two screens read as one player. */
+  background: var(--color-accent-on-dark);
+  color: #111114;
+}
+
+.lyricsSkip:active,
+.lyricsPlay:active {
+  transform: scale(0.92);
 }
 
 .artSection {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ytTextToEnglish } from '../../src/podcast/ytText';
+import { formatEpisodeDate, ytTextToEnglish } from '../../src/podcast/ytText';
 
 describe('ytTextToEnglish', () => {
   it.each([
@@ -27,5 +27,18 @@ describe('ytTextToEnglish', () => {
 
   it('leaves what it does not know as YouTube wrote it', () => {
     expect(ytTextToEnglish('Tayangan langsung')).toBe('Tayangan langsung');
+  });
+});
+
+describe('formatEpisodeDate', () => {
+  it('writes the month as a word, day first', () => {
+    expect(formatEpisodeDate('2026-11-09T12:00:00Z', 'id')).toBe('9 November 2026');
+    expect(formatEpisodeDate('2026-08-17T12:00:00Z', 'id')).toBe('17 Agustus 2026');
+    expect(formatEpisodeDate('2026-11-09T12:00:00Z', 'en')).toBe('9 November 2026');
+  });
+
+  it('gives nothing for a missing or broken date', () => {
+    expect(formatEpisodeDate(null, 'id')).toBe('');
+    expect(formatEpisodeDate('not a date', 'en')).toBe('');
   });
 });

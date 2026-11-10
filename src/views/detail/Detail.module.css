@@ -69,16 +69,26 @@
   position: absolute;
   top: calc(var(--space-3) + env(safe-area-inset-top));
   left: var(--space-3);
-  border: none;
   width: 36px;
   height: 36px;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
+  /* The fullscreen view's chips (FullscreenStage.module.css .chip): see-through white with a bright rim. It always
+     sits on the banner photo, so white in either theme, and blurred, since a photo is what shows through it. */
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(var(--blur-sm)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-sm)) saturate(180%);
   color: #fff;
   cursor: pointer;
+}
+
+/* A light patch of photo behind the glass would swallow the white chevron: a soft shadow keeps it readable. */
+.backButton svg {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
 }
 
 .body {
@@ -111,14 +121,23 @@
 .roundButton {
   width: 48px;
   height: 48px;
-  border: none;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg-elevated);
+  /* Frosted like the fullscreen view's chips (tokens: AppShell.module.css --page-glass-*). */
+  background: var(--page-glass-bg);
+  border: 1px solid var(--page-glass-border);
+  box-shadow: var(--page-glass-sheen);
   color: var(--color-text-primary);
   cursor: pointer;
+  transition: background-color var(--transition-fast), transform 160ms var(--ease-spring);
+}
+
+@media (hover: hover) {
+  .roundButton:hover {
+    background: var(--page-glass-bg-hover);
+  }
 }
 
 .sectionTitle {
@@ -238,6 +257,37 @@
   padding: var(--space-4);
 }
 
+/* ---- Colour from the picture (usePageTint; artist and album pages) ------------------------------------------- */
+
+/* Dark theme only, once the page has its colour: the banner's lower edge melts into the colour the panel is filled
+   with (--page-bg, AppShell .contentTinted). The light theme keeps the banner's dark lower edge, which the white name
+   over it needs. */
+.heroTint {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  /* Eased into the colour, so the banner's edge never reads as a line where the page begins. */
+  background: linear-gradient(
+    180deg,
+    transparent 35%,
+    color-mix(in srgb, var(--page-bg, transparent) 25%, transparent) 55%,
+    color-mix(in srgb, var(--page-bg, transparent) 60%, transparent) 75%,
+    color-mix(in srgb, var(--page-bg, transparent) 88%, transparent) 90%,
+    var(--page-bg, transparent) 100%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .heroTint {
+    display: block;
+  }
+}
+
+:global(:root[data-theme='dark']) .heroTint {
+  display: block;
+}
+
 /* ---- Album header ------------------------------------------------------------------------ */
 
 .albumHeader {
@@ -292,8 +342,16 @@
 }
 
 @media (min-width: 960px) {
+  /* Edge to edge across the panel, also on a window wide enough for the page to be centred with side margins
+     (AppShell .content --reading-pad); the name stays in line with the column below. */
   .hero {
     min-height: 320px;
+    margin-inline: calc(-1 * var(--reading-pad, 0px));
+    padding-inline: var(--reading-pad, 0px);
+  }
+
+  .backButton {
+    left: calc(var(--space-3) + var(--reading-pad, 0px));
   }
 
   .body {

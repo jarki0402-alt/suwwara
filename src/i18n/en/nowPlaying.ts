@@ -12,6 +12,7 @@ export const nowPlaying: Dictionary = {
   'Posisi lagu': 'Song position',
   Volume: 'Volume',
   'Tampilkan lirik': 'Show lyrics',
+  'Tutup lirik': 'Close lyrics',
   Tutup: 'Close',
   'Coba lagi': 'Try again',
 

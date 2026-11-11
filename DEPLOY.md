@@ -224,7 +224,18 @@ Cek: buka Suwwara, masuk, putar lagu. Konsol admin → Keamanan harus menampilka
 3. Di VM: `sudo certbot renew --dry-run` harus sukses (perpanjangan sertifikat lewat port 80, kini langsung).
 4. Aturan Rate limiting login di Cloudflare WAF (§7) tak berlaku lagi; penggantinya `suwwara-limits.conf`.
 
-**D. Darurat (diserang / VM kebanjiran)**: Cloudflare → DNS → klik awan `suwwara` jadi **oranye**, lalu Security → **Under Attack Mode**. Dalam beberapa menit lalu lintas kembali lewat Cloudflare. Konfigurasi nginx tidak perlu diubah (IP asli tetap terbaca dari daftar IP Cloudflare; perbarui daftarnya di `cloudflare-realip.conf` dulu kalau sudah lama).
+**D. Darurat (diserang / VM kebanjiran)**: Cloudflare → DNS → klik awan `suwwara` jadi **oranye**, lalu Security → **Under Attack Mode**. Dalam ±1–5 menit lalu lintas kembali lewat Cloudflare (manual, tidak otomatis). Konfigurasi nginx tidak perlu diubah (IP asli tetap terbaca dari daftar IP Cloudflare; perbarui daftarnya di `cloudflare-realip.conf` dulu kalau sudah lama).
+
+Kalau serangan **tetap masuk** sesudah awan oranye, penyerang menembak IP VM langsung (IP-nya sudah diketahui selama awan abu-abu). Pilih salah satu:
+- **Hanya terima dari Cloudflare**: Console → VPC network → Firewall → aturan tcp:80 dan tcp:443 → *Source IPv4 ranges* diganti daftar https://www.cloudflare.com/ips-v4 (satu per baris), dan nonaktifkan aturan `allow-http3` (udp:443). Atau dari Cloud Shell, misalnya untuk aturan bernama `default-allow-https` (sesuaikan namanya):
+  ```bash
+  gcloud compute firewall-rules update default-allow-https --source-ranges="$(curl -s https://www.cloudflare.com/ips-v4 | paste -sd, -)"
+  gcloud compute firewall-rules update default-allow-http  --source-ranges="$(curl -s https://www.cloudflare.com/ips-v4 | paste -sd, -)"
+  ```
+  Perpanjangan sertifikat tetap jalan (Let's Encrypt lewat Cloudflare ke port 80).
+- **Ganti IP**: Compute Engine → VM → **Stop**, lalu **Start** (IP sementara berganti; Suwwara mati ±1–2 menit), lalu record `suwwara` di Cloudflare diisi IP baru dengan awan **oranye**. IP baru tak pernah terlihat publik selama awan tetap oranye.
+
+Sesudah aman: kembalikan *Source IPv4 ranges* ke `0.0.0.0/0` (dan nyalakan lagi `allow-http3`) sebelum awan dijadikan abu-abu lagi.
 
 **E. HTTP/3**: aktif sejak langkah B (kalau modulnya ada), terpakai begitu langkah C selesai. Cek di https://http3check.net (isi `suwwara.fajarrizky.my.id`). Kalau di B modulnya tak ada, HTTP/2 tetap jalan; HTTP/3 bisa menyusul setelah nginx diperbarui ke paket yang punya modulnya.
 

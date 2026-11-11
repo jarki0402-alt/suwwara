@@ -143,6 +143,17 @@ async function perUser(tz: string, start: ReturnType<typeof rangeStart>, end?: R
   });
 }
 
+/** Today and yesterday in `tz`, for everyone or one person, whatever range the page shows. */
+async function todayAndYesterday(tz: string, accountId: string | null) {
+  const rows = await sql<(KindRow & { today: boolean })[]>`
+    select hour >= ${rangeStart(tz, 0)} as today, kind, ${sums()} from usage_hourly
+    where hour >= ${rangeStart(tz, 1)} ${accountId ? sql`and account_id = ${accountId}` : sql``} group by 1, 2`;
+  const today = emptyByKind();
+  const yesterday = emptyByKind();
+  for (const row of rows) addRow(row.today ? today : yesterday, row);
+  return { today, yesterday };
+}
+
 async function firstHour(): Promise<string | null> {
   const [row] = await sql<{ first: Date | null }[]>`select min(hour) as first from usage_hourly where listen_sec > 0`;
   return row?.first ? row.first.toISOString() : null;
@@ -155,10 +166,33 @@ adminStatsRouter.get('/admin/usage', async (req, res) => {
   const tz = await zoneOf(req.query.tz);
   await flushUsage();
   const start = rangeStart(tz, range - 1);
-  const [series, map, users, since] = await Promise.all([dailySeries(tz, start, null), heatmap(tz, start, null), perUser(tz, start), firstHour()]);
+  const [series, map, users, since, days2, hours] = await Promise.all([
+    dailySeries(tz, start, null),
+    heatmap(tz, start, null),
+    perUser(tz, start),
+    firstHour(),
+    todayAndYesterday(tz, null),
+    // Today hour by hour, for the "Hari ini" range (one bar per day says nothing there).
+    sql<(KindRow & { h: number })[]>`
+      select extract(hour from hour at time zone ${tz})::int as h, kind, ${sums()} from usage_hourly
+      where hour >= ${rangeStart(tz, 0)} group by 1, 2`,
+  ]);
   const totals = emptyByKind();
   for (const day of series) for (const kind of KINDS) for (const key of Object.keys(totals[kind]) as Array<keyof KindTotals>) totals[kind][key] += day[kind][key];
-  res.json({ days: range, tz, pricing: PRICING, listenSince: since, totals, series, heatmap: map, perUser: users });
+  const todayByHour = Array.from({ length: 24 }, emptyByKind);
+  for (const row of hours) addRow(todayByHour[row.h], row);
+  res.json({
+    days: range,
+    tz,
+    pricing: PRICING,
+    listenSince: since,
+    totals,
+    series,
+    heatmap: map,
+    perUser: users,
+    ...days2,
+    todayByHour,
+  });
 });
 
 // ---- one person ----------------------------------------------------------------------------------
@@ -174,7 +208,7 @@ adminStatsRouter.get('/admin/usage/user/:id', async (req, res) => {
     return;
   }
   const start = rangeStart(tz, range - 1);
-  const [series, map, hours, sessions] = await Promise.all([
+  const [series, map, hours, sessions, days2] = await Promise.all([
     dailySeries(tz, start, user.account_id),
     heatmap(tz, start, user.account_id),
     // The last 48 hours hour by hour, for "what did today look like".
@@ -183,7 +217,10 @@ adminStatsRouter.get('/admin/usage/user/:id', async (req, res) => {
       where account_id = ${user.account_id} and hour >= date_trunc('hour', now()) - interval '47 hours' group by 1, 2 order by 1`,
     sql<{ user_agent: string | null; ip: string | null; created_at: Date; last_seen_at: Date }[]>`
       select user_agent, ip, created_at, last_seen_at from sessions where account_id = ${user.account_id} and expires_at > now() order by last_seen_at desc`,
+    // Today and yesterday (the admin's days), whatever range is picked below: "what is this person doing today".
+    todayAndYesterday(tz, user.account_id),
   ]);
+  const { today, yesterday } = days2;
   const totals = emptyByKind();
   for (const day of series) for (const kind of KINDS) for (const key of Object.keys(totals[kind]) as Array<keyof KindTotals>) totals[kind][key] += day[kind][key];
   const hourly = new Map<string, Record<Kind, KindTotals>>();
@@ -209,6 +246,8 @@ adminStatsRouter.get('/admin/usage/user/:id', async (req, res) => {
     series,
     heatmap: map,
     last48h: [...hourly.entries()].map(([hour, kinds]) => ({ hour, ...kinds })),
+    today,
+    yesterday,
     devices: sessions.map((row) => ({ userAgent: row.user_agent ?? '', ip: row.ip, signedInAt: row.created_at.toISOString(), lastSeen: row.last_seen_at.toISOString() })),
     reports: listPlaybackReports().filter((report) => report.username === user.username),
   });

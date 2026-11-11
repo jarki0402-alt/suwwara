@@ -1,0 +1,7 @@
+# /etc/cron.d/certbot-renew
+# Only when the VM has no certbot timer of its own (`systemctl list-timers | grep -i certbot` prints nothing): Debian's
+# certbot package and the snap both ship one, and two schedulers would just do the same harmless check twice.
+# Twice a day at an odd minute, as Let's Encrypt asks. `certbot renew` touches nothing until a certificate is within
+# 30 days of expiring; when it does renew, deploy/reload-nginx.sh makes nginx pick the new one up.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+17 3,15 * * * root certbot renew --quiet

@@ -184,6 +184,50 @@ Hapus atau batasi aturan yang mengizinkan `tcp:8787` dan `tcp:8080` dari `0.0.0.
 curl -m 5 http://IP_VM:8787/ ; curl -m 5 http://IP_VM:8080/
 ```
 
+## 13. Jalur langsung tanpa proxy Cloudflare (DNS awan abu-abu)
+
+**Kenapa**: dari ISP Indonesia (diukur dari IndiHome, 2026-11-11) Cloudflare melayani dari Marseille/Hong Kong, jadi tiap request ke VM 0,4–0,9 dtk; langsung ke VM ±0,19 dtk (ping). Data ke Cloudflare juga dibayar (Carrier Peering), sedangkan langsung ke internet gratis 200 GiB/bulan di tier **Standard**. Cloudflare tetap dipakai sebagai **DNS saja**.
+
+Susunan: internet → **nginx VM** (443, HTTPS Let's Encrypt/certbot, pembatas kecepatan) → nginx Docker (`127.0.0.1:8080`) → backend. Konfigurasinya di [deploy/host-nginx/](./deploy/host-nginx/), berlaku benar baik lewat Cloudflare (oranye) maupun langsung (abu-abu).
+
+**A. Google Cloud Console (sekali)**
+1. Compute Engine → VM → *Network interfaces*: **Network tier = Standard** (kalau Premium, jatah gratisnya 1 GiB lalu ±US$0,12/GiB: jangan pindah dulu).
+2. Billing → *Budgets & alerts*: buat anggaran, misalnya Rp 50.000/bulan, email di 50/90/100%.
+3. VPC network → Firewall: pastikan **tcp:80, tcp:443** terbuka, tambah **udp:443** (HTTP/3); **hapus aturan yang membuka tcp:8080/tcp:8787**. SSH (22) sebaiknya hanya dari IP-mu atau lewat tombol SSH Console.
+
+**B. Server (Suwwara tetap jalan lewat Cloudflare selama langkah ini)**
+```bash
+cd ~/suwwara && git pull
+docker compose up -d --force-recreate frontend        # 8080 kini hanya loopback
+sudo cp -L /etc/nginx/sites-enabled/suwwara.fajarrizky.my.id ~/nginx-suwwara.backup   # cadangan
+sudo cp deploy/host-nginx/suwwara-limits.conf /etc/nginx/conf.d/
+sudo cp deploy/host-nginx/cloudflare-realip.conf deploy/host-nginx/suwwara-proxy.conf /etc/nginx/snippets/
+sudo cp deploy/host-nginx/suwwara.fajarrizky.my.id /etc/nginx/sites-enabled/suwwara.fajarrizky.my.id
+# HTTP/3 butuh modul http_v3. Kalau baris berikut TIDAK mencetak apa-apa, matikan dua baris HTTP/3-nya dulu:
+nginx -V 2>&1 | grep -o http_v3_module || sudo sed -i -e 's/^    listen 443 quic/    # listen 443 quic/' -e "s/^    add_header Alt-Svc/    # add_header Alt-Svc/" /etc/nginx/sites-enabled/suwwara.fajarrizky.my.id
+sudo rm -f /etc/nginx/sites-enabled/default           # diganti "tutup koneksi" di suwwara-limits.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+**Perpanjangan sertifikat otomatis** (Let's Encrypt berlaku 90 hari, diperpanjang sendiri 30 hari sebelum habis):
+```bash
+sudo install -m 755 deploy/host-nginx/reload-nginx.sh /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+systemctl list-timers 2>/dev/null | grep -i certbot || sudo cp deploy/host-nginx/certbot-renew.cron /etc/cron.d/certbot-renew
+sudo certbot renew --dry-run      # harus diakhiri "Congratulations, all simulated renewals succeeded"
+```
+Baris kedua memasang cron hanya kalau jadwal bawaan certbot tidak ada. Cek kapan habis: `sudo certbot certificates`.
+
+Cek: buka Suwwara, masuk, putar lagu. Konsol admin → Keamanan harus menampilkan IP asli (bukan 172.x). Kalau `nginx -t` gagal: `sudo cp ~/nginx-suwwara.backup /etc/nginx/sites-enabled/suwwara.fajarrizky.my.id && sudo systemctl reload nginx`.
+
+**C. Pindah (saat sepi, putus ±1–5 menit)**
+1. Cloudflare → DNS → record `suwwara`: **A → 35.212.247.252**, klik awan jadi **abu-abu (DNS only)**. Hapus record AAAA `suwwara` kalau ada (VM tak punya IPv6).
+2. Dari laptop: `dig +short suwwara.fajarrizky.my.id` harus `35.212.247.252`, dan `curl -sI https://suwwara.fajarrizky.my.id | grep -i server` harus `nginx` (bukan `cloudflare`).
+3. Di VM: `sudo certbot renew --dry-run` harus sukses (perpanjangan sertifikat lewat port 80, kini langsung).
+4. Aturan Rate limiting login di Cloudflare WAF (§7) tak berlaku lagi; penggantinya `suwwara-limits.conf`.
+
+**D. Darurat (diserang / VM kebanjiran)**: Cloudflare → DNS → klik awan `suwwara` jadi **oranye**, lalu Security → **Under Attack Mode**. Dalam beberapa menit lalu lintas kembali lewat Cloudflare. Konfigurasi nginx tidak perlu diubah (IP asli tetap terbaca dari daftar IP Cloudflare; perbarui daftarnya di `cloudflare-realip.conf` dulu kalau sudah lama).
+
+**E. HTTP/3**: aktif sejak langkah B (kalau modulnya ada), terpakai begitu langkah C selesai. Cek di https://http3check.net (isi `suwwara.fajarrizky.my.id`). Kalau di B modulnya tak ada, HTTP/2 tetap jalan; HTTP/3 bisa menyusul setelah nginx diperbarui ke paket yang punya modulnya.
+
 ## Pulihkan akses admin (lupa sandi)
 
 Dari VPS:

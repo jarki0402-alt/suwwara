@@ -103,7 +103,10 @@ services:
     depends_on:
       - backend
     ports:
-      - "8080:80"
+      # Loopback only: the VM's own nginx (deploy/host-nginx, HTTPS on 443) is the one public door and hands requests in
+      # here. Published on every address, http://<vm-ip>:8080 served the whole app without HTTPS, past the rate limits.
+      # On a laptop http://localhost:8080 works as before.
+      - "127.0.0.1:8080:80"
 
 volumes:
   suwwara-postgres-data:

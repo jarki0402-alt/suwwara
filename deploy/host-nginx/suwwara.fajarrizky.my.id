@@ -1,0 +1,51 @@
+# /etc/nginx/sites-available/suwwara.fajarrizky.my.id (symlinked from sites-enabled)
+# The site, reached directly (DNS grey cloud) or through Cloudflare (orange): both work, see cloudflare-realip.conf.
+server {
+    server_name suwwara.fajarrizky.my.id;
+
+    include /etc/nginx/snippets/cloudflare-realip.conf;
+
+    # The library sync sends up to 8 MB at once (a Spotify import); nginx's default 1 MB answered 413 to the biggest.
+    client_max_body_size 10m;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss application/atom+xml image/svg+xml;
+
+    limit_conn suwwara_conn 40;
+
+    location = /api/auth/login {
+        limit_req zone=suwwara_login burst=5 nodelay;
+        include /etc/nginx/snippets/suwwara-proxy.conf;
+    }
+
+    location / {
+        limit_req zone=suwwara_req burst=100 nodelay;
+        include /etc/nginx/snippets/suwwara-proxy.conf;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    http2 on;
+
+    # HTTP/3 (QUIC): a new connection is ready one round trip sooner (~190 ms from Indonesia), and a lost packet on a
+    # shaky phone signal no longer holds up everything else on the connection. Needs nginx's http_v3_module (DEPLOY.md
+    # §13 checks it before copying this file) and UDP 443 open in the GCP firewall. Browsers learn of it from Alt-Svc
+    # and use HTTP/2 on their own wherever UDP is blocked, so it can't lock anyone out. No 0-RTT (replayable requests).
+    listen 443 quic reuseport;
+    add_header Alt-Svc 'h3=":443"; ma=86400' always;
+    ssl_certificate /etc/letsencrypt/live/suwwara.fajarrizky.my.id/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/suwwara.fajarrizky.my.id/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = suwwara.fajarrizky.my.id) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    server_name suwwara.fajarrizky.my.id;
+    return 404; # managed by Certbot
+}

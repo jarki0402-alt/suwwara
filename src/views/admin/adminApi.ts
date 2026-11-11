@@ -104,6 +104,11 @@ export interface Usage {
   series: Array<{ day: string } & ByKind>;
   heatmap: Heatmap;
   perUser: UserUsage[];
+  /** Today and yesterday in the admin's timezone, whatever range is picked. */
+  today: ByKind;
+  yesterday: ByKind;
+  /** Today's 24 hours, for the "Hari ini" range. */
+  todayByHour: ByKind[];
 }
 
 export interface UserDetail {
@@ -115,6 +120,9 @@ export interface UserDetail {
   series: Array<{ day: string } & ByKind>;
   heatmap: Heatmap;
   last48h: Array<{ hour: string } & ByKind>;
+  /** Today and yesterday in the admin's timezone, whatever range is picked. */
+  today: ByKind;
+  yesterday: ByKind;
   devices: Array<{ userAgent: string; ip: string | null; signedInAt: string; lastSeen: string }>;
   reports: PlaybackReport[];
 }

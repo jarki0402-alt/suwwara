@@ -331,15 +331,24 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
   const active = data.perUser.filter((user) => user.activeDays > 0).length;
   const format = formatMetric(metric);
   const chartKinds: UsageKind[] = metric === 'bytes' ? ['song', 'podcast', 'video'] : ['song', 'podcast'];
+  const isToday = days === 1;
+  // "Hari ini": the day so far hour by hour (one bar per day would be a single bar).
+  const nowHour = new Date().getHours();
+  const hourPoints: StackPoint[] = data.todayByHour.slice(0, nowHour + 1).map((row, hour) => ({
+    x: String(hour).padStart(2, '0'),
+    detail: `${hourLabel(hour)}–${hourLabel((hour + 1) % 24)}`,
+    values: { song: row.song[metric], podcast: row.podcast[metric], video: row.video[metric] },
+  }));
 
   return (
     <>
+      {!isToday && <TodayTiles today={data.today} yesterday={data.yesterday} pricing={data.pricing} />}
       <div className={styles.toolbar}>
-        <RangeChips value={days} options={[7, 30, 90]} onChange={setDays} />
+        <RangeChips value={days} options={[1, 7, 30, 90]} onChange={setDays} labelOf={(option) => (option === 1 ? 'Hari ini' : `${option} hari`)} />
         <button
           type="button"
           className={`${styles.btn} ${styles.noPrint}`}
-          onClick={() => usersCsv(`suwwara-pengguna-${days}hari.csv`, data.perUser, data.pricing)}
+          onClick={() => usersCsv(isToday ? 'suwwara-pengguna-hari-ini.csv' : `suwwara-pengguna-${days}hari.csv`, data.perUser, data.pricing)}
         >
           Unduh CSV
         </button>
@@ -364,7 +373,7 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
             sub={`${percent(totals.song.completed, totals.song.completed + totals.song.skipped)} sampai selesai · ${totals.song.skipped.toLocaleString('id-ID')} di-skip`}
           />
           <Stat label="Episode podcast" value={totals.podcast.started.toLocaleString('id-ID')} sub={`${totals.podcast.completed} sampai selesai`} />
-          <Stat label="Pengguna aktif" value={`${active} dari ${data.perUser.length}`} sub={`dalam ${days} hari`} />
+          <Stat label="Pengguna aktif" value={`${active} dari ${data.perUser.length}`} sub={isToday ? 'hari ini' : `dalam ${days} hari`} />
           <Stat label="Dari cache disk server" value={percent(diskBytes, audioBytes)} sub={`${formatBytes(diskBytes)} tanpa ke YouTube`} />
           <Stat
             label="Perkiraan biaya Google Cloud"
@@ -376,23 +385,26 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
 
       <div className={styles.card}>
         <div className={styles.cardHead}>
-          <h2 className={styles.cardTitle}>Per hari</h2>
+          <h2 className={styles.cardTitle}>{isToday ? 'Per jam, hari ini' : 'Per hari'}</h2>
           <MetricToggle value={metric} onChange={setMetric} />
         </div>
         <Legend kinds={chartKinds} totals={kindValues(totals, metric)} format={format} />
         <StackedBars
-          points={dailyPoints(data.series, days, metric)}
+          points={isToday ? hourPoints : dailyPoints(data.series, days, metric)}
           kinds={chartKinds}
           format={format}
           metric={metric}
-          ariaLabel={`Pemakaian per hari, ${days} hari terakhir`}
+          ariaLabel={isToday ? 'Pemakaian per jam hari ini' : `Pemakaian per hari, ${days} hari terakhir`}
         />
       </div>
 
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>Kapan didengarkan</h2>
-        <HourHeatmap heatmap={data.heatmap} metric={listenOf(totals) > 0 ? 'listen' : 'bytes'} />
-      </div>
+      {/* A single day's weekday row says nothing a per-hour chart doesn't. */}
+      {!isToday && (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Kapan didengarkan</h2>
+          <HourHeatmap heatmap={data.heatmap} metric={listenOf(totals) > 0 ? 'listen' : 'bytes'} />
+        </div>
+      )}
 
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Pembagian</h2>
@@ -407,7 +419,7 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
       </div>
 
       <div className={styles.card}>
-        <h2 className={styles.cardTitle}>Per pengguna</h2>
+        <h2 className={styles.cardTitle}>{isToday ? 'Per pengguna, hari ini' : 'Per pengguna'}</h2>
         <UserTable users={data.perUser} pricing={data.pricing} onOpenUser={onOpenUser} />
         <p className={styles.muted}>
           Klik nama untuk rinciannya. Waktu dengar dihitung HP (termasuk lagu yang diputar dari simpanan HP), data hanya yang lewat server. Tidak ada judul lagu
@@ -419,6 +431,43 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
 }
 
 // ---- one person ----------------------------------------------------------------------------------
+
+/** One person's today next to their yesterday (the admin's days), above the range charts. */
+function TodayTiles({ today, yesterday, pricing }: { today: ByKind; yesterday: ByKind; pricing: Pricing }) {
+  const plays = (k: ByKind) => k.song.started + k.podcast.started;
+  return (
+    <section className={styles.section}>
+      <h3 className={styles.sectionLabel}>Hari ini · dibanding kemarin</h3>
+      <div className={styles.grid}>
+        <Stat
+          label="Waktu dengar"
+          value={formatListen(listenOf(today))}
+          sub={
+            <>
+              kemarin {formatListen(listenOf(yesterday))} <Delta now={listenOf(today)} before={listenOf(yesterday)} />
+              {today.podcast.listenSec > 0 ? ` · podcast ${formatListen(today.podcast.listenSec)}` : ''}
+            </>
+          }
+        />
+        <Stat
+          label="Lagu & episode diputar"
+          value={plays(today).toLocaleString('id-ID')}
+          sub={`kemarin ${plays(yesterday).toLocaleString('id-ID')} · ${today.song.completed} selesai · ${today.song.skipped} di-skip`}
+        />
+        <Stat
+          label="Data dari server"
+          value={formatBytes(bytesOf(today))}
+          sub={`kemarin ${formatBytes(bytesOf(yesterday))}${today.video.bytes > 0 ? ` · video ${formatBytes(today.video.bytes)}` : ''}`}
+        />
+        <Stat
+          label="Perkiraan biaya"
+          value={formatRupiah(costOf(bytesOf(today), pricing))}
+          sub={`kemarin ${formatRupiah(costOf(bytesOf(yesterday), pricing))}`}
+        />
+      </div>
+    </section>
+  );
+}
 
 export function UserDetailPanel({ accountId, onBack }: { accountId: string; onBack: () => void }) {
   const [days, setDays] = useState(30);
@@ -486,6 +535,9 @@ export function UserDetailPanel({ accountId, onBack }: { accountId: string; onBa
         </div>
       </div>
 
+      <TodayTiles today={data.today} yesterday={data.yesterday} pricing={data.pricing} />
+
+      <h3 className={styles.sectionLabel}>Rentang</h3>
       <RangeChips value={days} options={[7, 30, 90]} onChange={setDays} />
       <section className={styles.section}>
         <div className={styles.grid}>

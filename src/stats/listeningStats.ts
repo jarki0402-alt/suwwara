@@ -52,6 +52,18 @@ let tick: ReturnType<typeof setInterval> | undefined;
 let sending = false;
 let started = false;
 
+// The engine calls its listeners one after another without a try: a mistake in this counting must never stop the
+// listeners after it (the player's own) from hearing about a state change. Counting is the thing that gives way.
+function guarded<A extends unknown[]>(fn: (...args: A) => void): (...args: A) => void {
+  return (...args: A) => {
+    try {
+      fn(...args);
+    } catch {
+      // A lost second of statistics, nothing more.
+    }
+  };
+}
+
 function load(): void {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as Bucket[];
@@ -161,7 +173,7 @@ function onEngine(state: PlaybackState): void {
       track.lastPos = audioEngine.getCurrentTime();
       track.lastWall = Date.now();
     }
-    if (!tick) tick = setInterval(sample, TICK_MS);
+    if (!tick) tick = setInterval(guarded(sample), TICK_MS);
     return;
   }
   sample();
@@ -211,13 +223,15 @@ export function initListeningStats(): void {
   if (started || typeof window === 'undefined') return;
   started = true;
   load();
-  audioEngine.subscribe(onEngine);
-  onEngine(audioEngine.getSnapshot());
+  audioEngine.subscribe(guarded(onEngine));
+  guarded(onEngine)(audioEngine.getSnapshot());
   // The queue moves on before the engine loads the next track: the playhead still belongs to the old one here, so
   // its last seconds are counted before the switch.
-  useQueueStore.subscribe((state, previous) => {
-    if (state.currentSong()?.id !== previous.currentSong()?.id) sample();
-  });
+  useQueueStore.subscribe(
+    guarded((state, previous) => {
+      if (state.currentSong()?.id !== previous.currentSong()?.id) sample();
+    }),
+  );
   setInterval(() => void send(), FLUSH_MS);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {

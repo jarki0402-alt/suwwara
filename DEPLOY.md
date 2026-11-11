@@ -239,6 +239,17 @@ Sesudah aman: kembalikan *Source IPv4 ranges* ke `0.0.0.0/0` (dan nyalakan lagi 
 
 **E. HTTP/3**: aktif sejak langkah B (kalau modulnya ada), terpakai begitu langkah C selesai. Cek di https://http3check.net (isi `suwwara.fajarrizky.my.id`). Kalau di B modulnya tak ada, HTTP/2 tetap jalan; HTTP/3 bisa menyusul setelah nginx diperbarui ke paket yang punya modulnya.
 
+## 14. Pengaturan TCP VM (BBR) dan IP forwarding untuk Docker
+
+[deploy/host-sysctl/90-suwwara-tcp.conf](./deploy/host-sysctl/90-suwwara-tcp.conf): BBR + tanpa "mulai pelan lagi" setelah diam (jalur jauh Oregon–Indonesia), dan **`net.ipv4.ip_forward = 1` yang wajib ada**.
+```bash
+sudo cp deploy/host-sysctl/90-suwwara-tcp.conf /etc/sysctl.d/
+sudo sysctl --system >/dev/null
+sysctl net.ipv4.tcp_congestion_control net.ipv4.ip_forward     # harus: bbr, 1
+docker compose exec ytdlp-service python -c "import socket; print(socket.getaddrinfo('www.youtube.com', 443)[0][4])"   # harus alamat IP
+```
+**Peringatan**: image Google Cloud punya `/etc/sysctl.d/60-gce-network-security.conf` berisi `net.ipv4.ip_forward=0`. Setiap `sysctl --system` (atau upgrade paket yang memicunya) menerapkannya ulang dan **semua container putus internet**: lagu baru tak bisa di-resolve, log yt-dlp `[Errno -3] Try again`. File di atas (90-, diterapkan sesudah 60-) mengembalikannya ke 1. Kalau gejala itu muncul: `sysctl net.ipv4.ip_forward` → kalau `0`, pasang file ini lagi.
+
 ## Pulihkan akses admin (lupa sandi)
 
 Dari VPS:
@@ -264,6 +275,11 @@ git pull
 docker compose build backend && docker compose build frontend   # hanya yang berubah bila mau
 docker compose up -d --force-recreate backend frontend
 docker compose ps && docker compose logs backend | tail -20
+```
+
+**Jangan `docker builder prune` di setiap deploy**: itu membuang cache build, sehingga deploy berikutnya meng-install ulang semua dependency dari nol (±7 menit di e2-micro, `npm ci` backend saja ±4 menit). Dengan cache, hanya langkah yang berubah yang dibangun ulang. Cek disk sesekali dengan `df -h /`; baru kalau **Use% di atas ±80%**, bersihkan cache yang sudah lebih dari 30 hari saja:
+```bash
+docker builder prune -f --filter until=720h
 ```
 
 ## Masalah umum

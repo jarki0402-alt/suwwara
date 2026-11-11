@@ -1,7 +1,7 @@
 import type { Song } from '../api/types';
 import { downloadManager } from '../downloads/downloadManager';
 import { useSettingsStore } from '../stores/settingsStore';
-import { resolveAudioUrl } from './bitrateResolver';
+import { resolveAudioUrl, songHlsUrl } from './bitrateResolver';
 import { beginTrace, finishTrace, markTrace } from '../diagnostics/loadTraces';
 import { AudioCache } from './AudioCache';
 import { scheduleFadeIn, scheduleFadeOut, scheduleFadeTo, setGainImmediate } from './crossfade';
@@ -87,6 +87,8 @@ const CANPLAY_TIMEOUT_MS = 30000;
 
 // How long the iOS whole-file fetch (see networkBlobFor) may take before the plain URL is tried instead.
 const BLOB_START_TIMEOUT_MS = 20000;
+// How long an iOS song's HLS playlist may take (it includes a cold yt-dlp resolve) before the whole-file fetch is tried.
+const HLS_PLAYLIST_TIMEOUT_MS = 20000;
 
 // How long pause/resume take to ramp the output, in seconds. Stopping an <audio>
 // element mid-waveform can leave an audible click; ~90ms is below what reads as a
@@ -681,7 +683,7 @@ class AudioEngine {
     if (!usePreload) {
       this.dropStalePreload(song);
       // Never the whole-file fetch for an episode: on iOS that would pull 50-200MB into memory before the first sound.
-      url = (await localUrlFor(song.id, dataSaver)) ?? (song.kind === 'episode' ? null : await this.networkBlobFor(song.id, dataSaver)) ?? networkUrl;
+      url = (await localUrlFor(song.id, dataSaver)) ?? (song.kind === 'episode' ? null : await this.iosSongStartUrl(song.id, dataSaver, requestId)) ?? networkUrl;
       if (requestId !== this.playRequestId) {
         if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         return; // a newer request took over while the file was being fetched
@@ -1016,6 +1018,41 @@ class AudioEngine {
   }
 
   /**
+   * iOS only, a song not on this device yet: its HLS playlist (routes/audio.ts hls.m3u8 ?song=1), which Safari starts
+   * after the first ~10 s segment. The whole-file fetch below (networkBlobFor) was the way until 2026-11, but from
+   * Indonesia to the VM in Oregon a 3-4 MB file took ~4-5.5 s for a new song (Android, streaming: ~2 s), and Safari
+   * still walks a whole fragmented MP4 before playing it, ~2 s even when stored on the phone. Podcasts already play
+   * this way on Safari.
+   *
+   * The playlist is fetched here first so a failure (no segment index in the file, a server error) falls back to the
+   * whole-file fetch, exactly as before, instead of failing the song; Safari then reads it from its HTTP cache. Null
+   * off iOS: Android and desktop never come through here.
+   */
+  private async iosSongStartUrl(songId: string, dataSaver: boolean, requestId: number): Promise<string | null> {
+    if (!isIOS) return null;
+    const hls = songHlsUrl(songId, dataSaver);
+    this.updateSnapshot({ status: 'loading', error: null });
+    const controller = new AbortController();
+    this.blobFetch = controller;
+    const timer = setTimeout(() => controller.abort(), HLS_PLAYLIST_TIMEOUT_MS);
+    try {
+      const response = await fetch(hls, { signal: controller.signal });
+      if (response.ok) {
+        await response.text();
+        return hls;
+      }
+    } catch {
+      // Network trouble or the timeout: the whole-file fetch below gets its own try.
+    } finally {
+      clearTimeout(timer);
+      if (this.blobFetch === controller) this.blobFetch = null;
+    }
+    // A newer tap (or a stop) took over meanwhile: nothing to fall back to, the caller drops this load.
+    if (requestId !== this.playRequestId) return null;
+    return this.networkBlobFor(songId, dataSaver);
+  }
+
+  /**
    * iOS only. WebKit loads a range-served file as a chain of ~7 serial, mutually cancelling Range requests (measured:
    * 2-4s even with the backend warm, 10s+ on a phone's round trips, and it stalls when a background preload shares the
    * connection). One plain fetch of the whole file and playing it as a blob took ~0.8s in the same test. Returns null —
@@ -1094,13 +1131,17 @@ class AudioEngine {
    */
   private async waitWithBlobFallback(element: HTMLAudioElement, networkUrl: string, requestId: number): Promise<void> {
     const isBlob = element.src.startsWith('blob:');
+    // An iOS song's HLS playlist (iosSongStartUrl) that loaded but won't play: the plain file, as before HLS.
+    const isSongHls = isIOS && element.src.includes('/hls.m3u8') && element.src.includes('song=1') && networkUrl !== element.src;
     try {
       await waitForEvent(element, 'canplay', CANPLAY_TIMEOUT_MS);
       if (isBlob) useSettingsStore.getState().recordLocalAudioSuccess();
     } catch (error) {
-      if (!isBlob) throw error;
-      useSettingsStore.getState().recordLocalAudioFailure();
-      URL.revokeObjectURL(element.src);
+      if (!isBlob && !isSongHls) throw error;
+      if (isBlob) {
+        useSettingsStore.getState().recordLocalAudioFailure();
+        URL.revokeObjectURL(element.src);
+      }
       if (requestId !== this.playRequestId) throw error; // a newer request has since claimed this element
       element.src = networkUrl;
       element.load();

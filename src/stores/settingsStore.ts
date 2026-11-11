@@ -35,6 +35,8 @@ interface SettingsState {
   localAudioEnabled: boolean;
   /** Consecutive blob-playback failures since the last success. Not shown in the UI directly. */
   localAudioFailureCount: number;
+  /** The build that last switched localAudioEnabled back on (see keepLocalAudioOnPerBuild). Not shown in the UI. */
+  localAudioBuild: string;
   /**
    * Size budget (MB) for everything kept locally — deliberate downloads AND the opportunistic cache share this
    * one number now ("Tersimpan Offline" in Pengaturan), rather than each having its own separate budget: users
@@ -86,6 +88,7 @@ export const useSettingsStore = create<SettingsState>()(
       theme: 'system',
       localAudioEnabled: true,
       localAudioFailureCount: 0,
+      localAudioBuild: '',
       offlineQuotaMB: DEFAULT_OFFLINE_QUOTA_MB,
       audioCacheDays: DEFAULT_CACHE_RETENTION_DAYS,
       glassTint: 0.5,
@@ -139,3 +142,22 @@ export const useSettingsStore = create<SettingsState>()(
     },
   ),
 );
+
+/**
+ * "Simpan lagu di perangkat" comes back on with every new version of the app, on every device (2026-11): saved songs
+ * make playback faster and work offline, and a device switched off by hand, or by the two-failures guard on an older
+ * build, would otherwise stay off for good. Between updates the listener's choice and the guard still hold; the next
+ * build simply tries again (new code may well fix what failed). A first-time listener is on from the defaults.
+ */
+function keepLocalAudioOnPerBuild(): void {
+  const apply = () => {
+    if (useSettingsStore.getState().localAudioBuild === __APP_BUILD__) return;
+    useSettingsStore.setState({ localAudioEnabled: true, localAudioFailureCount: 0, localAudioBuild: __APP_BUILD__ });
+  };
+  // No storage at all (blocked in a private window, or no window): nothing is remembered, the default is already on.
+  const persisted = useSettingsStore.persist as typeof useSettingsStore.persist | undefined;
+  if (!persisted) return;
+  if (persisted.hasHydrated()) apply();
+  else persisted.onFinishHydration(apply);
+}
+keepLocalAudioOnPerBuild();

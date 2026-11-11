@@ -25,12 +25,17 @@ registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html')));
 registerRoute(
   // Sign-in and admin answers are never cached: a stale "you are signed in" served after a logout would be worse than an error.
   // Music videos are streamed by Range like audio, and never cached here for the same reasons (see below).
+  // The live event streams (Connect's /api/connect/stream, a Jam's /api/jam/<room>/stream) never end, so they go
+  // straight to the network too (2026-11). Through here the old worker always had a fetch still running (and
+  // NetworkFirst trying to cache a body that never finishes), so a new version could never take over: the page
+  // reloaded into the same old build, which is why phones kept an old version until the app was fully closed.
   ({ url }) =>
     url.pathname.startsWith('/api/') &&
     !url.pathname.startsWith('/api/audio/') &&
     !url.pathname.startsWith('/api/video/') &&
     !url.pathname.startsWith('/api/auth/') &&
-    !url.pathname.startsWith('/api/admin/'),
+    !url.pathname.startsWith('/api/admin/') &&
+    !url.pathname.endsWith('/stream'),
   new NetworkFirst({
     cacheName: 'music-api',
     networkTimeoutSeconds: 4,

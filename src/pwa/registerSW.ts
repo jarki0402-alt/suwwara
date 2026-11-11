@@ -1,5 +1,6 @@
 import { registerSW } from 'virtual:pwa-register';
 import { t } from '../i18n/i18n';
+import { useJamStore } from '../stores/jamStore';
 import { usePlayerStore } from '../stores/playerStore';
 import { useUpdateStore, type UpdateStatus } from './updateStore';
 
@@ -7,8 +8,10 @@ type ShowToastFn = (message: string) => void;
 
 // How often a long-lived session re-checks for a new version, on top of every resume.
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
-// Away this long with nothing playing, coming back to the app may take a waiting update on the spot (see the resume check).
-const RESUME_APPLY_AFTER_MS = 30 * 60 * 1000;
+// A new version that finishes downloading this soon after the app was opened (or brought back) is taken on the spot,
+// like a native app updated by the store before it shows. Later than that the person is using the app: it waits for
+// the moment the app goes to the background instead (see initServiceWorker).
+const JUST_OPENED_MS = 60 * 1000;
 
 let registration: ServiceWorkerRegistration | null = null;
 let applyWaitingUpdate: ((reload?: boolean) => Promise<void>) | null = null;
@@ -182,6 +185,17 @@ export function applyUpdate(automatic = false): void {
 }
 
 let initialised = false;
+/** When the app was last opened or brought back to the foreground (see JUST_OPENED_MS). */
+let openedAt = Date.now();
+
+/**
+ * Nothing an update's reload would interrupt (2026-11): no song playing or loading (a paused one is fine, it comes back
+ * where it was), and not in a Jam, where a reload would drop the person out of the room and back in.
+ */
+function quietForUpdate(): boolean {
+  const { isPlaying, isBuffering } = usePlayerStore.getState();
+  return !isPlaying && !isBuffering && !useJamStore.getState().roomId;
+}
 
 export function initServiceWorker(showToast: ShowToastFn): void {
   // Once per page: a second registration (React's development double effects) would answer every event twice.
@@ -203,21 +217,24 @@ export function initServiceWorker(showToast: ShowToastFn): void {
           if (newer && useUpdateStore.getState().status !== 'checking') useUpdateStore.getState().set('available');
         });
       };
-      let hiddenAt = 0;
+      // Every device takes a new version by itself (2026-11), Wi-Fi or mobile data alike (it is ~1-2 MB of app files, and
+      // iOS doesn't tell a web app which one it's on anyway): before, it applied itself only with nothing at all in the
+      // player or after 30 minutes away, and the last song is almost always shown, so phones ran an old build for hours
+      // after a deploy. Now:
+      //  - opening the app (or bringing it back) with a version already waiting takes it at once;
+      //  - one that finishes downloading within JUST_OPENED_MS of opening is taken then too (onNeedRefresh);
+      //  - one that arrives while the app is in use waits, and is taken the moment the app goes to the background, so
+      //    the reload is never seen.
+      // Never while a song plays or loads, nor in a Jam (quietForUpdate): those wait for the next quiet moment.
+      // canAutoApply still caps every automatic reload to one try per 10 minutes, so nothing can loop.
+      const waitingReady = () => useUpdateStore.getState().status === 'available' && !!swRegistration.waiting;
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
-          hiddenAt = Date.now();
+          if (waitingReady() && quietForUpdate() && canAutoApply()) applyUpdate(true);
           return;
         }
-        // A phone keeps the installed app alive for days and the last song is always shown, so "nothing loaded" (the
-        // only time an update applied by itself) almost never happened: phones ran builds weeks old, without the
-        // playback fixes. Coming back after a long while with nothing playing is a fresh start to the person anyway
-        // (like a native app relaunched by the system), so a waiting version is taken then. Never while music plays or
-        // loads, and canAutoApply still caps it to one try per window.
-        const awayLong = hiddenAt > 0 && Date.now() - hiddenAt >= RESUME_APPLY_AFTER_MS;
-        hiddenAt = 0;
-        const { isPlaying, isBuffering } = usePlayerStore.getState();
-        if (awayLong && !isPlaying && !isBuffering && useUpdateStore.getState().status === 'available' && swRegistration.waiting && canAutoApply()) {
+        openedAt = Date.now();
+        if (waitingReady() && quietForUpdate() && canAutoApply()) {
           applyUpdate(true);
           return;
         }
@@ -227,9 +244,11 @@ export function initServiceWorker(showToast: ShowToastFn): void {
     },
     onNeedRefresh() {
       useUpdateStore.getState().set('available');
-      // Nothing loaded in the player = nothing to interrupt: apply the update right away
-      // instead of waiting for a tap on a toast that is easy to miss (or dismiss).
-      if (usePlayerStore.getState().currentSongId === null && canAutoApply()) {
+      // Nothing loaded in the player, or the app only just opened and nothing is playing: take it right away instead of
+      // waiting for a tap on a notice that is easy to miss (see the visibility handler above for the rest).
+      const nothingLoaded = usePlayerStore.getState().currentSongId === null;
+      const justOpened = Date.now() - openedAt < JUST_OPENED_MS;
+      if ((nothingLoaded || justOpened) && quietForUpdate() && canAutoApply()) {
         applyUpdate(true);
         return;
       }

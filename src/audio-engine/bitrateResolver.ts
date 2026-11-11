@@ -22,3 +22,11 @@ export function resolveAudioUrl(songId: string, dataSaver: boolean): string {
   const quality: AudioQuality = dataSaver ? 'low' : 'high';
   return buildAudioUrl(songId, quality);
 }
+
+/**
+ * A song's HLS playlist, asked for on iPhone/iPad only (AudioEngine.iosSongStartUrl): Safari starts it after the first
+ * ~10 s segment instead of after downloading and walking the whole file. Android and desktop never use this.
+ */
+export function songHlsUrl(songId: string, dataSaver: boolean): string {
+  return `/api/audio/${encodeURIComponent(songId)}/hls.m3u8?song=1&quality=${dataSaver ? 'low' : 'high'}`;
+}

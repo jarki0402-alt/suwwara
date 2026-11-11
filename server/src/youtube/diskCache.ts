@@ -176,6 +176,24 @@ async function purgeVideoTracksOnce(): Promise<void> {
 
 setTimeout(() => void purgeVideoTracksOnce(), 20_000).unref();
 
+/**
+ * The first `bytes` of a stored track (its header and segment index), for the HLS playlist of a song played on an
+ * iPhone (routes/audio.ts hls.m3u8): built from disk, the playlist needs no resolve and no trip to YouTube.
+ */
+export async function readCachedHead(track: CachedTrack, bytes: number): Promise<Buffer | null> {
+  try {
+    const handle = await open(track.path, 'r');
+    try {
+      const { buffer, bytesRead } = await handle.read(Buffer.alloc(Math.min(bytes, track.size)), 0, Math.min(bytes, track.size), 0);
+      return buffer.subarray(0, bytesRead);
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
 /** How many tracks the disk cache holds and their total size, for the admin console (metrics/systemSamples.ts every 5 minutes). */
 export async function diskCacheStats(): Promise<{ files: number; bytes: number; maxBytes: number } | null> {
   if (!(await ensureDir())) return null;

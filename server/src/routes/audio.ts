@@ -1,6 +1,6 @@
 import { Router, type Response } from 'express';
 import { recordAudio } from '../metrics/usage';
-import { getCachedTrack, openTrackStream, storeTrack, type CachedTrack } from '../youtube/diskCache';
+import { getCachedTrack, openTrackStream, readCachedHead, storeTrack, type CachedTrack } from '../youtube/diskCache';
 import { invalidateAudio, resolveAudio, ResolveAbortedError, type AudioQuality, type ResolvedAudio } from '../youtube/stream';
 import { buildHlsPlaylist } from './video';
 
@@ -515,18 +515,29 @@ function serveFromFullBuffer(res: Response, entry: FullBufferEntry, range: { sta
  * against 0.02s in Chrome, and it then reports twice the real duration. Given the file's own segment index (the sidx
  * box in its first chunk, 221 entries for that episode) it starts after the first ~10s segment instead. The playlist
  * is byte ranges of the same file through the route below (episode flag included), the same thing the music video
- * does (buildHlsPlaylist): no remux, no new copy, and songs never come here.
+ * does (buildHlsPlaylist): no remux, no new copy.
+ *
+ * Songs on an iPhone/iPad come here too (`?song=1`, at the quality asked, 2026-11): there the alternative was
+ * downloading the whole 3-4 MB file before the first sound (AudioEngine.networkBlobFor), ~4-5.5 s for a new song
+ * from Indonesia against ~2 s on Android, which streams. Android and desktop never ask for this. A song already on
+ * this server's disk is indexed from the disk copy: no resolve, no YouTube.
  */
 audioRouter.get('/audio/:videoId/hls.m3u8', async (req, res) => {
   const { videoId } = req.params;
-  const quality: AudioQuality = 'low';
+  const song = req.query.song === '1';
+  const quality: AudioQuality = song && req.query.quality !== 'low' ? 'high' : 'low';
   const gone = new AbortController();
   res.once('close', () => gone.abort());
   try {
-    const audio = await resolveAudio(videoId, quality, PLAYBACK_PRIORITY, gone.signal);
-    const ctx: TrackContext = { videoId, quality, cacheKey: `${videoId}:${quality}`, audio, priority: 'high', episode: true };
-    const head = await getChunk(ctx, 0);
-    const playlist = buildHlsPlaylist(head.buffer, `/api/audio/${encodeURIComponent(videoId)}?quality=low&podcast=1`);
+    const onDisk = song ? await getCachedTrack(videoId, quality) : null;
+    let head = onDisk ? await readCachedHead(onDisk, CHUNK_SIZE) : null;
+    if (!head) {
+      const audio = await resolveAudio(videoId, quality, PLAYBACK_PRIORITY, gone.signal);
+      const ctx: TrackContext = { videoId, quality, cacheKey: `${videoId}:${quality}`, audio, priority: 'high', episode: !song };
+      head = (await getChunk(ctx, 0)).buffer;
+    }
+    const media = song ? `/api/audio/${encodeURIComponent(videoId)}?quality=${quality}` : `/api/audio/${encodeURIComponent(videoId)}?quality=low&podcast=1`;
+    const playlist = buildHlsPlaylist(head, media);
     if (!playlist) {
       // No index in the file: the client plays the file directly instead (slow to start in Safari, but it plays).
       res.status(415).json({ error: 'no segment index' });
@@ -537,7 +548,7 @@ audioRouter.get('/audio/:videoId/hls.m3u8', async (req, res) => {
     res.send(playlist);
   } catch (error) {
     if (error instanceof ResolveAbortedError || gone.signal.aborted) return;
-    res.status(502).json({ error: 'Failed to load the episode.', message: (error as Error).message });
+    res.status(502).json({ error: song ? 'Failed to load the song.' : 'Failed to load the episode.', message: (error as Error).message });
   }
 });
 

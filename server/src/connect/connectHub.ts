@@ -62,6 +62,16 @@ function broadcastDevices(accountId: string): void {
   for (const connection of hub.values()) write(connection, 'devices', { you: connection.ref, devices });
 }
 
+/** Accounts playing right now and on what kind of device (admin dashboard): who is listening, never what. */
+export function listeningNow(): Array<{ accountId: string; kinds: string[] }> {
+  const out: Array<{ accountId: string; kinds: string[] }> = [];
+  for (const [accountId, hub] of hubs) {
+    const kinds = [...hub.values()].filter((connection) => connection.state?.isPlaying).map((connection) => connection.kind);
+    if (kinds.length > 0) out.push({ accountId, kinds });
+  }
+  return out;
+}
+
 /** Devices with an open Connect stream right now, across all accounts (admin dashboard). */
 export function onlineDeviceCount(): number {
   let total = 0;

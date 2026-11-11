@@ -574,10 +574,12 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
   const bytesBefore = socket?.bytesWritten ?? 0;
   const accountId = req.session?.accountId;
   let persistCtx: TrackContext | null = null;
+  // For the dashboard's split only: episode vs song, and how much the server's disk cache spared YouTube.
+  let servedFromDisk = false;
   res.once('close', () => {
     gone.abort();
     const sentBytes = (socket?.bytesWritten ?? 0) - bytesBefore;
-    recordAudio(accountId, sentBytes);
+    recordAudio(accountId, sentBytes, { episode: req.query.podcast === '1', fromDisk: servedFromDisk });
     if (persistCtx && timing.total && sentBytes >= timing.total * KEEP_MIN_FRACTION) persistTrack(persistCtx, timing.total);
     // Only the requests worth looking at are logged — an iPhone makes ~14 per song and
     // cancels most of them on purpose. This is what lets a slow start on a real phone be
@@ -600,6 +602,7 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
     // Already on disk: no resolve, no YouTube — the fastest path there is.
     const onDisk = await getCachedTrack(videoId, quality);
     if (onDisk) {
+      servedFromDisk = true;
       serveFromDisk(res, onDisk, range, isRangeLess);
       return;
     }

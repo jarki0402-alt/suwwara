@@ -2,12 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useToast } from '../../components/Toast/ToastProvider';
 import { adminApi, type PodcastPick } from './adminApi';
 import styles from './AdminView.module.css';
+import { PodcastStats } from './UsageViews';
 
 /**
  * "Pilihan" on everyone's Podcast tab: channels the admin recommends to the circle. Search YouTube channels, add,
  * remove. Admin console text stays Indonesian only (CLAUDE.md #12).
  */
-export function PodcastPicksPanel() {
+export function PodcastPicksPanel({ onOpenUser }: { onOpenUser: (accountId: string) => void }) {
   const { showToast } = useToast();
   const [picks, setPicks] = useState<PodcastPick[]>([]);
   const [query, setQuery] = useState('');
@@ -53,6 +54,8 @@ export function PodcastPicksPanel() {
 
   return (
     <>
+      <PodcastStats onOpenUser={onOpenUser} />
+      <h3 className={styles.sectionLabel}>Pilihan admin</h3>
       <section className={styles.card}>
         <h2 className={styles.cardTitle}>Podcast pilihan</h2>
         <p className={styles.muted}>Channel di sini tampil sebagai "Pilihan" di tab Podcast semua pengguna.</p>

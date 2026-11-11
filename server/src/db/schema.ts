@@ -255,4 +255,55 @@ create table if not exists podcast_picks (
   position integer not null default 0,
   added_at timestamptz not null default now()
 );
+
+-- Usage per account per hour and kind (song / podcast / video), for the admin console (2026-11). Same rule as
+-- usage_daily: counts, sizes and seconds only, never WHICH song or episode. bytes/requests/disk_bytes come from the
+-- server's own streams; listen_sec and the play counts are reported by the device, because songs kept on the phone
+-- ("Simpan lagu") play without reaching the server at all. Kept 90 days (metrics/usage.ts), usage_daily keeps 400.
+create table if not exists usage_hourly (
+  account_id text not null references accounts(id) on delete cascade,
+  hour timestamptz not null,
+  kind text not null,
+  bytes bigint not null default 0,
+  requests integer not null default 0,
+  disk_bytes bigint not null default 0,
+  listen_sec integer not null default 0,
+  started integer not null default 0,
+  completed integer not null default 0,
+  skipped integer not null default 0,
+  primary key (account_id, hour, kind)
+);
+create index if not exists usage_hourly_hour_idx on usage_hourly (hour);
+-- First boot with the table: the bytes counted per day so far are carried over (at midday WIB, as songs: the podcast
+-- tab had existed for two days), so the charts don't start empty. Only while the table is still empty, so never twice.
+insert into usage_hourly (account_id, hour, kind, bytes, requests)
+select account_id, hour, kind, bytes, requests from (
+  select account_id, (day + time '12:00') at time zone 'Asia/Jakarta' as hour, 'song' as kind, audio_bytes as bytes, audio_requests as requests
+  from usage_daily where day > current_date - 90 and audio_bytes > 0
+  union all
+  select account_id, (day + time '12:00') at time zone 'Asia/Jakarta', 'video', video_bytes, 0
+  from usage_daily where day > current_date - 90 and video_bytes > 0
+) carried
+where not exists (select 1 from usage_hourly);
+
+-- The VM every 5 minutes (metrics/systemSamples.ts), so the Sistem tab can show last night, not only the 30 minutes
+-- the console happened to be open. ~4000 small rows at 14 days.
+create table if not exists system_samples (
+  at timestamptz primary key,
+  ram_used_bytes bigint not null,
+  ram_total_bytes bigint not null,
+  swap_used_bytes bigint not null,
+  load1 real not null,
+  cpus smallint not null,
+  disk_used_bytes bigint,
+  disk_total_bytes bigint,
+  rss_bytes bigint not null,
+  cache_files integer,
+  cache_bytes bigint,
+  db_bytes bigint,
+  resolves integer not null default 0,
+  resolve_failures integer not null default 0,
+  resolve_avg_ms integer,
+  queue_pending smallint not null default 0
+);
 `;

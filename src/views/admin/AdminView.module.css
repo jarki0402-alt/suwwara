@@ -103,6 +103,42 @@
   color: var(--color-text-secondary);
 }
 
+/* Phones: two tiles side by side leave ~150px each, and the icon took a third of that, so labels and values broke
+ * over three lines. The icon goes (the label already says what it is), the number never breaks, the tile tightens. */
+@media (max-width: 559.98px) {
+  .grid {
+    gap: var(--space-2);
+  }
+  .stat {
+    padding: var(--space-3);
+  }
+  .statIcon {
+    display: none;
+  }
+  .statBody {
+    gap: 2px;
+  }
+  .statLabel {
+    font-size: 0.7rem;
+    line-height: 1.3;
+  }
+  .statValue {
+    font-size: 1.2rem;
+    white-space: nowrap;
+  }
+  .statSub {
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+  .card {
+    padding: var(--space-3);
+  }
+  .tableWrap {
+    margin: 0 calc(-1 * var(--space-3));
+    padding: 0 var(--space-3);
+  }
+}
+
 /* Total / average / peak line under a trend chart. */
 .chartFigures {
   display: flex;
@@ -223,9 +259,23 @@
   white-space: nowrap;
 }
 
+/* The value labels get a column of their own, in pixels: placed by viewBox fraction inside the plot they had ~25px on
+ * a phone and "4,3 GB" ran out of the card. */
+.chartFrame {
+  display: grid;
+  /* As wide as the longest value ("30 j", "4,3 GB"), set by the chart as --y-chars, and no wider: the values sit at the
+   * card's edge and the plot gets the rest. */
+  grid-template-columns: calc(var(--y-chars, 5) * 0.42rem + 8px) minmax(0, 1fr); /* ~one 0.68rem glyph per char */
+}
+
+.yAxis {
+  position: relative;
+  font-size: 0.68rem;
+}
+
 .axisYLabel {
-  transform: translate(-100%, -50%);
-  padding-right: 8px;
+  left: 0;
+  transform: translateY(-50%);
 }
 
 .axisXLabel {
@@ -581,4 +631,381 @@
   word-break: break-word;
   font-size: 0.72rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ---- usage charts (UsageCharts.tsx) ----
+ * Song / podcast / video: the dataviz skill's first three categorical slots, the light steps on a light surface and
+ * the dark steps on a dark one (both validated as a set, colour-blind safe). The heatmap is one hue, faint to full. */
+.viz {
+  --viz-song: #2a78d6;
+  --viz-podcast: #eb6834;
+  --viz-video: #1baf7a;
+  --viz-seq: #2a78d6;
+  --viz-empty: color-mix(in oklab, var(--color-text-primary) 6%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .viz {
+    --viz-song: #3987e5;
+    --viz-podcast: #d95926;
+    --viz-video: #199e70;
+    --viz-seq: #3987e5;
+  }
+}
+:global(:root[data-theme='dark']) .viz {
+  --viz-song: #3987e5;
+  --viz-podcast: #d95926;
+  --viz-video: #199e70;
+  --viz-seq: #3987e5;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendItem strong {
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.tooltip .tooltipRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-secondary);
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.cardHead .cardTitle {
+  margin: 0;
+}
+
+/* Bytes | Waktu switch above a chart: same pill look as the range chips, smaller. */
+.toggle {
+  display: inline-flex;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  padding: 2px;
+}
+
+.toggle button {
+  border: 0;
+  border-radius: var(--radius-full);
+  padding: 4px 12px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggle .toggleOn {
+  background: var(--color-text-primary);
+  color: var(--color-bg);
+}
+
+/* Weekday × hour: 7 rows of 24 cells. */
+.heatmap {
+  display: grid;
+  grid-template-columns: 34px repeat(24, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.heatRow {
+  display: contents;
+}
+
+.heatHour,
+.heatDay {
+  font-size: 0.68rem;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.heatDay {
+  align-self: center;
+}
+
+.heatCell {
+  aspect-ratio: 1;
+  min-height: 10px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--viz-seq) var(--heat), var(--viz-empty));
+}
+
+.heatCell:hover {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 1px;
+}
+
+.heatFoot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.heatScale {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+}
+
+.heatRamp {
+  width: 64px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--viz-seq) 12%, var(--viz-empty)), var(--viz-seq));
+}
+
+.splitBar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  margin-bottom: var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+}
+
+.splitBar span {
+  min-width: 3px;
+}
+
+/* ---- usage tables ---- */
+.tableWrap {
+  overflow-x: auto;
+  margin: 0 calc(-1 * var(--space-4));
+  padding: 0 var(--space-4);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th {
+  padding: 8px 10px 8px 0;
+  text-align: right;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.table th:first-child,
+.table td:first-child {
+  text-align: left;
+}
+
+.table th button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.table th button[aria-pressed='true'] {
+  color: var(--color-text-primary);
+}
+
+.table td {
+  padding: 9px 10px 9px 0;
+  border-top: 1px solid var(--color-border);
+  text-align: right;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.table td strong {
+  color: var(--color-text-primary);
+}
+
+.table tbody tr {
+  cursor: pointer;
+}
+
+.table tbody tr:hover td {
+  background: color-mix(in oklab, var(--color-text-primary) 4%, transparent);
+}
+
+.linkButton {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.liveDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #1baf7a;
+  vertical-align: middle;
+}
+
+.delta {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.backButton {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  padding: 7px 14px 7px 10px;
+  background: var(--glass-bg-strong);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.note {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--color-text-primary) 5%, transparent);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+@media print {
+  .noPrint {
+    display: none !important;
+  }
+  .card,
+  .stat {
+    break-inside: avoid;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+  }
+}
+
+/* Per-person list on phones (UserTable): cards instead of the wide table. */
+.userCards {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.userCard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  padding: 10px 0 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.userCardTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.userCardName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.userCardLine {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 719.98px) {
+  .userCards {
+    display: flex;
+  }
+  .userCards + .tableWrap {
+    display: none;
+  }
+}
+
+/* Tiles inside a card (the bill estimate): a little air before what follows them. */
+.card > .grid {
+  margin-bottom: var(--space-3);
+}
+
+/* A status pill at the end of a row stays on one line; the label beside it wraps instead. */
+.row > .badge,
+.row > .badgeOff {
+  flex-shrink: 0;
+  white-space: nowrap;
 }

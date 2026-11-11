@@ -30,6 +30,9 @@ import { searchRouter } from './routes/search';
 import { similarRouter } from './routes/similar';
 import { trendingRouter } from './routes/trending';
 import { trendingIdRouter } from './routes/trendingId';
+import { usageRouter } from './routes/usage';
+import { adminStatsRouter } from './routes/adminStats';
+import './metrics/systemSamples';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8787;
@@ -73,9 +76,13 @@ app.use('/api', spotifyImportRouter);
 app.use('/api', podcastRouter);
 app.use('/api', connectRouter);
 app.use('/api', diagnosticsRouter);
+// Session cookie only (no deviceAuth), so like diagnostics it is safe anywhere ahead of authRouter/libraryRouter.
+app.use('/api', usageRouter);
 // Like the routers above, profile (and admin) must sit BEFORE authRouter/libraryRouter, whose router-wide deviceAuth would
 // otherwise answer 401 for them.
 app.use('/api', profileRouter);
+// Ahead of adminRouter: its /admin/usage is the one answered (requireAdmin path-scoped, like adminRouter's).
+app.use('/api', adminStatsRouter);
 app.use('/api', adminRouter);
 app.use('/api', authRouter);
 app.use('/api', libraryRouter);

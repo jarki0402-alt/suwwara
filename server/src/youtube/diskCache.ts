@@ -175,3 +175,16 @@ async function purgeVideoTracksOnce(): Promise<void> {
 }
 
 setTimeout(() => void purgeVideoTracksOnce(), 20_000).unref();
+
+/** How many tracks the disk cache holds and their total size, for the admin console (metrics/systemSamples.ts every 5 minutes). */
+export async function diskCacheStats(): Promise<{ files: number; bytes: number; maxBytes: number } | null> {
+  if (!(await ensureDir())) return null;
+  try {
+    const names = (await readdir(DIR)).filter((name) => !name.endsWith('.mime') && !name.endsWith('.tmp'));
+    let bytes = 0;
+    for (const name of names) bytes += (await stat(path.join(DIR, name)).catch(() => null))?.size ?? 0;
+    return { files: names.length, bytes, maxBytes: MAX_BYTES };
+  } catch {
+    return null;
+  }
+}

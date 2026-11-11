@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import { Icon, type IconName } from '../../components/Icon/Icon';
 import { timeAgo } from '../../utils/deviceLabel';
 import { formatBytes } from '../../utils/formatBytes';
-import { adminApi } from './adminApi';
+import { adminApi, type Overview as OverviewData } from './adminApi';
 import styles from './AdminView.module.css';
-import { fillDailySeries, TrendChart, type TrendPoint } from './TrendChart';
+import { TrendChart, type TrendPoint } from './TrendChart';
+import { KindSplit } from './UsageCharts';
+import { dailyPoints, formatListen, formatRupiah } from './usageFormat';
+import { SystemHistory } from './UsageViews';
 import { useAdminData } from './useAdminData';
 
 const REFRESH_MS = 30_000;
@@ -59,12 +62,68 @@ function ChartFigures({ points }: { points: TrendPoint[] }) {
   );
 }
 
-export function Overview() {
+const billMonth = (iso: string) => new Date(new Date(iso).getTime() + 12 * 3_600_000).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+/**
+ * This month's Google Cloud bill, estimated from the bytes the server sent (server/src/metrics/billing.ts, calibrated on
+ * the real billing export). Replaces the old "200 GB quota" card: that free allowance is for Standard internet egress,
+ * while this app's traffic leaves through Cloudflare (Carrier Peering) and is paid from the first GiB.
+ */
+function BillingCard({ billing }: { billing: OverviewData['billing'] }) {
+  const { pricing } = billing;
+  const allFree = billing.freeTier.every((check) => check.ok);
+  return (
+    <div className={styles.card}>
+      <h2 className={styles.cardTitle}>Perkiraan tagihan Google Cloud · {billMonth(billing.month.start)}</h2>
+      <div className={styles.grid}>
+        <Stat icon="pulse" label="Sejauh ini" value={formatRupiah(billing.cost)} sub={`${formatBytes(billing.bytes)} dikirim server`} />
+        <Stat
+          icon="clock"
+          label="Perkiraan akhir bulan"
+          value={formatRupiah(billing.projectedCost)}
+          sub={`laju 7 hari terakhir ±${formatRupiah(billing.perDayCost)}/hari`}
+        />
+        <Stat icon="queue" label="Bulan lalu" value={formatRupiah(billing.previousCost)} sub={`${formatBytes(billing.previousBytes)} dikirim server`} />
+      </div>
+      <p className={styles.muted}>Biaya bulan ini per jenis</p>
+      <KindSplit values={billing.byKind} format={formatRupiah} />
+      <div className={styles.row}>
+        <span>Data keluar ke Cloudflare</span>
+        <span className={styles.rowValue}>{formatRupiah(billing.cost)}</span>
+      </div>
+      <div className={styles.row}>
+        <span>VM e2-micro, disk 30 GB, IP publik, data masuk dari YouTube</span>
+        <span className={styles.rowValue}>Rp 0 · free tier</span>
+      </div>
+      {billing.freeTier.map((check) => (
+        <div key={check.label} className={styles.row}>
+          <span>{check.label}</span>
+          <span className={check.ok ? styles.badge : styles.badgeOff}>
+            {check.ok ? `aman · ${formatBytes(check.detail)}` : `di luar free tier · ${formatBytes(check.detail)}`}
+          </span>
+        </div>
+      ))}
+      {!allFree && <p className={styles.error}>Ada syarat free tier yang tidak terpenuhi: VM atau disknya bisa ikut ditagih. Cek di Google Cloud Console.</p>}
+      <p className={styles.muted}>
+        Rp {pricing.rpPerGib.toLocaleString('id-ID')}/GiB × {pricing.overhead.toLocaleString('id-ID')} (tagihan ±{Math.round((pricing.overhead - 1) * 100)}% di
+        atas hitungan server: API, file aplikasi, tunnel), dikalibrasi dari tagihan Oktober 2026. Data ke Cloudflare tidak termasuk jatah gratis 200 GiB. Bulan
+        dipotong menurut waktu Pacific seperti tagihan Google. Atur lewat env <code>EGRESS_RP_PER_GIB</code> dan <code>EGRESS_OVERHEAD</code>.
+      </p>
+    </div>
+  );
+}
+
+export function Overview({ onOpenUsage }: { onOpenUsage: () => void }) {
   const { data, error } = useAdminData(adminApi.overview, REFRESH_MS);
   const usage = useAdminData(() => adminApi.usage(14), REFRESH_MS * 4);
   if (error) return <p className={styles.error}>{error}</p>;
   if (!data) return <p className={styles.muted}>Memuat…</p>;
-  const points = fillDailySeries(usage.data?.series ?? [], 14);
+  // Same days as the server grouped them (this browser's timezone), each the total of every kind.
+  const points: TrendPoint[] = dailyPoints(usage.data?.series ?? [], 14, 'bytes').map((point) => ({
+    x: point.x,
+    detail: point.detail,
+    value: point.values.song + point.values.podcast + point.values.video,
+  }));
 
   return (
     <>
@@ -74,6 +133,45 @@ export function Overview() {
         <Stat icon="pulse" label="Ruang Jam aktif" value={String(data.jamRooms)} />
         <Stat icon="wifi-off" label="Login terkunci" value={String(data.locked)} sub="sementara diblokir" />
       </Section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionLabel}>Hari ini · dibanding kemarin (WIB)</h3>
+        <div className={styles.grid}>
+          <Stat
+            icon="clock"
+            label="Waktu dengar"
+            value={formatListen(data.today.songSec + data.today.podcastSec)}
+            sub={`kemarin ${formatListen(data.yesterday.songSec + data.yesterday.podcastSec)} · podcast ${formatListen(data.today.podcastSec)}`}
+          />
+          <Stat
+            icon="queue"
+            label="Lagu & episode diputar"
+            value={data.today.plays.toLocaleString('id-ID')}
+            sub={`kemarin ${data.yesterday.plays.toLocaleString('id-ID')}`}
+          />
+          <Stat
+            icon="pulse"
+            label="Data hari ini"
+            value={formatBytes(data.today.songBytes + data.today.podcastBytes + data.today.videoBytes)}
+            sub={`kemarin ${formatBytes(data.yesterday.songBytes + data.yesterday.podcastBytes + data.yesterday.videoBytes)}`}
+          />
+          <Stat
+            icon="speaker"
+            label="Sedang mendengarkan"
+            value={String(data.listeningNow.length)}
+            sub={data.listeningNow.length ? data.listeningNow.map((row) => row.username).join(', ') : 'tidak ada'}
+          />
+        </div>
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Data hari ini per jenis</h2>
+          <KindSplit values={{ song: data.today.songBytes, podcast: data.today.podcastBytes, video: data.today.videoBytes }} format={formatBytes} />
+          <div className={styles.actions}>
+            <button type="button" className={styles.btn} onClick={onOpenUsage}>
+              Rincian pemakaian per pengguna
+            </button>
+          </div>
+        </div>
+      </section>
 
       <Section title="Pemutaran">
         <Stat
@@ -87,78 +185,18 @@ export function Overview() {
       </Section>
 
       <section className={styles.section}>
-        <h3 className={styles.sectionLabel}>Bandwidth</h3>
+        <h3 className={styles.sectionLabel}>Bandwidth & tagihan</h3>
         <div className={styles.grid}>
           <Stat icon="pulse" label="Hari ini" value={formatBytes(data.todayBytes)} sub="audio yang dikirim server" />
           <Stat icon="pulse" label="30 hari terakhir" value={formatBytes(data.monthBytes)} />
         </div>
-        <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Kuota bulan ini (patokan)</h2>
-          <div className={styles.row}>
-            <span>Terpakai bulan berjalan</span>
-            <span className={styles.rowValue}>
-              {formatBytes(data.bandwidthQuota.usedBytes)} dari {formatBytes(data.bandwidthQuota.quotaBytes)} (
-              {percent((data.bandwidthQuota.usedBytes / Math.max(data.bandwidthQuota.quotaBytes, 1)) * 100)})
-            </span>
-          </div>
-          <Meter fraction={data.bandwidthQuota.usedBytes / Math.max(data.bandwidthQuota.quotaBytes, 1)} />
-          <p className={styles.muted}>
-            Cuma jumlah audio yang lewat server ini, dihitung ulang tiap awal bulan, bukan angka resmi dari akun cloud-mu. Sesuaikan lewat env{' '}
-            <code>BANDWIDTH_QUOTA_GB</code> kalau kuota sebenarnya beda.
-          </p>
-        </div>
+        <BillingCard billing={data.billing} />
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>Tren 14 hari terakhir</h2>
           <TrendChart data={points} formatValue={formatBytes} ariaLabel="Pemakaian bandwidth 14 hari terakhir" />
           <ChartFigures points={points} />
         </div>
       </section>
-    </>
-  );
-}
-
-export function UsagePanel() {
-  const [days, setDays] = useState(30);
-  const { data, error } = useAdminData(() => adminApi.usage(days), REFRESH_MS * 4, String(days));
-  const points = fillDailySeries(data?.series ?? [], days);
-  const perUser = data?.perUser ?? [];
-  const max = Math.max(...perUser.map((row) => row.bytes), 1);
-  const videoTotal = (data?.series ?? []).reduce((sum, row) => sum + (row.videoBytes ?? 0), 0);
-
-  return (
-    <>
-      <div className={styles.chips}>
-        {[7, 30, 90].map((option) => (
-          <button key={option} type="button" className={`${styles.tab} ${days === option ? styles.tabActive : ''}`} onClick={() => setDays(option)}>
-            {option} hari
-          </button>
-        ))}
-      </div>
-      {error && <p className={styles.error}>{error}</p>}
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>Bandwidth per hari</h2>
-        <TrendChart data={points} formatValue={formatBytes} ariaLabel={`Pemakaian bandwidth ${days} hari terakhir`} />
-        <ChartFigures points={points} />
-        {videoTotal > 0 && <p className={styles.muted}>Termasuk video musik: {formatBytes(videoTotal)}</p>}
-      </div>
-      <div className={styles.card}>
-        <h2 className={styles.cardTitle}>Per pengguna</h2>
-        {perUser.length === 0 && <p className={styles.muted}>Belum ada pemakaian.</p>}
-        {perUser.map((row, index) => (
-          <div key={row.username} className={styles.userBar}>
-            <span className={styles.userBarRank}>{index + 1}</span>
-            <span className={styles.userBarName}>{row.username}</span>
-            <div className={styles.meter}>
-              <div className={styles.meterFill} style={{ width: `${(row.bytes / max) * 100}%` }} />
-            </div>
-            <span className={styles.rowValue}>
-              {formatBytes(row.bytes)}
-              {row.videoBytes > 0 && <span className={styles.muted}> · video {formatBytes(row.videoBytes)}</span>}
-            </span>
-          </div>
-        ))}
-        <p className={styles.muted}>Hanya jumlah byte yang dikirim server, bukan lagu apa yang diputar. Total sisi Cloudflare ada di dashboard Cloudflare.</p>
-      </div>
     </>
   );
 }
@@ -281,6 +319,22 @@ export function SystemPanel() {
           <span className={styles.rowValue}>{duration(data.host.uptimeSec)}</span>
         </div>
       </div>
+      {data.audioCache && (
+        <div className={styles.card}>
+          <h2 className={styles.cardTitle}>Cache lagu di disk server</h2>
+          <div className={styles.row}>
+            <span>{data.audioCache.files.toLocaleString('id-ID')} file lagu</span>
+            <span className={styles.rowValue}>
+              {formatBytes(data.audioCache.bytes)} dari batas {formatBytes(data.audioCache.maxBytes)} (
+              {percent((data.audioCache.bytes / Math.max(data.audioCache.maxBytes, 1)) * 100)})
+            </span>
+          </div>
+          <Meter fraction={data.audioCache.bytes / Math.max(data.audioCache.maxBytes, 1)} />
+          <p className={styles.muted}>
+            Lagu di sini diputar langsung dari disk VM, tanpa yt-dlp dan tanpa unduh ulang dari YouTube. Penuh: yang paling lama tak diputar dihapus duluan.
+          </p>
+        </div>
+      )}
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Aplikasi (backend)</h2>
         <div className={styles.row}>
@@ -307,6 +361,7 @@ export function SystemPanel() {
           </div>
         ))}
       </div>
+      <SystemHistory />
     </>
   );
 }

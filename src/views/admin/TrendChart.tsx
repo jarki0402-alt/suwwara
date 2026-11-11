@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import styles from './AdminView.module.css';
+import { edgeTransform } from './usageFormat';
 
 export interface TrendPoint {
   /** Short label under the axis (e.g. "09-21", "14:30"). */
@@ -31,7 +32,7 @@ export function TrendChart({ data, formatValue, ariaLabel, mini = false }: Trend
 
   const width = 720;
   const height = mini ? 96 : 260;
-  const padLeft = mini ? 2 : 54;
+  const padLeft = mini ? 2 : 6;
   const padRight = mini ? 2 : 12;
   const padTop = 14;
   const padBottom = mini ? 2 : 30;
@@ -51,83 +52,98 @@ export function TrendChart({ data, formatValue, ariaLabel, mini = false }: Trend
   const tickEvery = Math.max(1, Math.ceil(pts.length / 6));
   const colWidth = plotW / pts.length;
 
-  return (
-    <div className={styles.chartWrap} onMouseLeave={() => setHover(null)}>
-      <svg className={mini ? styles.chartMini : styles.chart} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={ariaLabel}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {!mini &&
-          Array.from({ length: GRID_LINES + 1 }, (_, i) => {
-            const gy = padTop + (plotH / GRID_LINES) * i;
-            return <line key={i} className={styles.gridLine} x1={padLeft} x2={width - padRight} y1={gy} y2={gy} />;
-          })}
-        <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-        <path d={linePath} fill="none" stroke="var(--color-accent)" strokeWidth={mini ? 1.5 : 2.25} strokeLinecap="round" strokeLinejoin="round" />
-        {hover !== null && (
-          <>
-            <line className={styles.crosshair} x1={xAt(hover)} x2={xAt(hover)} y1={padTop} y2={padTop + plotH} />
-            <circle cx={xAt(hover)} cy={yAt(data[hover].value)} r={mini ? 2.5 : 4.5} className={styles.dot} />
-          </>
-        )}
-        {!mini &&
-          data.map((point, i) => (
-            <rect key={point.x + i} x={xAt(i) - colWidth / 2} y={padTop} width={colWidth} height={plotH} fill="transparent" onMouseEnter={() => setHover(i)} />
-          ))}
-      </svg>
-      {/*
-       * Axis labels are plain HTML, not SVG <text>, on purpose: the chart above uses preserveAspectRatio="none" so it
-       * stretches to fill the card's actual width (never the same as the 720-unit viewBox), and that stretch scales X
-       * and Y independently. A <path> or <line> looks fine distorted that way, but SVG <text> glyphs are geometry too —
-       * they warp into visibly squashed/stretched letterforms. Percentage position here still lines up exactly with the
-       * SVG geometry beneath it (a viewBox-fraction always lands at the same rendered-box-fraction under `none`
-       * scaling), so only the *shape* moves to HTML, not the alignment.
-       */}
-      {!mini && (
-        <div className={styles.axisLabels} aria-hidden="true">
-          {Array.from({ length: GRID_LINES + 1 }, (_, i) => {
-            const gy = padTop + (plotH / GRID_LINES) * i;
-            const value = max * (1 - i / GRID_LINES);
-            return (
-              <span key={i} className={styles.axisYLabel} style={{ left: `${((padLeft - 8) / width) * 100}%`, top: `${(gy / height) * 100}%` }}>
-                {formatValue(value)}
-              </span>
-            );
-          })}
-          {pts.map(
-            (point, i) =>
-              (i % tickEvery === 0 || i === pts.length - 1) && (
-                <span key={point.x + i} className={styles.axisXLabel} style={{ left: `${(xAt(i) / width) * 100}%` }}>
-                  {point.x}
-                </span>
-              ),
-          )}
-        </div>
-      )}
-      {hover !== null && !mini && (
-        <div className={styles.tooltip} style={{ left: `${(xAt(hover) / width) * 100}%` }}>
-          <strong>{formatValue(data[hover].value)}</strong>
-          <span>{data[hover].detail ?? data[hover].x}</span>
-        </div>
-      )}
+  const yValues = Array.from({ length: GRID_LINES + 1 }, (_, i) => formatValue(max * (1 - i / GRID_LINES)));
+  const yLabels = !mini && (
+    <div className={styles.yAxis} aria-hidden="true">
+      {yValues.map((label, i) => (
+        <span key={i} className={styles.axisYLabel} style={{ top: `${((padTop + (plotH / GRID_LINES) * i) / height) * 100}%` }}>
+          {label}
+        </span>
+      ))}
     </div>
   );
-}
 
-/** Fills every day in the last `days` with 0 where the server had nothing to report — see the component doc above for why. */
-export function fillDailySeries(series: Array<{ day: string; bytes: number }>, days: number): TrendPoint[] {
-  const byDay = new Map(series.map((point) => [point.day, point.bytes]));
-  const points: TrendPoint[] = [];
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const date = new Date(cursor);
-    date.setDate(date.getDate() - offset);
-    const key = date.toISOString().slice(0, 10);
-    points.push({ x: key.slice(5), value: byDay.get(key) ?? 0, detail: key });
-  }
-  return points;
+  return (
+    <div
+      className={mini ? undefined : styles.chartFrame}
+      style={mini ? undefined : ({ '--y-chars': Math.max(...yValues.map((label) => label.length)) } as React.CSSProperties)}
+    >
+      {yLabels}
+      <div className={styles.chartWrap} onMouseLeave={() => setHover(null)}>
+        <svg className={mini ? styles.chartMini : styles.chart} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={ariaLabel}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {!mini &&
+            Array.from({ length: GRID_LINES + 1 }, (_, i) => {
+              const gy = padTop + (plotH / GRID_LINES) * i;
+              return <line key={i} className={styles.gridLine} x1={padLeft} x2={width - padRight} y1={gy} y2={gy} />;
+            })}
+          <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
+          <path d={linePath} fill="none" stroke="var(--color-accent)" strokeWidth={mini ? 1.5 : 2.25} strokeLinecap="round" strokeLinejoin="round" />
+          {hover !== null && (
+            <>
+              <line className={styles.crosshair} x1={xAt(hover)} x2={xAt(hover)} y1={padTop} y2={padTop + plotH} />
+              <circle cx={xAt(hover)} cy={yAt(data[hover].value)} r={mini ? 2.5 : 4.5} className={styles.dot} />
+            </>
+          )}
+          {!mini &&
+            data.map((point, i) => (
+              <rect
+                key={point.x + i}
+                x={xAt(i) - colWidth / 2}
+                y={padTop}
+                width={colWidth}
+                height={plotH}
+                fill="transparent"
+                onMouseEnter={() => setHover(i)}
+              />
+            ))}
+        </svg>
+        {/*
+         * Axis labels are plain HTML, not SVG <text>, on purpose: the chart above uses preserveAspectRatio="none" so it
+         * stretches to fill the card's actual width (never the same as the 720-unit viewBox), and that stretch scales X
+         * and Y independently. A <path> or <line> looks fine distorted that way, but SVG <text> glyphs are geometry too —
+         * they warp into visibly squashed/stretched letterforms. Percentage position here still lines up exactly with the
+         * SVG geometry beneath it (a viewBox-fraction always lands at the same rendered-box-fraction under `none`
+         * scaling), so only the *shape* moves to HTML, not the alignment.
+         */}
+        {!mini && (
+          <div className={styles.axisLabels} aria-hidden="true">
+            {pts.map(
+              (point, i) =>
+                // The last point is always labelled; the regular tick before it only when a full step away, or the two touch on a phone.
+                (i === pts.length - 1 || (i % tickEvery === 0 && pts.length - 1 - i >= tickEvery)) && (
+                  <span
+                    key={point.x + i}
+                    className={styles.axisXLabel}
+                    style={{
+                      left: `${(xAt(i) / width) * 100}%`,
+                      transform: edgeTransform((xAt(i) / width) * 100, 6, false),
+                    }}
+                  >
+                    {point.x}
+                  </span>
+                ),
+            )}
+          </div>
+        )}
+        {hover !== null && !mini && (
+          <div
+            className={styles.tooltip}
+            style={{
+              left: `${(xAt(hover) / width) * 100}%`,
+              transform: edgeTransform((xAt(hover) / width) * 100, 18),
+            }}
+          >
+            <strong>{formatValue(data[hover].value)}</strong>
+            <span>{data[hover].detail ?? data[hover].x}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

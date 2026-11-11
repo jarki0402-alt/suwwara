@@ -16,7 +16,7 @@ interface Secret {
 }
 
 /** Create users, hand out temporary passwords, switch accounts off, sign devices out, delete. The admin makes every account. */
-export function UsersPanel() {
+export function UsersPanel({ onOpenUser }: { onOpenUser: (accountId: string) => void }) {
   const me = useAuthStore((state) => state.user?.username);
   const { showToast } = useToast();
   const { data: users, error: loadError, reload } = useAdminData(adminApi.users);
@@ -128,6 +128,11 @@ export function UsersPanel() {
                 {user.sessions} sesi · {user.devices} perangkat · {user.last_login_at ? `masuk ${timeAgo(user.last_login_at)}` : 'belum pernah masuk'} · hari ini {formatBytes(user.today_bytes)} · 30 hari {formatBytes(user.month_bytes)}
               </span>
               <div className={styles.actions}>
+                {user.role !== 'admin' && (
+                  <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => onOpenUser(user.id)}>
+                    Lihat pemakaian
+                  </button>
+                )}
                 <button type="button" className={styles.btn} disabled={busy} onClick={() => void run(async () => setSecret({ username: user.username, password: (await adminApi.resetPassword(user.id)).temporaryPassword, kind: 'reset' }))}>
                   Reset sandi
                 </button>

@@ -4,17 +4,19 @@ import { signOut, useAuthStore } from '../../auth/authStore';
 import { Icon, type IconName } from '../../components/Icon/Icon';
 import { PasswordForm } from '../settings/PasswordForm';
 import { deviceLabel, timeAgo } from '../../utils/deviceLabel';
-import { Overview, PlaybackPanel, SecurityPanel, SystemPanel, UsagePanel } from './AdminPanels';
+import { Overview, PlaybackPanel, SecurityPanel, SystemPanel } from './AdminPanels';
+import { ReportPanel, UsagePanel, UserDetailPanel } from './UsageViews';
 import styles from './AdminConsole.module.css';
 import panelStyles from './AdminView.module.css';
 import { UsersPanel } from './UsersPanel';
 import { PodcastPicksPanel } from './PodcastPicksPanel';
 
-type Tab = 'ringkasan' | 'pengguna' | 'pemakaian' | 'sistem' | 'pemutaran' | 'podcast' | 'keamanan' | 'akun';
+type Tab = 'ringkasan' | 'pengguna' | 'pemakaian' | 'laporan' | 'sistem' | 'pemutaran' | 'podcast' | 'keamanan' | 'akun';
 const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: 'ringkasan', label: 'Ringkasan', icon: 'home' },
   { id: 'pengguna', label: 'Pengguna', icon: 'users' },
   { id: 'pemakaian', label: 'Pemakaian', icon: 'pulse' },
+  { id: 'laporan', label: 'Laporan', icon: 'download' },
   { id: 'sistem', label: 'Sistem', icon: 'database' },
   { id: 'pemutaran', label: 'Pemutaran', icon: 'speaker' },
   { id: 'podcast', label: 'Podcast', icon: 'podcast' },
@@ -80,8 +82,18 @@ function AccountPanel() {
  */
 export default function AdminConsole() {
   const user = useAuthStore((state) => state.user);
-  const [tab, setTab] = useState<Tab>('ringkasan');
+  const [tab, setTabState] = useState<Tab>('ringkasan');
+  // One person's usage page, opened from Pemakaian, Pengguna, Podcast or Laporan; "Kembali" returns to that tab.
+  const [person, setPerson] = useState<string | null>(null);
   const current = TABS.find((item) => item.id === tab) ?? TABS[0];
+  const setTab = (next: Tab) => {
+    setPerson(null);
+    setTabState(next);
+  };
+  const openUser = (accountId: string) => {
+    setPerson(accountId);
+    document.querySelector('main')?.scrollTo({ top: 0 });
+  };
 
   const brand = (
     <span className={styles.brand}>
@@ -124,15 +136,22 @@ export default function AdminConsole() {
 
       <main className={styles.content}>
         <div className={styles.page}>
-          <h1 className={styles.pageTitle}>{current.label}</h1>
-          {tab === 'ringkasan' && <Overview />}
-          {tab === 'pengguna' && <UsersPanel />}
-          {tab === 'pemakaian' && <UsagePanel />}
-          {tab === 'sistem' && <SystemPanel />}
-          {tab === 'pemutaran' && <PlaybackPanel />}
-          {tab === 'podcast' && <PodcastPicksPanel />}
-          {tab === 'keamanan' && <SecurityPanel />}
-          {tab === 'akun' && <AccountPanel />}
+          <h1 className={styles.pageTitle}>{person ? 'Pemakaian pengguna' : current.label}</h1>
+          {person ? (
+            <UserDetailPanel accountId={person} onBack={() => setPerson(null)} />
+          ) : (
+            <>
+              {tab === 'ringkasan' && <Overview onOpenUsage={() => setTab('pemakaian')} />}
+              {tab === 'pengguna' && <UsersPanel onOpenUser={openUser} />}
+              {tab === 'pemakaian' && <UsagePanel onOpenUser={openUser} />}
+              {tab === 'laporan' && <ReportPanel onOpenUser={openUser} />}
+              {tab === 'sistem' && <SystemPanel />}
+              {tab === 'pemutaran' && <PlaybackPanel />}
+              {tab === 'podcast' && <PodcastPicksPanel onOpenUser={openUser} />}
+              {tab === 'keamanan' && <SecurityPanel />}
+              {tab === 'akun' && <AccountPanel />}
+            </>
+          )}
         </div>
       </main>
     </div>

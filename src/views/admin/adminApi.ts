@@ -26,15 +26,135 @@ export interface Overview {
   jamRooms: number;
   resolve: { count: number; failures: number; avgMs: number | null; p95Ms: number | null; maxMs: number | null; queue: { pending: number; active: number } };
   locked: number;
-  /** Bandwidth so far this calendar month against a configurable reference point (BANDWIDTH_QUOTA_GB) — a heads-up, not an enforced cap. */
-  bandwidthQuota: { usedBytes: number; quotaBytes: number };
+  /** What this month's Google Cloud bill should come to (server/src/metrics/billing.ts). */
+  billing: Billing;
+  /** Who is playing right now and on what kind of device (never what). */
+  listeningNow: Array<{ username: string; kinds: string[] }>;
+  today: DayTotals;
+  yesterday: DayTotals;
+}
+
+/** Rp per GiB the bill charges for data sent to Cloudflare, and how far the bill runs above the bytes the server counts. */
+export interface Pricing {
+  rpPerGib: number;
+  overhead: number;
+}
+
+export interface Billing {
+  pricing: Pricing;
+  /** The bill's month, cut in Pacific time like Google's. */
+  month: { start: string; end: string };
+  bytes: number;
+  cost: number;
+  byKind: Record<UsageKind, number>;
+  projectedCost: number;
+  perDayCost: number;
+  previousBytes: number;
+  previousCost: number;
+  freeTier: Array<{ label: string; ok: boolean; detail: number }>;
+}
+
+/** One WIB day's usage, for Ringkasan's "vs kemarin". */
+export interface DayTotals {
+  songBytes: number;
+  podcastBytes: number;
+  videoBytes: number;
+  songSec: number;
+  podcastSec: number;
+  plays: number;
+}
+
+export type UsageKind = 'song' | 'podcast' | 'video';
+
+/** One kind's numbers over a range (server/src/routes/adminStats.ts). listenSec and the play counts come from the devices. */
+export interface KindTotals {
+  bytes: number;
+  diskBytes: number;
+  listenSec: number;
+  started: number;
+  completed: number;
+  skipped: number;
+}
+export type ByKind = Record<UsageKind, KindTotals>;
+
+/** Weekday (Monday first) × hour of day, in the admin's timezone. */
+export interface Heatmap {
+  listen: number[][];
+  bytes: number[][];
+}
+
+export interface UserUsage extends ByKind {
+  accountId: string;
+  username: string;
+  disabled: boolean;
+  peakHour: number | null;
+  activeDays: number;
+  lastSeen: string | null;
+  devices: string[];
+  listeningOn: string[];
 }
 
 export interface Usage {
   days: number;
-  /** `bytes` is everything sent (audio + video); `videoBytes` the music-video part of it. */
-  series: Array<{ day: string; bytes: number; videoBytes: number; requests: number }>;
-  perUser: Array<{ username: string; bytes: number; videoBytes: number; requests: number }>;
+  tz: string;
+  pricing: Pricing;
+  /** When devices started reporting listening time (null: not yet). Bytes go back further. */
+  listenSince: string | null;
+  totals: ByKind;
+  series: Array<{ day: string } & ByKind>;
+  heatmap: Heatmap;
+  perUser: UserUsage[];
+}
+
+export interface UserDetail {
+  days: number;
+  tz: string;
+  pricing: Pricing;
+  user: { accountId: string; username: string; disabled: boolean; createdAt: string; lastLoginAt: string | null; listeningOn: string[] };
+  totals: ByKind;
+  series: Array<{ day: string } & ByKind>;
+  heatmap: Heatmap;
+  last48h: Array<{ hour: string } & ByKind>;
+  devices: Array<{ userAgent: string; ip: string | null; signedInAt: string; lastSeen: string }>;
+  reports: PlaybackReport[];
+}
+
+export interface MonthSummary {
+  totals: ByKind;
+  activeUsers: number;
+  /** The month's bytes from the per-day table, which reaches further back than the hourly one. */
+  dailyTableBytes: number;
+}
+
+export interface MonthReport {
+  month: string;
+  tz: string;
+  pricing: Pricing;
+  /** The same month on Google's bill (Pacific time), and the one before. */
+  gcp: { current: { bytes: number; cost: number }; previous: { bytes: number; cost: number } };
+  months: string[];
+  current: MonthSummary;
+  previous: MonthSummary;
+  series: Array<{ day: string } & ByKind>;
+  heatmap: Heatmap;
+  perUser: UserUsage[];
+  resolve: { count: number; failures: number; avgMs: number | null; samples: number } | null;
+}
+
+export interface SystemSample {
+  at: string;
+  ram: number;
+  swapBytes: number;
+  load: number;
+  disk: number | null;
+  rssBytes: number;
+  cacheFiles: number | null;
+  cacheBytes: number | null;
+  dbBytes: number | null;
+  resolves: number;
+  failures: number;
+  avgMs: number | null;
+  queue: number;
 }
 
 export interface SystemInfo {
@@ -42,6 +162,7 @@ export interface SystemInfo {
   process: { rssBytes: number; heapUsedBytes: number; uptimeSec: number; node: string };
   disk: { totalBytes: number; freeBytes: number } | null;
   database: { sizeBytes: number; tables: Array<{ name: string; bytes: number; rows: number }> };
+  audioCache: { files: number; bytes: number; maxBytes: number } | null;
 }
 
 export interface LegacyAccount {
@@ -78,6 +199,9 @@ export interface PlaybackReport {
 
 export class AdminError extends Error {}
 
+/** The admin's own timezone: hours of day and days are grouped in it (the server checks it is a real zone). */
+const TZ = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta');
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/admin${path}`, {
     ...init,
@@ -102,7 +226,10 @@ export interface PodcastPick {
 export const adminApi = {
   overview: () => call<Overview>('/overview'),
   users: () => call<{ users: AdminUser[] }>('/users').then((r) => r.users),
-  usage: (days: number) => call<Usage>(`/usage?days=${days}`),
+  usage: (days: number) => call<Usage>(`/usage?days=${days}&tz=${TZ}`),
+  userUsage: (id: string, days: number) => call<UserDetail>(`/usage/user/${encodeURIComponent(id)}?days=${days}&tz=${TZ}`),
+  report: (month: string | null) => call<MonthReport>(`/report?tz=${TZ}${month ? `&month=${month}` : ''}`),
+  systemHistory: (hours: number) => call<{ hours: number; bucketSec: number; samples: SystemSample[] }>(`/system/history?hours=${hours}`),
   system: () => call<SystemInfo>('/system'),
   audit: () => call<AuditLog>('/audit?limit=100'),
   legacyAccounts: () => call<{ accounts: LegacyAccount[] }>('/legacy-accounts').then((r) => r.accounts),

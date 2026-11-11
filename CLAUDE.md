@@ -73,7 +73,7 @@ Tidak ada CI otomatis terdeteksi di repo ini — verifikasi manual (Docker + cur
 | `POSTGRES_PASSWORD` | `.env` (gitignored, copy dari `.env.example`) | Password Postgres, dipakai `postgres` & `backend` service |
 | `PORT` | backend | Default `8787` |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | `.env` → backend | Admin (konsol pengelolaan, tanpa pemutar) dibuat saat boot pertama (login **wajib** untuk semua). Sandi admin min. 12 karakter; kosong/terlalu pendek → dibuat acak dan dicetak sekali di `docker compose logs backend`; wajib diganti saat pertama masuk |
-| `BANDWIDTH_QUOTA_GB` | `.env` → backend | Angka patokan (bukan batas yang ditegakkan) buat kartu "Kuota bulan ini" di dashboard admin. Cuma menghitung audio yang lewat backend ini, jadi cuma perkiraan — cek kuota/harga egress asli di cloud-mu. Bawaan 200 kalau tak diisi |
+| `EGRESS_RP_PER_GIB` / `EGRESS_OVERHEAD` | `.env` → backend | Perkiraan tagihan GCP di dashboard admin ([server/src/metrics/billing.ts](./server/src/metrics/billing.ts)). Satu-satunya biaya VM ini adalah data keluar ke Cloudflare (*Carrier Peering*, **tidak** termasuk jatah gratis 200 GiB): ±Rp 1.450/GiB, dan tagihan ±8% di atas byte yang dihitung server (Okt 2026: 4,22 vs 3,92 GiB). Bawaan 1450 dan 1.08; kalibrasi ulang dari CSV billing kalau kurs/pola berubah. VM e2-micro, disk 30 GB, dan IP publik Rp 0 (free tier) |
 | `VIDEO_ENABLED` | `.env` → backend | `false` mematikan video musik (tombol Lagu \| Video tidak muncul, `/api/video` menolak). Bawaan nyala. Lihat [server/src/routes/video.ts](./server/src/routes/video.ts) |
 | `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD` | backend | Di-set di `docker-compose.yml`, jangan diganti jadi satu connection string (lihat aturan #5 di atas) |
 

@@ -8,6 +8,7 @@ import { initLibrarySync } from './sync/librarySync';
 import { initSpotifyImport } from './import/spotifyImport';
 import { initPodcastSync } from './podcast/podcastStore';
 import { initProfileSync } from './sync/profileSync';
+import { initListeningStats } from './stats/listeningStats';
 import { useUiStore } from './stores/uiStore';
 import { ChangePasswordScreen } from './views/auth/ChangePasswordScreen';
 import { LandingPage } from './views/auth/LandingPage';
@@ -44,6 +45,7 @@ function App() {
       initSpotifyImport();
       initPodcastSync();
       initProfileSync();
+      initListeningStats();
     }
   }, [status, mustChangePassword, isAdmin]);
 

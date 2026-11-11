@@ -54,7 +54,8 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       # Admin dashboard's "Kuota bulan ini" display — a reference point, not an enforced limit. See .env.example.
-      - BANDWIDTH_QUOTA_GB=${BANDWIDTH_QUOTA_GB:-200}
+      - EGRESS_RP_PER_GIB=${EGRESS_RP_PER_GIB:-1450}
+      - EGRESS_OVERHEAD=${EGRESS_OVERHEAD:-1.08}
       - VIDEO_ENABLED=${VIDEO_ENABLED:-true}
       # YouTube's DNS answers include IPv6 addresses this VM's Docker network cannot route; a client that tries one first
       # waits out the whole connect timeout before falling back (searches hung ~60s, chunk fetches failed).

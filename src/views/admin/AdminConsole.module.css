@@ -21,7 +21,8 @@
   background: var(--glass-bg);
   backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
   -webkit-backdrop-filter: blur(var(--blur-md)) var(--glass-saturate);
-  box-shadow: var(--glass-sheen);
+  /* No glass sheen here: its 0.5px inset ring drew a line along the bottom, cutting this bar off from the row of tabs
+   * right under it, which is the same header. */
 }
 
 .brand {
@@ -118,10 +119,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1 / 1;
+  /* A text pill ("Keluar"), not a round icon: a forced 1:1 ratio blew it up into a big circle on phones. */
+  flex-shrink: 0;
+  min-height: 34px;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
-  padding: 7px 14px;
+  padding: 6px 14px;
   background: var(--glass-bg-strong);
   backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
   -webkit-backdrop-filter: blur(var(--blur-sm)) var(--glass-saturate);
@@ -244,4 +247,21 @@
 .muted {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
+}
+
+/* Laporan → Cetak / PDF: only the page itself, on white, full width. */
+@media print {
+  .sidebar,
+  .topbar,
+  .tabs {
+    display: none !important;
+  }
+  .shell,
+  .content {
+    position: static;
+    display: block;
+    height: auto;
+    overflow: visible;
+    padding: 0;
+  }
 }

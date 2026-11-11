@@ -1,4 +1,4 @@
-import { readFile, statfs } from 'node:fs/promises';
+import { statfs } from 'node:fs/promises';
 import os from 'node:os';
 import { Router } from 'express';
 import { clearPlaybackReports, listPlaybackReports } from '../diagnostics/playbackReports';
@@ -7,11 +7,14 @@ import { loginLimiter } from '../auth/loginLimiter';
 import { generatePassword, hashPassword } from '../auth/password';
 import { clientIp, forgetSessions, requireAdmin, revokeAccountSessions } from '../auth/sessions';
 import { createUser, normalizeUsername, UsernameTakenError } from '../auth/users';
-import { onlineDeviceCount } from '../connect/connectHub';
+import { listeningNow, onlineDeviceCount } from '../connect/connectHub';
 import { sql } from '../db/client';
 import { roomCount } from '../jam/roomManager';
 import { flushUsage } from '../metrics/usage';
 import { resolveSummary } from '../metrics/resolveStats';
+import { memInfo } from '../metrics/systemSamples';
+import { billingSummary } from '../metrics/billing';
+import { diskCacheStats } from '../youtube/diskCache';
 import { resolveQueueState } from '../youtube/stream';
 
 /**
@@ -20,13 +23,6 @@ import { resolveQueueState } from '../youtube/stream';
  * for every non-admin route registered after it.
  */
 
-/**
- * A reference point for "am I about to get an egress bill", not an enforced cap — nothing here throttles or blocks once
- * it's passed. Only this backend's own audio bytes count towards it (the same figure the Ringkasan/Pemakaian tabs
- * already show), so it is at best an approximation of whatever your cloud provider actually meters and bills for the
- * VM's network egress; check your own provider's current quota/pricing for the real number and adjust the env var.
- */
-const BANDWIDTH_QUOTA_BYTES = (Number(process.env.BANDWIDTH_QUOTA_GB) || 200) * 1024 ** 3;
 export const adminRouter = Router();
 adminRouter.use('/admin', requireAdmin);
 
@@ -163,35 +159,41 @@ adminRouter.delete('/admin/users/:id', async (req, res) => {
 
 // ---- usage / overview / system -----------------------------------------------------------------
 
-adminRouter.get('/admin/usage', async (req, res) => {
-  const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 90);
-  await flushUsage();
-  const series = await sql<{ day: string; bytes: string; video_bytes: string; requests: number }[]>`
-    select to_char(day, 'YYYY-MM-DD') as day, sum(audio_bytes + video_bytes)::bigint as bytes, sum(video_bytes)::bigint as video_bytes, sum(audio_requests)::int as requests
-    from usage_daily where day > current_date - ${days}::int group by day order by day`;
-  const perUser = await sql<{ username: string; bytes: string; video_bytes: string; requests: number }[]>`
-    select u.username, sum(x.audio_bytes + x.video_bytes)::bigint as bytes, sum(x.video_bytes)::bigint as video_bytes, sum(x.audio_requests)::int as requests
-    from usage_daily x join users u on u.account_id = x.account_id
-    where x.day > current_date - ${days}::int group by u.username order by 2 desc limit 50`;
-  res.json({
-    days,
-    // `bytes` is everything the server sent (audio + video), `videoBytes` the part of it that was music videos.
-    series: series.map((row) => ({ day: row.day, bytes: Number(row.bytes), videoBytes: Number(row.video_bytes), requests: row.requests })),
-    perUser: perUser.map((row) => ({ username: row.username, bytes: Number(row.bytes), videoBytes: Number(row.video_bytes), requests: row.requests })),
-  });
-});
+// /admin/usage (and a person's detail, the monthly report, system history) live in adminStats.ts.
 
 adminRouter.get('/admin/overview', async (_req, res) => {
   await flushUsage();
-  const [counts] = await sql<{ users: number; disabled: number; sessions: number; active_now: number; today_bytes: string; month_bytes: string; billing_cycle_bytes: string }[]>`
+  const playing = listeningNow();
+  const names = playing.length
+    ? await sql<{ account_id: string; username: string }[]>`select account_id, username from users where account_id in ${sql(playing.map((row) => row.accountId))}`
+    : [];
+  const nameOf = new Map(names.map((row) => [row.account_id, row.username]));
+  // Today and yesterday by kind, in WIB (the listeners' day), for the "vs kemarin" figures.
+  const days = await sql<{ day: string; kind: string; bytes: string; listen_sec: string; started: string }[]>`
+    select case when (hour at time zone 'Asia/Jakarta')::date = (now() at time zone 'Asia/Jakarta')::date then 'today' else 'yesterday' end as day,
+      kind, sum(bytes)::bigint as bytes, sum(listen_sec)::bigint as listen_sec, sum(started)::bigint as started
+    from usage_hourly where hour >= ((now() at time zone 'Asia/Jakarta')::date - 1)::timestamp at time zone 'Asia/Jakarta'
+    group by 1, 2`;
+  const dayTotals = (which: string) => {
+    const pick = days.filter((row) => row.day === which);
+    const sum = (kind: string, field: 'bytes' | 'listen_sec' | 'started') => pick.filter((row) => row.kind === kind).reduce((total, row) => total + Number(row[field]), 0);
+    return {
+      songBytes: sum('song', 'bytes'),
+      podcastBytes: sum('podcast', 'bytes'),
+      videoBytes: sum('video', 'bytes'),
+      songSec: sum('song', 'listen_sec'),
+      podcastSec: sum('podcast', 'listen_sec'),
+      plays: sum('song', 'started') + sum('podcast', 'started'),
+    };
+  };
+  const [counts] = await sql<{ users: number; disabled: number; sessions: number; active_now: number; today_bytes: string; month_bytes: string }[]>`
     select
       (select count(*)::int from users) as users,
       (select count(*)::int from users where disabled) as disabled,
       (select count(*)::int from sessions where expires_at > now()) as sessions,
       (select count(distinct account_id)::int from sessions where last_seen_at > now() - interval '15 minutes' and expires_at > now()) as active_now,
       coalesce((select sum(audio_bytes + video_bytes) from usage_daily where day = current_date), 0)::bigint as today_bytes,
-      coalesce((select sum(audio_bytes + video_bytes) from usage_daily where day > current_date - 30), 0)::bigint as month_bytes,
-      coalesce((select sum(audio_bytes + video_bytes) from usage_daily where day >= date_trunc('month', current_date)::date), 0)::bigint as billing_cycle_bytes`;
+      coalesce((select sum(audio_bytes + video_bytes) from usage_daily where day > current_date - 30), 0)::bigint as month_bytes`;
   res.json({
     users: counts.users,
     disabled: counts.disabled,
@@ -203,23 +205,17 @@ adminRouter.get('/admin/overview', async (_req, res) => {
     jamRooms: roomCount(),
     resolve: { ...resolveSummary(), queue: resolveQueueState() },
     locked: loginLimiter.lockedNow().length,
-    bandwidthQuota: { usedBytes: Number(counts.billing_cycle_bytes), quotaBytes: BANDWIDTH_QUOTA_BYTES },
+    // What the Google Cloud bill should come to this month (metrics/billing.ts).
+    billing: await billingSummary(),
+    listeningNow: playing.map((row) => ({ username: nameOf.get(row.accountId) ?? '?', kinds: row.kinds })),
+    today: dayTotals('today'),
+    yesterday: dayTotals('yesterday'),
   });
 });
 
-async function memInfo(): Promise<{ totalBytes: number; availableBytes: number; swapUsedBytes: number; swapTotalBytes: number }> {
-  try {
-    const text = await readFile('/proc/meminfo', 'utf8');
-    const kb = (name: string) => Number(new RegExp(`^${name}:\\s+(\\d+)`, 'm').exec(text)?.[1] ?? 0) * 1024;
-    return { totalBytes: kb('MemTotal'), availableBytes: kb('MemAvailable'), swapUsedBytes: kb('SwapTotal') - kb('SwapFree'), swapTotalBytes: kb('SwapTotal') };
-  } catch {
-    return { totalBytes: os.totalmem(), availableBytes: os.freemem(), swapUsedBytes: 0, swapTotalBytes: 0 };
-  }
-}
-
 adminRouter.get('/admin/system', async (_req, res) => {
   const memory = process.memoryUsage();
-  const disk = await statfs('/').catch(() => null);
+  const [disk, cache] = await Promise.all([statfs('/').catch(() => null), diskCacheStats()]);
   const [db] = await sql<{ size: string }[]>`select pg_database_size(current_database())::bigint as size`;
   const tables = await sql<{ name: string; bytes: string; rows: number }[]>`
     select c.relname as name, pg_total_relation_size(c.oid)::bigint as bytes, c.reltuples::int as rows
@@ -230,6 +226,7 @@ adminRouter.get('/admin/system', async (_req, res) => {
     process: { rssBytes: memory.rss, heapUsedBytes: memory.heapUsed, uptimeSec: Math.round(process.uptime()), node: process.version },
     disk: disk ? { totalBytes: disk.blocks * disk.bsize, freeBytes: disk.bavail * disk.bsize } : null,
     database: { sizeBytes: Number(db.size), tables: tables.map((row) => ({ name: row.name, bytes: Number(row.bytes), rows: Math.max(row.rows, 0) })) },
+    audioCache: cache,
   });
 });
 

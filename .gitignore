@@ -21,6 +21,7 @@ dist-ssr
 # "Sign in to confirm you're not a bot" — see server/src/youtube/stream.ts.
 # Real session credentials, never committed.
 cookies.txt
+youtube-account/
 
 # Editor directories and files
 .vscode/*

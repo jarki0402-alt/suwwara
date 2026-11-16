@@ -14,7 +14,10 @@
     /* Equal side columns: the search is centred on the page whatever is beside it. Each side keeps room for the
        greeting ("Halo, name") and for the two round buttons; on a narrower page the search gives way, not them.
        Part of the page (asked for): it scrolls away with it, greeting and all, instead of staying pinned on top. */
-    grid-template-columns: minmax(220px, 1fr) minmax(220px, 580px) minmax(220px, 1fr);
+    /* The floors give way on a narrow page (min(), 2026-11): a TV browser is often 960 px wide, and at 1280 with the
+       Now Playing panel open the page is ~640 px; three fixed 220 px columns overflowed there and the round buttons
+       on the right were cut off. On a wide page min() picks 220 px, exactly as before. */
+    grid-template-columns: minmax(min(220px, 22%), 1fr) minmax(min(220px, 30%), 580px) minmax(min(220px, 22%), 1fr);
     align-items: center;
     column-gap: var(--space-4);
     position: relative;

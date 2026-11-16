@@ -117,7 +117,7 @@ export function EpisodeOverviewPanel({ song }: { song: Song }) {
       <section className={styles.section}>
         <h3 className={styles.heading}>{t('Antrean podcast')}</h3>
         {queue.length === 0 ? (
-          <p className={styles.meta}>{t('Episode yang kamu tambahkan diputar setelah ini selesai. Saran di bawah tidak diputar sendiri.')}</p>
+          <p className={styles.meta}>{t('Episode yang kamu tambahkan diputar setelah ini selesai. Kalau kosong, lanjut ke episode yang mirip.')}</p>
         ) : (
           queue.map((e) => <MiniEpisode key={e.id} episode={e} list={queue} queued />)
         )}

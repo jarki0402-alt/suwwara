@@ -1,5 +1,5 @@
 import { formatBytes } from '../../utils/formatBytes';
-import type { ByKind, Pricing, UsageKind } from './adminApi';
+import type { ByKind, UsageKind } from './adminApi';
 
 /** Labels, units and day arithmetic shared by the usage charts and pages (UsageCharts.tsx, UsageViews.tsx). */
 
@@ -83,8 +83,8 @@ export function edgeTransform(percent: number, margin = 12, clampStart = true): 
   return clampStart && percent < margin ? 'translateX(0)' : percent > 100 - margin ? 'translateX(-100%)' : 'translateX(-50%)';
 }
 
-/** "Rp 26.500": whole rupiah, Indonesian grouping. */
-export const formatRupiah = (value: number) => `Rp ${Math.round(value).toLocaleString('id-ID')}`;
-
-/** Bytes the server sent, as rupiah on the Google Cloud bill (the same formula as server/src/metrics/billing.ts). */
-export const costOf = (bytes: number, pricing: Pricing) => (bytes / 1024 ** 3) * pricing.overhead * pricing.rpPerGib;
+/** "12,4%" of the free egress: one decimal below 10%, where a whole percent would read 0% for weeks. */
+export const quotaPercent = (bytes: number, free: number) => {
+  const value = free > 0 ? (bytes / free) * 100 : 0;
+  return `${value.toLocaleString('id-ID', { maximumFractionDigits: value < 10 ? 1 : 0 })}%`;
+};

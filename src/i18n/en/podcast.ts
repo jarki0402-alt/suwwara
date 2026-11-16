@@ -49,14 +49,16 @@ export const podcast: Dictionary = {
   '1 jam': '1 hour',
   '{n} menit': { one: '{n} minute', other: '{n} minutes' },
   'Matikan timer': 'Turn off timer',
+  'Akhir episode ini': 'End of this episode',
+  'Timer tidur, berhenti di akhir episode': 'Sleep timer, stops at the end of the episode',
   'Memuat transkrip...': 'Loading transcript...',
   'Transkrip belum tersedia untuk episode ini.': 'No transcript for this episode yet.',
   'Antrean podcast': 'Podcast queue',
   'Tambahkan ke antrean': 'Add to queue',
   'Hapus dari antrean': 'Remove from queue',
   'Ditambahkan ke antrean podcast.': 'Added to the podcast queue.',
-  'Episode yang kamu tambahkan diputar setelah ini selesai. Saran di bawah tidak diputar sendiri.':
-    "Episodes you add play after this one ends. The suggestions below never play on their own.",
+  'Episode yang kamu tambahkan diputar setelah ini selesai. Kalau kosong, lanjut ke episode yang mirip.':
+    "Episodes you add play after this one ends. If there are none, a similar episode follows.",
   'Mirip episode ini': 'More like this',
   'Mirip yang kamu dengar': 'Like what you listened to',
   'Dari channel yang kamu ikuti': 'From the channels you follow',

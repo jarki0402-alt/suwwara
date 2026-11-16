@@ -2,6 +2,7 @@ import { readFile, statfs } from 'node:fs/promises';
 import os from 'node:os';
 import { sql } from '../db/client';
 import { diskCacheStats } from '../youtube/diskCache';
+import { sampleEgress } from './egress';
 import { resolveQueueState } from '../youtube/stream';
 import { resolveSummary } from './resolveStats';
 
@@ -32,13 +33,15 @@ async function takeSample(): Promise<void> {
       sql<{ size: string }[]>`select pg_database_size(current_database())::bigint as size`,
     ]);
     const resolve = resolveSummary(SAMPLE_EVERY_MS);
+    // Its own failure (no host /sys mounted, a table not there yet) must not cost the rest of the sample.
+    const net = await sampleEgress().catch(() => null);
     await sql`
       insert into system_samples (at, ram_used_bytes, ram_total_bytes, swap_used_bytes, load1, cpus, disk_used_bytes, disk_total_bytes,
-        rss_bytes, cache_files, cache_bytes, db_bytes, resolves, resolve_failures, resolve_avg_ms, queue_pending)
+        rss_bytes, cache_files, cache_bytes, db_bytes, resolves, resolve_failures, resolve_avg_ms, queue_pending, net_tx_bytes, net_rx_bytes)
       values (date_trunc('minute', now()), ${memory.totalBytes - memory.availableBytes}, ${memory.totalBytes}, ${memory.swapUsedBytes},
         ${os.loadavg()[0]}, ${os.cpus().length}, ${disk ? (disk.blocks - disk.bavail) * disk.bsize : null}, ${disk ? disk.blocks * disk.bsize : null},
         ${process.memoryUsage().rss}, ${cache?.files ?? null}, ${cache?.bytes ?? null}, ${Number(db.size)},
-        ${resolve.count}, ${resolve.failures}, ${resolve.avgMs}, ${Math.min(resolveQueueState().pending, 32767)})
+        ${resolve.count}, ${resolve.failures}, ${resolve.avgMs}, ${Math.min(resolveQueueState().pending, 32767)}, ${net?.tx ?? null}, ${net?.rx ?? null})
       on conflict (at) do nothing`;
     await sql`delete from system_samples where at < now() - make_interval(days => ${KEEP_DAYS}::int)`;
   } catch {

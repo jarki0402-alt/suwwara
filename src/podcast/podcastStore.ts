@@ -35,8 +35,12 @@ interface PodcastState {
   speed: number;
   sleep: SleepTimer | null;
   context: PlayContext | null;
-  /** Episodes the listener queued: the only thing an ending episode continues into (see usePlaybackController). */
+  /** Episodes the listener queued: what an ending episode continues into first (see usePlaybackController). */
   queue: Episode[];
+  /** What plays after `upNext.after` ends when nothing is queued (pickUpNext), worked out while it plays. */
+  upNext: { after: string; episode: Episode } | null;
+  /** The episode whose "Berikutnya" card was closed: it just stops at its end, like before autoplay. */
+  autoNextOffFor: string | null;
   loadedAt: number;
   hydrate: () => Promise<void>;
   isFollowing: (channelId: string) => boolean;
@@ -48,6 +52,8 @@ interface PodcastState {
   setSpeed: (speed: number) => void;
   setSleep: (sleep: SleepTimer | null) => void;
   setContext: (context: PlayContext | null) => void;
+  setUpNext: (upNext: { after: string; episode: Episode } | null) => void;
+  setAutoNextOff: (episodeId: string | null) => void;
   isQueued: (id: string) => boolean;
   addToQueue: (episode: Episode) => void;
   removeFromQueue: (id: string) => void;
@@ -97,6 +103,8 @@ export const usePodcastStore = create<PodcastState>()(
       sleep: null,
       context: null,
       queue: [],
+      upNext: null,
+      autoNextOffFor: null,
       loadedAt: 0,
 
       hydrate: async () => {
@@ -157,6 +165,8 @@ export const usePodcastStore = create<PodcastState>()(
       setSpeed: (speed) => set({ speed }),
       setSleep: (sleep) => set({ sleep }),
       setContext: (context) => set({ context }),
+      setUpNext: (upNext) => set({ upNext }),
+      setAutoNextOff: (autoNextOffFor) => set({ autoNextOffFor }),
 
       isQueued: (id) => get().queue.some((e) => e.id === id),
       addToQueue: (episode) => {

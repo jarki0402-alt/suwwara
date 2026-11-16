@@ -53,9 +53,8 @@ services:
       # Leave ADMIN_PASSWORD empty to have one generated and printed once in `docker compose logs backend`.
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
-      # Admin dashboard's "Kuota bulan ini" display — a reference point, not an enforced limit. See .env.example.
-      - EGRESS_RP_PER_GIB=${EGRESS_RP_PER_GIB:-1450}
-      - EGRESS_OVERHEAD=${EGRESS_OVERHEAD:-1.08}
+      # Admin's "Data keluar" reads the VM's busiest non-Docker network card; set this only if it picks the wrong one.
+      - NET_IFACE=${NET_IFACE:-}
       - VIDEO_ENABLED=${VIDEO_ENABLED:-true}
       # YouTube's DNS answers include IPv6 addresses this VM's Docker network cannot route; a client that tries one first
       # waits out the whole connect timeout before falling back (searches hung ~60s, chunk fetches failed).
@@ -64,6 +63,10 @@ services:
       - AUDIO_CACHE_MAX_MB=${AUDIO_CACHE_MAX_MB:-6144}
     volumes:
       - suwwara-audio-cache:/data/audio-cache
+      # The host's /sys, read-only, for one thing: the VM network card's byte counters (server/src/metrics/egress.ts),
+      # the same number Google meters for egress. The container's own /sys only shows its veth. Read-only, and the
+      # backend never writes or reads anything else there.
+      - /sys:/host/sys:ro
     sysctls:
       net.ipv6.conf.all.disable_ipv6: 1
 
@@ -83,6 +86,11 @@ services:
       - bgutil-provider
     sysctls:
       net.ipv6.conf.all.disable_ipv6: 1
+    volumes:
+      # The backup YouTube account (youtube-account/cookies.txt, gitignored, steps in DEPLOY.md): only used after
+      # YouTube refuses an anonymous resolve, see main.py. An empty folder simply means no account. Read-only: the
+      # service works on its own copy, and replacing the file is picked up without a restart.
+      - ./youtube-account:/account:ro
 
   bgutil-provider:
     logging: *default-logging

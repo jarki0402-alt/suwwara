@@ -33,11 +33,18 @@ import { trendingIdRouter } from './routes/trendingId';
 import { usageRouter } from './routes/usage';
 import { adminStatsRouter } from './routes/adminStats';
 import './metrics/systemSamples';
+import { noteCloudflare } from './metrics/egress';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 8787;
 
 app.use(cors());
+// Is Cloudflare's proxy (orange cloud) in front again? Its bytes are paid egress, the direct ones free: the admin card
+// warns. One header look per request, nothing stored per request (metrics/egress.ts).
+app.use((req, _res, next) => {
+  noteCloudflare(req.headers['cf-ray']);
+  next();
+});
 // 1mb: a profile snapshot or a Spotify import's track list is well past the 100kb default and would be refused.
 // The library snapshot gets more: a Spotify import puts a whole library in it at once (~0.9KB a song, so 1000 songs
 // imported into likes and playlists is already over 1mb). 8mb parses to tens of MB for a moment, once per save, so it is

@@ -24,33 +24,56 @@ export interface Overview {
   monthBytes: number;
   onlineDevices: number;
   jamRooms: number;
-  resolve: { count: number; failures: number; avgMs: number | null; p95Ms: number | null; maxMs: number | null; queue: { pending: number; active: number } };
+  resolve: {
+    count: number;
+    failures: number;
+    avgMs: number | null;
+    p95Ms: number | null;
+    maxMs: number | null;
+    queue: { pending: number; active: number };
+    /** Null when ytdlp-service did not answer in time. Times are epoch seconds. */
+    account: YoutubeAccount | null;
+  };
   locked: number;
-  /** What this month's Google Cloud bill should come to (server/src/metrics/billing.ts). */
-  billing: Billing;
+  /** Everything the VM sent this month, against the 200 GiB free egress (server/src/metrics/egress.ts). */
+  egress: Egress;
   /** Who is playing right now and on what kind of device (never what). */
   listeningNow: Array<{ username: string; kinds: string[] }>;
   today: DayTotals;
   yesterday: DayTotals;
 }
 
-/** Rp per GiB the bill charges for data sent to Cloudflare, and how far the bill runs above the bytes the server counts. */
-export interface Pricing {
-  rpPerGib: number;
-  overhead: number;
+/** One Pacific month (Google's) of data out. `total` is the VM's card where measured, the app's counts before that. */
+export interface EgressMonth {
+  start: string;
+  end: string;
+  total: number;
+  /** Measured on the VM's network card (at least part of the month). */
+  measured: boolean;
+  vmTx: number;
+  vmRx: number;
+  /** Audio and video the server counted itself. */
+  counted: number;
+  byKind: Record<UsageKind, number>;
+  /** API, app files, HLS playlists, Jam/Connect, TLS: the card's bytes the app doesn't count itself. */
+  other: number;
 }
 
-export interface Billing {
-  pricing: Pricing;
-  /** The bill's month, cut in Pacific time like Google's. */
-  month: { start: string; end: string };
-  bytes: number;
-  cost: number;
-  byKind: Record<UsageKind, number>;
-  projectedCost: number;
-  perDayCost: number;
-  previousBytes: number;
-  previousCost: number;
+export interface Egress {
+  freeBytes: number;
+  measuredSince: string | null;
+  iface: string | null;
+  month: EgressMonth;
+  previous: EgressMonth;
+  perDay: number;
+  paceFromCard: boolean;
+  projected: number;
+  today: { tx: number; rx: number } | null;
+  yesterday: { tx: number } | null;
+  /** Last 14 WIB days from the card. */
+  daily: Array<{ day: string; tx: number; rx: number }>;
+  /** Cloudflare's proxy seen in the last hour (CF-Ray on requests): its egress is paid. */
+  cloudflare: { seenAt: string | null; requests: number; active: boolean };
   freeTier: Array<{ label: string; ok: boolean; detail: number }>;
 }
 
@@ -97,7 +120,6 @@ export interface UserUsage extends ByKind {
 export interface Usage {
   days: number;
   tz: string;
-  pricing: Pricing;
   /** When devices started reporting listening time (null: not yet). Bytes go back further. */
   listenSince: string | null;
   totals: ByKind;
@@ -114,7 +136,6 @@ export interface Usage {
 export interface UserDetail {
   days: number;
   tz: string;
-  pricing: Pricing;
   user: { accountId: string; username: string; disabled: boolean; createdAt: string; lastLoginAt: string | null; listeningOn: string[] };
   totals: ByKind;
   series: Array<{ day: string } & ByKind>;
@@ -137,9 +158,13 @@ export interface MonthSummary {
 export interface MonthReport {
   month: string;
   tz: string;
-  pricing: Pricing;
-  /** The same month on Google's bill (Pacific time), and the one before. */
-  gcp: { current: { bytes: number; cost: number }; previous: { bytes: number; cost: number } };
+  /** Everything the VM sent in the same month as Google counts it (Pacific time), and the one before. */
+  egress: {
+    freeBytes: number;
+    measuredSince: string | null;
+    current: EgressReportMonth;
+    previous: EgressReportMonth;
+  };
   months: string[];
   current: MonthSummary;
   previous: MonthSummary;
@@ -147,6 +172,14 @@ export interface MonthReport {
   heatmap: Heatmap;
   perUser: UserUsage[];
   resolve: { count: number; failures: number; avgMs: number | null; samples: number } | null;
+}
+
+export interface EgressReportMonth {
+  total: number;
+  measured: boolean;
+  counted: number;
+  vmRx: number;
+  other: number;
 }
 
 export interface SystemSample {
@@ -163,6 +196,9 @@ export interface SystemSample {
   failures: number;
   avgMs: number | null;
   queue: number;
+  /** Bytes the VM's card sent / received in the bucket (null: not measured then). */
+  netTxBytes: number | null;
+  netRxBytes: number | null;
 }
 
 export interface SystemInfo {
@@ -263,3 +299,17 @@ export const adminApi = {
   playbackReports: () => call<{ reports: PlaybackReport[] }>('/playback-reports').then((r) => r.reports),
   clearPlaybackReports: () => call<void>('/playback-reports', { method: 'DELETE' }),
 };
+
+/** The backup YouTube account (server/ytdlp-service/main.py), used only after YouTube refuses an anonymous resolve. */
+export interface YoutubeAccount {
+  configured: boolean;
+  resting: boolean;
+  restUntil: number | null;
+  firstUntil: number | null;
+  lastOkAt: number | null;
+  lastFailAt: number | null;
+  lastError: string | null;
+  ok: number;
+  failed: number;
+  needsAccount: number;
+}

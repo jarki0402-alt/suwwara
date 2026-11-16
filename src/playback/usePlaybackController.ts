@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Song } from '../api/types';
 import { cacheSongs } from '../api/songCache';
-import { prefetchAudioResolveOnly } from '../api/musicClient';
+import { fetchPlayability, prefetchAudioResolveOnly } from '../api/musicClient';
 import { audioEngine, isAndroid } from '../audio-engine/AudioEngine';
 import { AudioCache } from '../audio-engine/AudioCache';
 import { useAudioEngine } from '../audio-engine/useAudioEngine';
@@ -9,7 +9,7 @@ import { useToast } from '../components/Toast/ToastProvider';
 import { useConnectStore } from '../connect/connectStore';
 import { remotePlayhead, remoteSeek, remoteSetPlaying, remoteTogglePlay } from '../connect/remote';
 import { isEpisode } from '../podcast/episodeRegistry';
-import { playEpisode, songToEpisode } from '../podcast/playEpisode';
+import { continueWithEpisode, playEpisode, songToEpisode, upNextFor } from '../podcast/playEpisode';
 import { resumePositionFor, usePodcastStore } from '../podcast/podcastStore';
 import { applyResumePoint, clearResumePoint, consumeHold } from '../connect/sessionHold';
 import { sendJamIntent } from '../jam/jamClient';
@@ -146,6 +146,13 @@ export function usePlaybackController() {
   // The one song id that has already had its quiet automatic retry (see the error effect).
   const retriedSongIdRef = useRef<string | null>(null);
   const retryPendingRef = useRef(false);
+  // The song the server says YouTube will not let play here (private, removed, age-restricted without the backup
+  // account): no retry, no "Coba lagi", no background retry loop, just the next song.
+  const unplayableSongIdRef = useRef<string | null>(null);
+  // The song just skipped because it failed, and when. Right after the skip the engine sync below can copy that song's
+  // error once more under the newly selected song (from a render that still holds the old snapshot): without this, the
+  // next song was taken for a failure of its own and reloaded ~0.8 s after it had started (an audible restart).
+  const skippedAfterErrorRef = useRef<{ id: string; at: number } | null>(null);
   // Tracks which song id has already reached 'playing' at least once, and which
   // song id has already had its one allowed quality-drop attempt — both reset
   // implicitly by comparing against currentSong.id, so a new track always gets
@@ -403,9 +410,11 @@ export function usePlaybackController() {
       if (advancedForSongIdRef.current === song.id) return;
       advancedForSongIdRef.current = song.id;
 
-      // An episode that ends just stops: no history (it would skew the music recommendations), no next song, no radio.
-      // It goes on only into an episode the listener queued themselves (podcastStore.queue); suggestions never play on
-      // their own (EpisodeNextCard offers them), so falling asleep to a story never runs into the next one.
+      // An episode that ends goes on like a song does (2026-11), but into another episode, never into music or radio,
+      // and without history (it would skew the music recommendations): first what the listener queued
+      // (podcastStore.queue), else the pick made while it played (pickUpNext: the same show's next part, or YouTube's
+      // up next). Falling asleep to a story is what the sleep timer's "Akhir episode ini" is for, and closing the
+      // "Berikutnya" card stops after this one.
       if (isEpisode(song)) {
         const podcast = usePodcastStore.getState();
         podcast.markFinished(songToEpisode(song));
@@ -415,8 +424,18 @@ export function usePlaybackController() {
           void sendJamIntent(jamRoomId, jamClientId, 'advance-on-ended', { songId: song.id });
           return;
         }
+        if (podcast.sleep?.endOfEpisode) {
+          podcast.setSleep(null);
+          audioEngine.pause();
+          return;
+        }
         const queued = podcast.takeNextQueued();
-        if (queued) playEpisode(queued, [queued, ...usePodcastStore.getState().queue]);
+        if (queued) {
+          playEpisode(queued, [queued, ...usePodcastStore.getState().queue]);
+          return;
+        }
+        const next = upNextFor(song.id);
+        if (next) continueWithEpisode(next);
         else audioEngine.pause();
         return;
       }
@@ -470,6 +489,15 @@ export function usePlaybackController() {
   useEffect(() => {
     if (!playerError || !currentSong || recoveryRef.current) return;
     const songToRetry = currentSong;
+    // That stale copy: just after an error skip, for another song than the skipped one, while the engine itself reports
+    // no error for this song. Honoured once and only for 2 s: a real failure of the new song either comes from the
+    // engine (its own error, for this song) or is a load timeout, which takes far longer.
+    const skipped = skippedAfterErrorRef.current;
+    if (skipped && skipped.id !== songToRetry.id && Date.now() - skipped.at < 2000) {
+      skippedAfterErrorRef.current = null;
+      const live = audioEngine.getSnapshot();
+      if (!(live.status === 'error' && audioEngine.getCurrentSong()?.id === songToRetry.id)) return;
+    }
     // A timeout normally waits for the user's "Coba lagi" (see below). With the screen off or another app in front
     // there is nobody to tap it, and the music just stopped there for good — so in the background a timeout gets the
     // same treatment as any other failure: one quiet retry, then move on (capped, like every auto-skip).
@@ -483,26 +511,54 @@ export function usePlaybackController() {
     // 'error' event, then loadTrack's rejection), so this effect runs twice for it: the
     // timer must not be tied to the effect (its cleanup would cancel the retry on the
     // second run), and the duplicate must be ignored while a retry is pending.
+    //
+    // First the server is asked why (2026-11): when YouTube refused the song, a retry is pointless (and, for a "not a
+    // bot" refusal, adds to the suspicion), so the same error comes back with a clearer message and goes straight to
+    // the toast below. The check runs alongside the usual 800 ms wait, so a plain failure retries no later than before.
     if (!isTimeout && retriedSongIdRef.current !== songToRetry.id) {
       retriedSongIdRef.current = songToRetry.id;
       retryPendingRef.current = true;
-      setTimeout(() => {
-        retryPendingRef.current = false;
-        if (loadedSongIdRef.current !== songToRetry.id) return; // the user moved on to something else
-        audioEngine.loadTrack(songToRetry, { dataSaver, autoplay: true }).catch(() => {
-          setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
-        });
-      }, 800);
+      const askedAt = Date.now();
+      void fetchPlayability(songToRetry.id).then((verdict) => {
+        if (loadedSongIdRef.current !== songToRetry.id) {
+          retryPendingRef.current = false;
+          return; // the user moved on to something else
+        }
+        if (verdict !== 'ok') {
+          retryPendingRef.current = false;
+          if (verdict === 'unplayable') unplayableSongIdRef.current = songToRetry.id;
+          setPlaybackStatus({
+            isPlaying: false,
+            isBuffering: false,
+            error:
+              verdict === 'unplayable'
+                ? msg('Lagu ini tidak bisa diputar karena dibatasi YouTube.')
+                : msg('YouTube sedang membatasi server. Coba lagi sebentar lagi.'),
+          });
+          return;
+        }
+        setTimeout(
+          () => {
+            retryPendingRef.current = false;
+            if (loadedSongIdRef.current !== songToRetry.id) return; // the user moved on to something else
+            audioEngine.loadTrack(songToRetry, { dataSaver, autoplay: true }).catch(() => {
+              setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
+            });
+          },
+          Math.max(0, 800 - (Date.now() - askedAt)),
+        );
+      });
       return;
     }
     if (retryPendingRef.current) return;
+    const unplayable = unplayableSongIdRef.current === songToRetry.id;
 
     // In the background (solo), a lost connection or a run of failures no longer ends the music: the same song keeps
     // being retried until it plays (startBackgroundRecovery). A connection problem never skips there, every next song
     // would hit the same wall, and a phone often can't tell it has lost its connection (onLine stays true through
     // Doze), so a second failure in a row counts as one too: one broken track is skipped, two in a row are the network.
     // A Jam keeps its own rules (the room decides what plays).
-    if (document.visibilityState === 'hidden' && jamRole === 'solo') {
+    if (document.visibilityState === 'hidden' && jamRole === 'solo' && !unplayable) {
       const connectionProblem = !navigator.onLine || playerError.includes('Koneksi lambat');
       if (connectionProblem || consecutiveErrorsRef.current >= 1) {
         startBackgroundRecovery(songToRetry, playerError);
@@ -511,17 +567,23 @@ export function usePlaybackController() {
     }
 
     // The stored error stays Indonesian (it is matched on above and sent in reports); only the toast is translated.
-    showToast(t(playerError), {
-      type: 'error',
-      action: {
-        label: t('Coba lagi'),
-        onClick: () => {
-          audioEngine.loadTrack(songToRetry, { dataSaver, autoplay: true }).catch(() => {
-            setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
-          });
-        },
-      },
-    });
+    // A song YouTube will not allow here gets no "Coba lagi": every tap would fail the same way.
+    showToast(
+      t(playerError),
+      unplayable
+        ? { type: 'error' }
+        : {
+            type: 'error',
+            action: {
+              label: t('Coba lagi'),
+              onClick: () => {
+                audioEngine.loadTrack(songToRetry, { dataSaver, autoplay: true }).catch(() => {
+                  setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Gagal memutar lagu ini.') });
+                });
+              },
+            },
+          },
+    );
 
     // A timeout never skips: it says something about this connection, not about the track,
     // and the next track would just hit the same wall — that is how a slow start turned
@@ -535,7 +597,8 @@ export function usePlaybackController() {
     // MAX_CONSECUTIVE_AUTO_SKIP so a genuine total outage doesn't rapid-fire through the
     // whole queue instead of just failing visibly once.
     // An episode that fails is not "done": skipping would mark it heard. It stays, with its error, to be retried.
-    if (isEpisode(songToRetry)) return;
+    // One that can never play is the exception: nothing would ever change about it.
+    if (isEpisode(songToRetry) && !unplayable) return;
     if (consecutiveErrorsRef.current < MAX_CONSECUTIVE_AUTO_SKIP) {
       consecutiveErrorsRef.current += 1;
       // In a Jam an advance moves the queue for the whole room, so one member's bad
@@ -543,6 +606,7 @@ export function usePlaybackController() {
       // everyone though, and would otherwise wedge the room forever — so the creator
       // alone (the server dedupes by song id) skips it.
       if (jamRole === 'solo' || jamIsCreator) {
+        skippedAfterErrorRef.current = { id: songToRetry.id, at: Date.now() };
         runCompletionAdvance(songToRetry);
       }
     }

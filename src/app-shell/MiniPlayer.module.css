@@ -498,3 +498,27 @@
     cursor: pointer;
   }
 }
+
+/* A narrow desktop window, and a TV's browser (often 960 px wide at 1080p, 2026-11): the three fixed columns above
+   (260 + 280 + 270 px, plus gaps and padding) are wider than the bar there, and since the bar clips its overflow the
+   right column (volume, expand) was simply cut off. Same three columns, same controls: only the floors give way, the
+   song column first (its title already ellipsizes), and the right column takes just what its controls need. */
+@media (min-width: 960px) and (max-width: 1279.98px) {
+  .wrapper {
+    grid-template-columns: minmax(0, 1.3fr) minmax(min-content, 2fr) max-content;
+    gap: var(--space-3);
+    padding: 0 var(--space-4);
+  }
+
+  .infoGroup {
+    min-width: 0;
+  }
+
+  .rightControls {
+    gap: var(--space-2);
+  }
+
+  .volumeControl {
+    width: 90px;
+  }
+}

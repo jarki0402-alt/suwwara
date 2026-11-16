@@ -7,7 +7,9 @@ import { useT } from '../i18n/i18n';
 import { formatTime } from '../utils/formatTime';
 import { isEpisode } from './episodeRegistry';
 import { podcastApi } from './podcastApi';
-import { songToEpisode } from './playEpisode';
+import { pickUpNext, songToEpisode } from './playEpisode';
+import type { Episode } from './types';
+import { loadEpisodeOverview } from './useEpisodeOverview';
 import { lastWrittenHere, usePodcastStore } from './podcastStore';
 import { useJamStore } from '../stores/jamStore';
 
@@ -124,6 +126,27 @@ export function usePodcastPlayback(currentSong: Song | null, status: string): vo
       })
       .catch(() => {});
   }, [status, episode?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // While an episode plays, what follows it is worked out ahead (from YouTube's up next, which the overview panel loads
+  // for this same episode anyway, cached), so its end can continue at once, with no request in between: with the
+  // screen off, a phone may not get to finish a request after the sound stops. Solo only: a Jam's room decides.
+  useEffect(() => {
+    if (!episode || inJam) return;
+    const current = songToEpisode(episode);
+    let alive = true;
+    const pick = (related: Episode[]) => {
+      const store = usePodcastStore.getState();
+      const next = pickUpNext({ current, related, context: store.context, finished: (id) => store.progress[id]?.finished ?? false });
+      if (alive) store.setUpNext(next ? { after: current.id, episode: next } : null);
+    };
+    pick([]);
+    loadEpisodeOverview(current.id)
+      .then((overview) => pick(overview.related))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [episode?.id, inJam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!sleep?.endsAt || inJam) return;

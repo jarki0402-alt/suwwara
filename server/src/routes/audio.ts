@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import { recordAudio } from '../metrics/usage';
 import { getCachedTrack, openTrackStream, readCachedHead, storeTrack, type CachedTrack } from '../youtube/diskCache';
+import { playability, sendRefusal } from '../youtube/refusals';
 import { invalidateAudio, resolveAudio, ResolveAbortedError, type AudioQuality, type ResolvedAudio } from '../youtube/stream';
 import { buildHlsPlaylist } from './video';
 
@@ -548,6 +549,7 @@ audioRouter.get('/audio/:videoId/hls.m3u8', async (req, res) => {
     res.send(playlist);
   } catch (error) {
     if (error instanceof ResolveAbortedError || gone.signal.aborted) return;
+    if (sendRefusal(res, error)) return;
     res.status(502).json({ error: song ? 'Failed to load the song.' : 'Failed to load the episode.', message: (error as Error).message });
   }
 });
@@ -564,8 +566,18 @@ audioRouter.get('/audio/:videoId/resolve', async (req, res) => {
     await resolveAudio(videoId, quality, RESOLVE_ONLY_PRIORITY, gone.signal);
     res.status(204).end();
   } catch (error) {
+    if (sendRefusal(res, error)) return;
     res.status(502).json({ error: 'Failed to resolve audio.', message: (error as Error).message });
   }
+});
+
+/**
+ * Why a song just failed, for the player (usePlaybackController): an <audio> element only reports "failed", never the
+ * status code. Reads this process's memory of YouTube's refusals only, never resolves: costs nothing, answers at once.
+ */
+audioRouter.get('/audio/:videoId/playability', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ playability: playability(req.params.videoId) });
 });
 
 audioRouter.get('/audio/:videoId', async (req, res) => {
@@ -654,6 +666,7 @@ audioRouter.get('/audio/:videoId', async (req, res) => {
       res.destroy();
       return;
     }
+    if (sendRefusal(res, error)) return;
     res.status(502).json({ error: 'Failed to resolve/proxy audio.', message: (error as Error).message });
   }
 });

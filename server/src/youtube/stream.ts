@@ -1,8 +1,9 @@
 import { sql } from '../db/client';
 import { recordResolve } from '../metrics/resolveStats';
 import { PriorityLimiter, ResolveAbortedError, type ResolvePriority, type TaskHandle } from './priorityLimiter';
+import { parseRefusal, refusalFor, rememberRefusal, ResolveRefusedError } from './refusals';
 
-export { ResolveAbortedError };
+export { ResolveAbortedError, ResolveRefusedError };
 
 export type AudioQuality = 'high' | 'low';
 export type { ResolvePriority };
@@ -267,6 +268,9 @@ export async function resolveAudio(
     return cached.audio;
   }
   if (signal?.aborted) throw new ResolveAbortedError();
+  // Refused moments ago: answered here, without a place in the yt-dlp queue or a request to YouTube.
+  const refused = refusalFor(videoId);
+  if (refused) throw new ResolveRefusedError(refused, `${videoId} was refused by YouTube recently (${refused})`);
 
   let job = inFlight.get(key);
   if (job) {
@@ -319,6 +323,9 @@ export interface ResolvedVideoVariant {
  * cold-start penalty of spawning the yt-dlp CLI and Python VM from scratch for every request.
  */
 export async function callResolver(videoId: string, quality: string, kind: 'audio' | 'video'): Promise<ResolvedStream> {
+  // Checked again here for the music video's resolves (video.ts), which come straight to this function.
+  const known = refusalFor(videoId);
+  if (known) throw new ResolveRefusedError(known, `${videoId} was refused by YouTube recently (${known})`);
   if (Date.now() < breakerOpenUntil) {
     throw new Error(`yt-dlp resolver paused after repeated failures for ${videoId}`);
   }
@@ -334,6 +341,16 @@ export async function callResolver(videoId: string, quality: string, kind: 'audi
 
     if (!response.ok) {
       const errText = await response.text();
+      const refusal = parseRefusal(errText);
+      if (refusal) {
+        // YouTube answered and the service is fine: not a failure for the breaker, which would otherwise pause every
+        // other song's resolve after three private videos in a row.
+        consecutiveFailures = 0;
+        rememberRefusal(videoId, refusal.reason);
+        // eslint-disable-next-line no-console
+        console.error(`[${kind}] ${videoId} (${quality}): YouTube refused (${refusal.reason}): ${refusal.message.slice(0, 200)}`);
+        throw new ResolveRefusedError(refusal.reason, `YouTube refused ${videoId} (${refusal.reason})`);
+      }
       throw new Error(`ytdlp-service returned ${response.status}: ${errText}`);
     }
 
@@ -347,10 +364,36 @@ export async function callResolver(videoId: string, quality: string, kind: 'audi
       variants: Array.isArray(data.variants) ? (data.variants as ResolvedVideoVariant[]) : undefined,
     };
   } catch (error) {
+    if (error instanceof ResolveRefusedError) throw error;
     consecutiveFailures += 1;
     if (consecutiveFailures >= BREAKER_FAILURES) breakerOpenUntil = Date.now() + BREAKER_OPEN_MS;
     // eslint-disable-next-line no-console
     console.error(`[${kind}] ${videoId} (${quality}): yt-dlp microservice FAILED: ${(error as Error).message}`);
     throw new Error(`yt-dlp microservice failed to resolve ${kind} for ${videoId}: ${(error as Error).message}`);
+  }
+}
+
+export interface YoutubeAccountStatus {
+  configured: boolean;
+  resting: boolean;
+  restUntil: number | null;
+  firstUntil: number | null;
+  lastOkAt: number | null;
+  lastFailAt: number | null;
+  lastError: string | null;
+  ok: number;
+  failed: number;
+  needsAccount: number;
+}
+
+/** The backup YouTube account as ytdlp-service sees it (times in epoch seconds), for the admin console. Null when the
+ * service does not answer quickly: the console must never wait on it. */
+export async function youtubeAccountStatus(): Promise<YoutubeAccountStatus | null> {
+  try {
+    const response = await fetch('http://ytdlp-service:8000/account', { signal: AbortSignal.timeout(2000) });
+    if (!response.ok) return null;
+    return (await response.json()) as YoutubeAccountStatus;
+  } catch {
+    return null;
   }
 }

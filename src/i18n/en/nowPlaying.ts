@@ -55,6 +55,8 @@ export const nowPlaying: Dictionary = {
 
   // Playback errors and prompts (toasts)
   'Gagal memutar lagu ini.': "Couldn't play this song.",
+  'Lagu ini tidak bisa diputar karena dibatasi YouTube.': "YouTube doesn't allow this song to play here.",
+  'YouTube sedang membatasi server. Coba lagi sebentar lagi.': 'YouTube is limiting the server right now. Try again in a moment.',
   'Koneksi lambat, lagu gagal dimuat.': "Slow connection, the song didn't load.",
   'Terjadi kesalahan saat memutar: sumber audio tidak tersedia.': 'Something went wrong while playing: the audio source is unavailable.',
   'Ketuk untuk lanjutkan audio Jam.': 'Tap to resume Jam audio.',

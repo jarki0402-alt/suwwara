@@ -306,4 +306,24 @@ create table if not exists system_samples (
   resolve_avg_ms integer,
   queue_pending smallint not null default 0
 );
+-- Bytes the VM's network card sent / received in the 5 minutes before (metrics/egress.ts), for the Sistem tab's chart.
+alter table system_samples add column if not exists net_tx_bytes bigint, add column if not exists net_rx_bytes bigint;
+
+-- Everything the VM sent and received per hour, read from the host's network card (metrics/egress.ts): the number
+-- Google meters against the 200 GiB free egress, unlike usage_hourly which only counts audio and video. 400 days.
+create table if not exists net_hourly (
+  hour timestamptz primary key,
+  tx_bytes bigint not null default 0,
+  rx_bytes bigint not null default 0
+);
+-- The card's last raw counters (one row), with the kernel's boot id: a backend restart picks up where it left off and a
+-- VM reboot (counters back to 0) is recognised instead of counted negative.
+create table if not exists net_counter (
+  id smallint primary key,
+  boot_id text not null,
+  iface text not null,
+  tx bigint not null,
+  rx bigint not null,
+  at timestamptz not null
+);
 `;

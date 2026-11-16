@@ -642,6 +642,8 @@
   --viz-video: #1baf7a;
   --viz-seq: #2a78d6;
   --viz-empty: color-mix(in oklab, var(--color-text-primary) 6%, transparent);
+  /* "Lain-lain" in a split (API, app files, TLS): a neutral grey, never a fourth hue, so it reads as the remainder. */
+  --viz-other: color-mix(in oklab, var(--color-text-primary) 38%, transparent);
 }
 @media (prefers-color-scheme: dark) {
   :global(:root:not([data-theme='light'])) .viz {

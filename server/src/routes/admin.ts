@@ -13,9 +13,9 @@ import { roomCount } from '../jam/roomManager';
 import { flushUsage } from '../metrics/usage';
 import { resolveSummary } from '../metrics/resolveStats';
 import { memInfo } from '../metrics/systemSamples';
-import { billingSummary } from '../metrics/billing';
+import { egressSummary } from '../metrics/egress';
 import { diskCacheStats } from '../youtube/diskCache';
-import { resolveQueueState } from '../youtube/stream';
+import { resolveQueueState, youtubeAccountStatus } from '../youtube/stream';
 
 /**
  * The admin dashboard's API. Everything here is counts, sizes and account management — never what anyone listens to.
@@ -203,10 +203,10 @@ adminRouter.get('/admin/overview', async (_req, res) => {
     monthBytes: Number(counts.month_bytes),
     onlineDevices: onlineDeviceCount(),
     jamRooms: roomCount(),
-    resolve: { ...resolveSummary(), queue: resolveQueueState() },
+    resolve: { ...resolveSummary(), queue: resolveQueueState(), account: await youtubeAccountStatus() },
     locked: loginLimiter.lockedNow().length,
-    // What the Google Cloud bill should come to this month (metrics/billing.ts).
-    billing: await billingSummary(),
+    // Everything the VM sent this month against the 200 GiB free egress (metrics/egress.ts).
+    egress: await egressSummary(),
     listeningNow: playing.map((row) => ({ username: nameOf.get(row.accountId) ?? '?', kinds: row.kinds })),
     today: dayTotals('today'),
     yesterday: dayTotals('yesterday'),

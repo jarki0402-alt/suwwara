@@ -6,7 +6,7 @@ import { adminApi, type Overview as OverviewData } from './adminApi';
 import styles from './AdminView.module.css';
 import { TrendChart, type TrendPoint } from './TrendChart';
 import { KindSplit } from './UsageCharts';
-import { dailyPoints, formatListen, formatRupiah } from './usageFormat';
+import { dailyPoints, dayName, formatListen, localDay, quotaPercent } from './usageFormat';
 import { SystemHistory } from './UsageViews';
 import { useAdminData } from './useAdminData';
 
@@ -18,6 +18,26 @@ const duration = (seconds: number) => {
   const hours = Math.floor((seconds % 86400) / 3600);
   return days > 0 ? `${days} hari ${hours} jam` : hours > 0 ? `${hours} jam ${Math.floor((seconds % 3600) / 60)} mnt` : `${Math.floor(seconds / 60)} mnt`;
 };
+
+const secondsAgo = (epochSec: number | null) => {
+  if (!epochSec) return 'belum pernah';
+  const minutes = Math.round((Date.now() / 1000 - epochSec) / 60);
+  if (minutes < 1) return 'baru saja';
+  if (minutes < 60) return `${minutes} menit lalu`;
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? `${hours} jam lalu` : `${Math.round(hours / 24)} hari lalu`;
+};
+
+// The backup account only steps in after YouTube refuses an anonymous resolve: "dipakai 0 kali" is the healthy normal.
+function AccountStat({ account }: { account: OverviewData['resolve']['account'] }) {
+  if (!account) return <Stat icon="users" label="Akun YouTube cadangan" value="Tidak terbaca" sub="ytdlp-service tidak menjawab" />;
+  if (!account.configured) return <Stat icon="users" label="Akun YouTube cadangan" value="Belum dipasang" sub="lagu yang ditolak YouTube dilewati" />;
+  const value = account.resting ? 'Ditolak' : account.firstUntil ? 'Dipakai duluan' : 'Siaga';
+  const sub = account.resting
+    ? `gagal ${secondsAgo(account.lastFailAt)}, istirahat sampai ${new Date((account.restUntil as number) * 1000).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+    : `${account.ok} lagu diselamatkan · terakhir ${secondsAgo(account.lastOkAt)}`;
+  return <Stat icon="users" label="Akun YouTube cadangan" value={value} sub={sub} />;
+}
 
 function Stat({ icon, label, value, sub }: { icon: IconName; label: string; value: string; sub?: string }) {
   return (
@@ -63,39 +83,100 @@ function ChartFigures({ points }: { points: TrendPoint[] }) {
 }
 
 const billMonth = (iso: string) => new Date(new Date(iso).getTime() + 12 * 3_600_000).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+const shortDate = (iso: string) => new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /**
- * This month's Google Cloud bill, estimated from the bytes the server sent (server/src/metrics/billing.ts, calibrated on
- * the real billing export). Replaces the old "200 GB quota" card: that free allowance is for Standard internet egress,
- * while this app's traffic leaves through Cloudflare (Carrier Peering) and is paid from the first GiB.
+ * Everything the VM sent this month (server/src/metrics/egress.ts), read from its network card, against the 200 GiB of
+ * Standard egress Google gives free each month. Replaced the bill estimate (2026-11): direct from the VM, without
+ * Cloudflare's proxy, nothing here is paid, so what matters is how far from the free allowance it stays, and whether
+ * the orange cloud is back on (then the same bytes are paid Carrier Peering egress again).
  */
-function BillingCard({ billing }: { billing: OverviewData['billing'] }) {
-  const { pricing } = billing;
-  const allFree = billing.freeTier.every((check) => check.ok);
+function EgressCard({ egress }: { egress: OverviewData['egress'] }) {
+  const { month, previous } = egress;
+  const used = month.total / egress.freeBytes;
+  const projectedShare = egress.projected / egress.freeBytes;
+  const allFree = egress.freeTier.every((check) => check.ok);
+  // The last 14 WIB days, empty ones as zero, once the card has been read at all.
+  const byDay = new Map(egress.daily.map((row) => [row.day, row.tx]));
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - 13);
+  const dailyPoints14: TrendPoint[] = Array.from({ length: 14 }, (_, i) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + i);
+    const key = localDay(date);
+    return { x: key.slice(5), detail: dayName(key), value: byDay.get(key) ?? 0 };
+  });
   return (
     <div className={styles.card}>
-      <h2 className={styles.cardTitle}>Perkiraan tagihan Google Cloud · {billMonth(billing.month.start)}</h2>
+      <h2 className={styles.cardTitle}>Data keluar VM · {billMonth(month.start)}</h2>
+      {egress.cloudflare.active ? (
+        <p className={styles.error}>
+          Awan oranye Cloudflare terdeteksi (terakhir {timeAgo(egress.cloudflare.seenAt as string)}). Selama lewat proxy Cloudflare, data keluar tidak masuk
+          jatah gratis dan ditagih Google. Matikan di DNS Cloudflare kalau bukan sedang darurat.
+        </p>
+      ) : (
+        <div className={styles.row}>
+          <span>Jalur</span>
+          <span className={styles.badge}>langsung ke VM · gratis</span>
+        </div>
+      )}
+      <div className={styles.row}>
+        <span>
+          Jatah gratis {formatBytes(egress.freeBytes)}/bulan · terpakai <strong>{quotaPercent(month.total, egress.freeBytes)}</strong>
+        </span>
+        <span className={styles.rowValue}>
+          {formatBytes(month.total)} / {formatBytes(egress.freeBytes)}
+        </span>
+      </div>
+      <div className={styles.meter}>
+        <div
+          className={`${styles.meterFill} ${used > 0.9 ? styles.meterDanger : used > 0.7 || projectedShare > 1 ? styles.meterWarn : ''}`}
+          style={{ width: `${Math.min(100, Math.max(used * 100, used > 0 ? 1 : 0))}%` }}
+        />
+      </div>
       <div className={styles.grid}>
-        <Stat icon="pulse" label="Sejauh ini" value={formatRupiah(billing.cost)} sub={`${formatBytes(billing.bytes)} dikirim server`} />
+        <Stat icon="pulse" label="Sejauh ini" value={formatBytes(month.total)} sub={`${quotaPercent(month.total, egress.freeBytes)} dari jatah gratis`} />
         <Stat
           icon="clock"
           label="Perkiraan akhir bulan"
-          value={formatRupiah(billing.projectedCost)}
-          sub={`laju 7 hari terakhir ±${formatRupiah(billing.perDayCost)}/hari`}
+          value={formatBytes(egress.projected)}
+          sub={`${quotaPercent(egress.projected, egress.freeBytes)} · laju ±${formatBytes(egress.perDay)}/hari (7 hari)`}
         />
-        <Stat icon="queue" label="Bulan lalu" value={formatRupiah(billing.previousCost)} sub={`${formatBytes(billing.previousBytes)} dikirim server`} />
+        <Stat
+          icon="pulse"
+          label="Hari ini (WIB)"
+          value={egress.today ? formatBytes(egress.today.tx) : '-'}
+          sub={egress.yesterday ? `kemarin ${formatBytes(egress.yesterday.tx)}` : 'belum diukur'}
+        />
+        <Stat
+          icon="queue"
+          label="Bulan lalu"
+          value={formatBytes(previous.total)}
+          sub={previous.measured ? quotaPercent(previous.total, egress.freeBytes) : 'hitungan server (audio & video)'}
+        />
       </div>
-      <p className={styles.muted}>Biaya bulan ini per jenis</p>
-      <KindSplit values={billing.byKind} format={formatRupiah} />
-      <div className={styles.row}>
-        <span>Data keluar ke Cloudflare</span>
-        <span className={styles.rowValue}>{formatRupiah(billing.cost)}</span>
-      </div>
-      <div className={styles.row}>
-        <span>VM e2-micro, disk 30 GB, IP publik, data masuk dari YouTube</span>
-        <span className={styles.rowValue}>Rp 0 · free tier</span>
-      </div>
-      {billing.freeTier.map((check) => (
+      <p className={styles.muted}>Rincian bulan ini{month.measured ? '' : ' (audio & video saja, VM belum diukur)'}</p>
+      <KindSplit values={month.byKind} format={formatBytes} other={month.measured ? { label: 'Lain-lain', value: month.other } : undefined} />
+      {month.measured && (
+        <p className={styles.muted}>
+          Lain-lain: jawaban API (cari, lirik, Jam), file aplikasi setelah update, playlist HLS, koneksi Jam/Connect, dan enkripsi TLS.
+        </p>
+      )}
+      {month.measured && (
+        <div className={styles.row}>
+          <span>Data masuk ke VM bulan ini (unduhan dari YouTube, dll.)</span>
+          <span className={styles.rowValue}>{formatBytes(month.vmRx)} · gratis</span>
+        </div>
+      )}
+      {egress.daily.length > 0 && (
+        <>
+          <p className={styles.muted}>Data keluar VM per hari, 14 hari terakhir</p>
+          <TrendChart data={dailyPoints14} formatValue={formatBytes} ariaLabel="Data keluar VM per hari, 14 hari terakhir" />
+          <ChartFigures points={dailyPoints14} />
+        </>
+      )}
+      {egress.freeTier.map((check) => (
         <div key={check.label} className={styles.row}>
           <span>{check.label}</span>
           <span className={check.ok ? styles.badge : styles.badgeOff}>
@@ -105,9 +186,11 @@ function BillingCard({ billing }: { billing: OverviewData['billing'] }) {
       ))}
       {!allFree && <p className={styles.error}>Ada syarat free tier yang tidak terpenuhi: VM atau disknya bisa ikut ditagih. Cek di Google Cloud Console.</p>}
       <p className={styles.muted}>
-        Rp {pricing.rpPerGib.toLocaleString('id-ID')}/GiB × {pricing.overhead.toLocaleString('id-ID')} (tagihan ±{Math.round((pricing.overhead - 1) * 100)}% di
-        atas hitungan server: API, file aplikasi, tunnel), dikalibrasi dari tagihan Oktober 2026. Data ke Cloudflare tidak termasuk jatah gratis 200 GiB. Bulan
-        dipotong menurut waktu Pacific seperti tagihan Google. Atur lewat env <code>EGRESS_RP_PER_GIB</code> dan <code>EGRESS_OVERHEAD</code>.
+        {egress.measuredSince
+          ? `Diukur dari kartu jaringan VM${egress.iface ? ` (${egress.iface})` : ''} sejak ${shortDate(egress.measuredSince)}, sama dengan yang dihitung Google. Sebelum itu memakai hitungan server (audio & video saja).`
+          : 'Kartu jaringan VM belum terbaca, jadi angka di atas hanya audio & video yang dihitung server (data keluar sebenarnya sedikit lebih besar).'}{' '}
+        Bulan dipotong menurut waktu Pacific seperti Google (mulai tanggal 1 sekitar pukul 14.00 atau 15.00 WIB). Jatah 200 GiB berlaku untuk seluruh akun
+        billing.
       </p>
     </div>
   );
@@ -182,17 +265,24 @@ export function Overview({ onOpenUsage }: { onOpenUsage: () => void }) {
         />
         <Stat icon="queue" label="Resolve 1 jam terakhir" value={String(data.resolve.count)} sub={`${data.resolve.failures} gagal`} />
         <Stat icon="clock" label="Antrean yt-dlp" value={String(data.resolve.queue.pending)} sub={`${data.resolve.queue.active} sedang berjalan`} />
+        <AccountStat account={data.resolve.account} />
       </Section>
+      {data.resolve.account?.resting && (
+        <p className={styles.error}>
+          Akun YouTube cadangan ditolak YouTube (cookies kedaluwarsa atau akunnya ditandai). Lagu yang ditolak tanpa akun akan gagal sampai cookies diganti:
+          ekspor ulang ke youtube-account/cookies.txt di server, tanpa perlu restart. Langkahnya di DEPLOY.md.
+        </p>
+      )}
 
       <section className={styles.section}>
-        <h3 className={styles.sectionLabel}>Bandwidth & tagihan</h3>
+        <h3 className={styles.sectionLabel}>Data keluar</h3>
+        <EgressCard egress={data.egress} />
         <div className={styles.grid}>
-          <Stat icon="pulse" label="Hari ini" value={formatBytes(data.todayBytes)} sub="audio yang dikirim server" />
-          <Stat icon="pulse" label="30 hari terakhir" value={formatBytes(data.monthBytes)} />
+          <Stat icon="pulse" label="Audio & video hari ini" value={formatBytes(data.todayBytes)} sub="dikirim server" />
+          <Stat icon="pulse" label="Audio & video 30 hari" value={formatBytes(data.monthBytes)} sub="dikirim server" />
         </div>
-        <BillingCard billing={data.billing} />
         <div className={styles.card}>
-          <h2 className={styles.cardTitle}>Tren 14 hari terakhir</h2>
+          <h2 className={styles.cardTitle}>Audio & video dikirim server · 14 hari</h2>
           <TrendChart data={points} formatValue={formatBytes} ariaLabel="Pemakaian bandwidth 14 hari terakhir" />
           <ChartFigures points={points} />
         </div>

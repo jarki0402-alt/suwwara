@@ -4,14 +4,14 @@ import { Icon } from '../../components/Icon/Icon';
 import { useT } from '../../i18n/i18n';
 import { usePlayback } from '../../playback/PlaybackContext';
 import { useUiStore } from '../../stores/uiStore';
-import { nextEpisodeFor } from '../playEpisode';
+import { upNextFor } from '../playEpisode';
 import { usePodcastStore } from '../podcastStore';
 import type { Episode } from '../types';
 import { usePlayEpisode } from './EpisodeRow';
 import styles from './EpisodeNextCard.module.css';
 
-// Offered this close to the end, and kept once the episode has ended, until it is played or dismissed. Never played
-// on its own: an episode that ends just stops (falling asleep to a story must not run into the next one).
+// Shown this close to the end, and kept once the episode has ended, until it is played or dismissed. It is what plays
+// next on its own (usePlaybackController, pickUpNext); closing it means this episode just stops at its end.
 const OFFER_BEFORE_END_SEC = 30;
 
 /**
@@ -24,6 +24,9 @@ export function EpisodeNextCard({ inline = false, fullscreen = false }: { inline
   const { currentSong, remoteDevice } = usePlayback();
   const play = usePlayEpisode();
   const context = usePodcastStore((state) => state.context);
+  // Read so the card follows the pick as YouTube's up next arrives (upNextFor reads the store itself).
+  usePodcastStore((state) => state.upNext);
+  const setAutoNextOff = usePodcastStore((state) => state.setAutoNextOff);
   const finished = usePodcastStore((state) => (currentSong ? (state.progress[currentSong.id]?.finished ?? false) : false));
   const [nearEnd, setNearEnd] = useState(false);
   const [dismissedFor, setDismissedFor] = useState<string | null>(null);
@@ -44,7 +47,7 @@ export function EpisodeNextCard({ inline = false, fullscreen = false }: { inline
 
   if (!episodeId || remoteDevice || dismissedFor === episodeId || !(nearEnd || finished)) return null;
   if (!inline && !fullscreen && nowPlayingCovers) return null;
-  const next: Episode | null = context ? nextEpisodeFor(episodeId) : null;
+  const next: Episode | null = upNextFor(episodeId);
   if (!next) return null;
 
   return (
@@ -59,7 +62,15 @@ export function EpisodeNextCard({ inline = false, fullscreen = false }: { inline
           <Icon name="play" size={14} />
           {t('Putar')}
         </button>
-        <button type="button" className={styles.close} onClick={() => setDismissedFor(episodeId)} aria-label={t('Tutup')}>
+        <button
+          type="button"
+          className={styles.close}
+          onClick={() => {
+            setDismissedFor(episodeId);
+            setAutoNextOff(episodeId);
+          }}
+          aria-label={t('Tutup')}
+        >
           <Icon name="close" size={16} />
         </button>
       </span>

@@ -48,6 +48,7 @@ Pemutar musik dan podcast pribadi bebas iklan (PWA, dipasang di HP/tablet/deskto
 - Posisi tersimpan di server dan **lanjut lintas perangkat** (HP ↔ laptop, toast "Lanjut dari ...").
 - Judul episode selalu bahasa aslinya (`hl=id`), hanya keterangan kecil (views, "2 hari lalu") yang diterjemahkan saat app berbahasa Inggris. Tanggal dengan nama bulan.
 - Nama channel bisa diklik dari mana pun (kartu, baris, antrean, banner Lanjutkan).
+- **Jalan terus seperti lagu** (2026-11): episode yang habis lanjut ke antrean podcast, kalau kosong ke bagian berikutnya dari acara yang sama (diputar dari halaman channel/seri), selain itu ke "Berikutnya" YouTube untuk episode itu (horor lanjut horor) ([pickUpNext](./src/podcast/playEpisode.ts)). Dipilih selagi episode berjalan, jadi peralihan tidak menunggu request saat layar mati. Menutup kartu "Berikutnya" = berhenti setelah episode ini; timer tidur punya pilihan **Akhir episode ini**.
 
 ### Koleksi & personalisasi
 - Lagu Disukai (halaman sendiri ala Liked Songs), playlist, riwayat putar, "baru diputar". Playlist dibuka di atas menu yang sedang aktif.
@@ -75,14 +76,15 @@ Pemutar musik dan podcast pribadi bebas iklan (PWA, dipasang di HP/tablet/deskto
 ### Konsol admin
 - Berdiri sendiri (admin mengelola, tidak mendengarkan), bahasa Indonesia saja ([src/views/admin/](./src/views/admin/)).
 - Kelola akun, laporan pemutaran dari perangkat.
-- **Perkiraan tagihan Google Cloud** ([metrics/billing.ts](./server/src/metrics/billing.ts)), dikalibrasi dari CSV billing asli: satu-satunya biaya adalah data keluar ke Cloudflare (*Carrier Peering*, tidak termasuk jatah gratis 200 GiB), ±Rp 1.450/GiB × 1,08 (`EGRESS_RP_PER_GIB`, `EGRESS_OVERHEAD`); VM e2-micro, disk 30 GB, IP publik Rp 0 (free tier). Bulan dipotong waktu Pacific seperti tagihan Google, perkiraan akhir bulan dari laju 7 hari terakhir, biaya per jenis dan per pengguna, cek syarat free tier (RAM ~1 GB, disk ≤ 30 GB).
+- **Data keluar VM** ([metrics/egress.ts](./server/src/metrics/egress.ts)), menggantikan perkiraan tagihan sejak lepas dari proxy Cloudflare (data keluar langsung dari VM masuk jatah gratis Google 200 GiB/bulan, VM/disk/IP free tier): total dari penghitung kartu jaringan VM (`/sys` host di-mount read-only, `net_hourly` 400 hari, tahan restart backend/reboot VM), dibandingkan jatah gratis (bar persen, perkiraan akhir bulan dari laju 7 hari), rincian lagu/podcast/video/lain-lain (API, file aplikasi, TLS), hari ini vs kemarin, 14 hari, data masuk, peringatan kalau awan oranye Cloudflare terdeteksi (header `CF-Ray`), cek syarat free tier. Bulan dipotong waktu Pacific seperti Google.
 - **Pemakaian rinci, angka saja (tanpa judul lagu)**: per jam dan per jenis **lagu / podcast / video** (`usage_hourly`, 90 hari; `usage_daily` 400 hari). Waktu dengar dan lagu dimulai/selesai/di-skip dihitung **HP** ([listeningStats.ts](./src/stats/listeningStats.ts), hanya membaca status pemutar, kirim tiap 5 menit) karena lagu dari simpanan HP tak lewat server; MB dihitung server, termasuk berapa yang dari cache disk. Tampil sebagai grafik per hari, heatmap hari × jam, tabel per pengguna (bisa diurutkan, CSV), halaman **detail per pengguna** (48 jam terakhir, perangkat, laporan masalah), tab **Laporan** bulanan (vs bulan lalu, CSV, cetak/PDF), statistik di tab Podcast.
-- **Sistem**: kondisi VM tiap 5 menit tersimpan 14 hari (`system_samples`): RAM, CPU, lama resolve, cache lagu, disk; plus isi cache lagu di disk saat ini.
+- **Sistem**: kondisi VM tiap 5 menit tersimpan 14 hari (`system_samples`): RAM, CPU, lama resolve, cache lagu, disk, data keluar/masuk VM; plus isi cache lagu di disk saat ini.
 - Data contoh untuk laptop: `scripts/admin-demo-seed.sql` (menolak jalan tanpa `-v i_am_local=1`) dan `scripts/admin-demo-clear.sql`.
 
 ### Tampilan
 - 6 palet + **Bara** (bawaan), terang/gelap/sistem, font Figtree. **Liquid Glass** opsional (bawaan Mati).
 - **Halaman berwarna dari gambarnya** ala Apple Music: artis, album, playlist, mix, Lagu Disukai, channel podcast ([useImageTint.ts](./src/hooks/useImageTint.ts)). Dihitung di perangkat dari salinan 64px di kanvas 24×24, tanpa kerja server, teks putih tetap kontras ≥ ~5:1. Hero dan banner dari tepi ke tepi, tombol dan search box kaca.
+- Desktop menyesuaikan lebar layar: di jendela sempit dan browser TV (sering 960 px di layar 1080p) kolom bar pemutar dan bar atas menyempit, bukan terpotong; di layar lebar ukurannya tetap.
 - Desktop: scrollbar panel melayang di atas halaman ([PanelScrollbar.tsx](./src/app-shell/PanelScrollbar.tsx)) supaya warna dan banner sampai ke tepi, sidebar bisa diciutkan jadi ikon, layar penuh sungguhan, pintasan keyboard, bar atas Beranda simetris.
 - Notifikasi gaya Dynamic Island (HP: turun dari bawah status bar; desktop: pojok kanan atas), strip status internet di tepi bawah.
 - **iPhone (PWA terpasang)**: pita polos setinggi status bar berwarna halaman, jadi blur status bar iOS 26 tidak lagi mengaburkan konten. Sudah dicek di iPhone asli (2026-11-11).
@@ -105,6 +107,8 @@ Pemutar musik dan podcast pribadi bebas iklan (PWA, dipasang di HP/tablet/deskto
 - Resolusi audio di-cache di Postgres, cache file audio di disk (maks. `AUDIO_CACHE_MAX_MB`, bawaan 6GB, LRU) ([diskCache.ts](./server/src/youtube/diskCache.ts)), pemanas resolve untuk lagu yang sering diputar.
 - `yt-dlp` sebagai microservice Python (FastAPI) yang selalu hidup, klien `visionos` → `web` → `android/ios`, `PriorityLimiter(1)` dengan lane high/low, timeout 25 dtk.
 - `bgutil-provider` (headless Chrome, token PO) dikunci versi sama dengan plugin pip.
+- **Penolakan YouTube dibedakan dan diingat** ([refusals.ts](./server/src/youtube/refusals.ts)): `gone` (privat/dihapus/khusus member, 24 jam), `account` (batas usia/wajib masuk, 1 jam), `limited` ("not a bot", 2 menit). Selama diingat, permintaan lagu itu dijawab langsung (410 / 503) tanpa antre yt-dlp dan tanpa ke YouTube; tidak dihitung sebagai kerusakan oleh pemutus sirkuit. Pemutar menanyakan alasannya (`/api/audio/:id/playability`): lagu yang tak bisa diputar langsung dilewati tanpa "Coba lagi" dan tanpa percobaan ulang di background.
+- **Akun YouTube cadangan (opsional)**: cookies akun khusus di `youtube-account/cookies.txt` (gitignored, mount read-only). Hanya dipakai setelah YouTube menolak tanpa akun, dalam request yang sama; 2 kali "not a bot" dalam 10 menit → akun dipakai duluan 15 menit; lagu batas usia yang berhasil diingat. Akun yang ditolak diistirahatkan 10 menit dan admin memberi peringatan. Lihat [DEPLOY.md](./DEPLOY.md) §15.
 - 5 service Docker Compose (`frontend`, `backend`, `ytdlp-service`, `bgutil-provider`, `postgres`), log Docker dibatasi 10MB × 3 per service.
 - HTTPS + domain lewat **Cloudflare Tunnel** (koneksi keluar saja, port aplikasi tidak dibuka ke internet). Lihat [DEPLOY.md](./DEPLOY.md).
 

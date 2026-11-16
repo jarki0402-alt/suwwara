@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import { Icon } from '../../components/Icon/Icon';
 import { deviceLabel, timeAgo } from '../../utils/deviceLabel';
 import { formatBytes } from '../../utils/formatBytes';
-import { adminApi, type ByKind, type KindTotals, type Pricing, type SystemSample, type UsageKind, type UserUsage } from './adminApi';
+import { adminApi, type ByKind, type KindTotals, type SystemSample, type UsageKind, type UserUsage } from './adminApi';
 import styles from './AdminView.module.css';
 import { TrendChart, type TrendPoint } from './TrendChart';
 import { HourHeatmap, KindSplit, Legend, StackedBars } from './UsageCharts';
-import { costOf, dailyPoints, formatListen, formatMetric, formatRupiah, hourLabel, type Metric, type StackPoint } from './usageFormat';
+import { dailyPoints, formatListen, formatMetric, hourLabel, quotaPercent, type Metric, type StackPoint } from './usageFormat';
 import { useAdminData } from './useAdminData';
 
 /**
@@ -17,6 +17,9 @@ import { useAdminData } from './useAdminData';
 const REFRESH_MS = 120_000;
 const listenOf = (k: ByKind) => k.song.listenSec + k.podcast.listenSec;
 const bytesOf = (k: ByKind) => k.song.bytes + k.podcast.bytes + k.video.bytes;
+// Songs and episodes only: videos never come from the disk cache, so they'd only dilute its share.
+const audioOf = (k: ByKind) => k.song.bytes + k.podcast.bytes;
+const diskOf = (k: ByKind) => k.song.diskBytes + k.podcast.diskBytes;
 const percent = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '-');
 const date = (iso: string) => new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 const dateTime = (iso: string) => new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -110,7 +113,7 @@ function downloadCsv(name: string, rows: Array<Array<string | number>>): void {
 const MB = (bytes: number) => Math.round((bytes / 1024 / 1024) * 10) / 10;
 const minutes = (seconds: number) => Math.round(seconds / 60);
 
-function usersCsv(name: string, users: UserUsage[], pricing: Pricing): void {
+function usersCsv(name: string, users: UserUsage[]): void {
   downloadCsv(name, [
     [
       'Pengguna',
@@ -125,7 +128,6 @@ function usersCsv(name: string, users: UserUsage[], pricing: Pricing): void {
       'MB podcast',
       'MB video',
       'MB dari cache disk',
-      'Perkiraan biaya GCP (Rp)',
       'Hari aktif',
       'Jam tersibuk',
       'Terakhir aktif',
@@ -143,7 +145,6 @@ function usersCsv(name: string, users: UserUsage[], pricing: Pricing): void {
       MB(user.podcast.bytes),
       MB(user.video.bytes),
       MB(user.song.diskBytes + user.podcast.diskBytes),
-      Math.round(costOf(bytesOf(user), pricing)),
       user.activeDays,
       user.peakHour === null ? '' : hourLabel(user.peakHour),
       user.lastSeen ?? '',
@@ -151,19 +152,9 @@ function usersCsv(name: string, users: UserUsage[], pricing: Pricing): void {
   ]);
 }
 
-function dailyCsv(name: string, series: Array<{ day: string } & ByKind>, pricing: Pricing): void {
+function dailyCsv(name: string, series: Array<{ day: string } & ByKind>): void {
   downloadCsv(name, [
-    [
-      'Tanggal',
-      'Menit dengar lagu',
-      'Menit dengar podcast',
-      'Lagu diputar',
-      'Episode diputar',
-      'MB lagu',
-      'MB podcast',
-      'MB video',
-      'Perkiraan biaya GCP (Rp)',
-    ],
+    ['Tanggal', 'Menit dengar lagu', 'Menit dengar podcast', 'Lagu diputar', 'Episode diputar', 'MB lagu', 'MB podcast', 'MB video', 'MB dari cache disk'],
     ...series.map((row) => [
       row.day,
       minutes(row.song.listenSec),
@@ -173,7 +164,7 @@ function dailyCsv(name: string, series: Array<{ day: string } & ByKind>, pricing
       MB(row.song.bytes),
       MB(row.podcast.bytes),
       MB(row.video.bytes),
-      Math.round(costOf(bytesOf(row), pricing)),
+      MB(row.song.diskBytes + row.podcast.diskBytes),
     ]),
   ]);
 }
@@ -203,7 +194,7 @@ const SORT_LABELS: Array<[SortKey, string]> = [
   ['name', 'Nama'],
 ];
 
-function UserTable({ users, pricing, onOpenUser }: { users: UserUsage[]; pricing: Pricing; onOpenUser: (accountId: string) => void }) {
+function UserTable({ users, onOpenUser }: { users: UserUsage[]; onOpenUser: (accountId: string) => void }) {
   const [sort, setSort] = useState<SortKey>('listen');
   const sorted = useMemo(() => {
     const key = SORTS[sort];
@@ -244,7 +235,7 @@ function UserTable({ users, pricing, onOpenUser }: { users: UserUsage[]; pricing
               ? `${user.song.started.toLocaleString('id-ID')} lagu · ${percent(user.song.completed, user.song.completed + user.song.skipped)} selesai`
               : null,
             user.podcast.listenSec > 0 ? `podcast ${formatListen(user.podcast.listenSec)}` : null,
-            bytesOf(user) > 0 ? `data ${formatBytes(bytesOf(user))} ≈ ${formatRupiah(costOf(bytesOf(user), pricing))}` : null,
+            bytesOf(user) > 0 ? `data ${formatBytes(bytesOf(user))}` : null,
             user.video.bytes > 0 ? `video ${formatBytes(user.video.bytes)}` : null,
           ].filter(Boolean);
           const when = [
@@ -277,7 +268,6 @@ function UserTable({ users, pricing, onOpenUser }: { users: UserUsage[]; pricing
               {head('songs', 'Lagu')}
               {head('podcast', 'Podcast')}
               {head('bytes', 'Data')}
-              <th>Biaya</th>
               {head('video', 'Video')}
               {head('days', 'Hari aktif')}
               <th>Jam sibuk</th>
@@ -302,7 +292,6 @@ function UserTable({ users, pricing, onOpenUser }: { users: UserUsage[]; pricing
                 </td>
                 <td>{user.podcast.listenSec > 0 ? formatListen(user.podcast.listenSec) : user.podcast.bytes > 0 ? formatBytes(user.podcast.bytes) : '-'}</td>
                 <td>{bytesOf(user) > 0 ? formatBytes(bytesOf(user)) : '-'}</td>
-                <td>{bytesOf(user) > 0 ? formatRupiah(costOf(bytesOf(user), pricing)) : '-'}</td>
                 <td>{user.video.bytes > 0 ? formatBytes(user.video.bytes) : '-'}</td>
                 <td>{user.activeDays || '-'}</td>
                 <td>{user.peakHour === null ? '-' : hourLabel(user.peakHour)}</td>
@@ -342,13 +331,13 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
 
   return (
     <>
-      {!isToday && <TodayTiles today={data.today} yesterday={data.yesterday} pricing={data.pricing} />}
+      {!isToday && <TodayTiles today={data.today} yesterday={data.yesterday} />}
       <div className={styles.toolbar}>
         <RangeChips value={days} options={[1, 7, 30, 90]} onChange={setDays} labelOf={(option) => (option === 1 ? 'Hari ini' : `${option} hari`)} />
         <button
           type="button"
           className={`${styles.btn} ${styles.noPrint}`}
-          onClick={() => usersCsv(isToday ? 'suwwara-pengguna-hari-ini.csv' : `suwwara-pengguna-${days}hari.csv`, data.perUser, data.pricing)}
+          onClick={() => usersCsv(isToday ? 'suwwara-pengguna-hari-ini.csv' : `suwwara-pengguna-${days}hari.csv`, data.perUser)}
         >
           Unduh CSV
         </button>
@@ -376,9 +365,9 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
           <Stat label="Pengguna aktif" value={`${active} dari ${data.perUser.length}`} sub={isToday ? 'hari ini' : `dalam ${days} hari`} />
           <Stat label="Dari cache disk server" value={percent(diskBytes, audioBytes)} sub={`${formatBytes(diskBytes)} tanpa ke YouTube`} />
           <Stat
-            label="Perkiraan biaya Google Cloud"
-            value={formatRupiah(costOf(bytesOf(totals), data.pricing))}
-            sub={`lagu ${formatRupiah(costOf(totals.song.bytes, data.pricing))} · podcast ${formatRupiah(costOf(totals.podcast.bytes, data.pricing))} · video ${formatRupiah(costOf(totals.video.bytes, data.pricing))}`}
+            label="Data per jam dengar"
+            value={listenOf(totals) > 0 ? formatBytes((bytesOf(totals) / listenOf(totals)) * 3600) : '-'}
+            sub={`lagu ${formatBytes(totals.song.bytes)} · podcast ${formatBytes(totals.podcast.bytes)} · video ${formatBytes(totals.video.bytes)}`}
           />
         </div>
       </section>
@@ -420,7 +409,7 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
 
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>{isToday ? 'Per pengguna, hari ini' : 'Per pengguna'}</h2>
-        <UserTable users={data.perUser} pricing={data.pricing} onOpenUser={onOpenUser} />
+        <UserTable users={data.perUser} onOpenUser={onOpenUser} />
         <p className={styles.muted}>
           Klik nama untuk rinciannya. Waktu dengar dihitung HP (termasuk lagu yang diputar dari simpanan HP), data hanya yang lewat server. Tidak ada judul lagu
           yang tercatat.
@@ -433,7 +422,7 @@ export function UsagePanel({ onOpenUser }: { onOpenUser: (accountId: string) => 
 // ---- one person ----------------------------------------------------------------------------------
 
 /** One person's today next to their yesterday (the admin's days), above the range charts. */
-function TodayTiles({ today, yesterday, pricing }: { today: ByKind; yesterday: ByKind; pricing: Pricing }) {
+function TodayTiles({ today, yesterday }: { today: ByKind; yesterday: ByKind }) {
   const plays = (k: ByKind) => k.song.started + k.podcast.started;
   return (
     <section className={styles.section}>
@@ -460,9 +449,9 @@ function TodayTiles({ today, yesterday, pricing }: { today: ByKind; yesterday: B
           sub={`kemarin ${formatBytes(bytesOf(yesterday))}${today.video.bytes > 0 ? ` · video ${formatBytes(today.video.bytes)}` : ''}`}
         />
         <Stat
-          label="Perkiraan biaya"
-          value={formatRupiah(costOf(bytesOf(today), pricing))}
-          sub={`kemarin ${formatRupiah(costOf(bytesOf(yesterday), pricing))}`}
+          label="Dari cache disk server"
+          value={percent(diskOf(today), audioOf(today))}
+          sub={`${formatBytes(diskOf(today))} tanpa ke YouTube · kemarin ${percent(diskOf(yesterday), audioOf(yesterday))}`}
         />
       </div>
     </section>
@@ -535,7 +524,7 @@ export function UserDetailPanel({ accountId, onBack }: { accountId: string; onBa
         </div>
       </div>
 
-      <TodayTiles today={data.today} yesterday={data.yesterday} pricing={data.pricing} />
+      <TodayTiles today={data.today} yesterday={data.yesterday} />
 
       <h3 className={styles.sectionLabel}>Rentang</h3>
       <RangeChips value={days} options={[7, 30, 90]} onChange={setDays} />
@@ -563,11 +552,7 @@ export function UserDetailPanel({ accountId, onBack }: { accountId: string; onBa
             value={listen > 0 ? formatBytes((bytesOf(totals) / listen) * 3600) : '-'}
             sub="kecil = banyak dari simpanan HP, besar = banyak video"
           />
-          <Stat
-            label="Perkiraan biaya Google Cloud"
-            value={formatRupiah(costOf(bytesOf(totals), data.pricing))}
-            sub={listen > 0 ? `±${formatRupiah((costOf(bytesOf(totals), data.pricing) / listen) * 3600)} per jam dengar` : `dalam ${days} hari`}
-          />
+          <Stat label="Dari cache disk server" value={percent(diskOf(totals), audioOf(totals))} sub={`${formatBytes(diskOf(totals))} tanpa ke YouTube`} />
         </div>
       </section>
 
@@ -652,6 +637,8 @@ export function ReportPanel({ onOpenUser }: { onOpenUser: (accountId: string) =>
   const completion = (t: KindTotals) => (t.completed + t.skipped > 0 ? t.completed / (t.completed + t.skipped) : 0);
   const top = [...data.perUser].sort((a, b) => listenOf(b) - listenOf(a) || bytesOf(b) - bytesOf(a));
   const bytesNow = Math.max(bytesOf(current.totals), current.dailyTableBytes);
+  const { egress } = data;
+  const projectedEgress = (egress.current.total / Math.max(elapsed, 1)) * daysInMonth;
 
   return (
     <>
@@ -667,10 +654,10 @@ export function ReportPanel({ onOpenUser }: { onOpenUser: (accountId: string) =>
           <Icon name="chevron-down" size={16} className={styles.selectChevron} />
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.btn} onClick={() => usersCsv(`suwwara-laporan-${data.month}-pengguna.csv`, data.perUser, data.pricing)}>
+          <button type="button" className={styles.btn} onClick={() => usersCsv(`suwwara-laporan-${data.month}-pengguna.csv`, data.perUser)}>
             CSV pengguna
           </button>
-          <button type="button" className={styles.btn} onClick={() => dailyCsv(`suwwara-laporan-${data.month}-harian.csv`, data.series, data.pricing)}>
+          <button type="button" className={styles.btn} onClick={() => dailyCsv(`suwwara-laporan-${data.month}-harian.csv`, data.series)}>
             CSV harian
           </button>
           <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => window.print()}>
@@ -710,7 +697,7 @@ export function ReportPanel({ onOpenUser }: { onOpenUser: (accountId: string) =>
             }
           />
           <Stat
-            label="Data dikirim"
+            label="Audio & video dikirim"
             value={formatBytes(bytesNow)}
             sub={
               <>
@@ -740,19 +727,27 @@ export function ReportPanel({ onOpenUser }: { onOpenUser: (accountId: string) =>
           />
           <Stat label="Video musik" value={formatBytes(current.totals.video.bytes)} sub={<>bulan lalu {formatBytes(previous.totals.video.bytes)}</>} />
           <Stat
-            label={isCurrent ? 'Tagihan Google Cloud sejauh ini' : 'Tagihan Google Cloud (perkiraan)'}
-            value={formatRupiah(data.gcp.current.cost)}
+            label={isCurrent ? 'Data keluar VM sejauh ini' : 'Data keluar VM'}
+            value={formatBytes(egress.current.total)}
             sub={
               <>
-                bulan lalu {formatRupiah(data.gcp.previous.cost)} <Delta now={data.gcp.current.cost} before={data.gcp.previous.cost} />
+                {quotaPercent(egress.current.total, egress.freeBytes)} dari jatah gratis{egress.current.measured ? '' : ' (hitungan server)'} · bulan lalu{' '}
+                {formatBytes(egress.previous.total)} <Delta now={egress.current.total} before={egress.previous.total} />
               </>
             }
           />
           {isCurrent && (
             <Stat
-              label="Perkiraan tagihan akhir bulan"
-              value={formatRupiah((data.gcp.current.cost / Math.max(elapsed, 1)) * daysInMonth)}
-              sub={`±${formatBytes((bytesNow / Math.max(elapsed, 1)) * daysInMonth)} data, dengan laju sejauh ini`}
+              label="Perkiraan data keluar akhir bulan"
+              value={formatBytes(projectedEgress)}
+              sub={`${quotaPercent(projectedEgress, egress.freeBytes)} dari jatah gratis ${formatBytes(egress.freeBytes)}, dengan laju sejauh ini`}
+            />
+          )}
+          {egress.current.measured && (
+            <Stat
+              label="Rincian data keluar VM"
+              value={`${formatBytes(egress.current.counted)} audio & video`}
+              sub={`lain-lain ${formatBytes(egress.current.other)} (API, aplikasi, TLS) · data masuk ${formatBytes(egress.current.vmRx)}`}
             />
           )}
           {data.resolve && data.resolve.count > 0 && (
@@ -792,13 +787,14 @@ export function ReportPanel({ onOpenUser }: { onOpenUser: (accountId: string) =>
 
       <div className={styles.card}>
         <h2 className={styles.cardTitle}>Pengguna</h2>
-        <UserTable users={top} pricing={data.pricing} onOpenUser={onOpenUser} />
+        <UserTable users={top} onOpenUser={onOpenUser} />
       </div>
       <p className={styles.muted}>
         Rincian per jam disimpan 90 hari, per hari (MB) 400 hari. Waktu dengar dihitung HP, data (MB) dihitung server. Tidak ada judul lagu atau episode yang
-        tercatat. Tagihan Google Cloud: Rp {data.pricing.rpPerGib.toLocaleString('id-ID')}/GiB × {data.pricing.overhead.toLocaleString('id-ID')} untuk data ke
-        Cloudflare (VM, disk, dan IP gratis lewat free tier), bulan dipotong menurut waktu Pacific seperti tagihan Google, jadi bisa sedikit beda dari angka
-        bulan WIB di atas.
+        tercatat. Data keluar VM diukur dari kartu jaringan VM
+        {egress.measuredSince ? ` sejak ${date(egress.measuredSince)}` : ' (belum terbaca, jadi memakai hitungan server)'}, dibandingkan dengan jatah gratis
+        Google {formatBytes(egress.freeBytes)} per bulan. Bulannya dipotong menurut waktu Pacific seperti Google, jadi bisa sedikit beda dari angka bulan WIB di
+        atas.
       </p>
     </>
   );
@@ -832,7 +828,7 @@ export function PodcastStats({ onOpenUser }: { onOpenUser: (accountId: string) =
         <Stat
           label="Data"
           value={formatBytes(podcast.bytes)}
-          sub={`≈ ${formatRupiah(costOf(podcast.bytes, data.pricing))} · ${percent(podcast.bytes, bytesOf(data.totals))} dari semua data`}
+          sub={`${percent(podcast.bytes, bytesOf(data.totals))} dari data audio & video · ${formatBytes(podcast.diskBytes)} dari cache disk`}
         />
         <Stat label="Pendengar" value={`${listeners.length} dari ${data.perUser.length}`} sub={`dalam ${days} hari`} />
       </div>
@@ -883,6 +879,9 @@ export function SystemHistory() {
   const resolves = data.samples.reduce((sum, sample) => sum + sample.resolves, 0);
   const failures = data.samples.reduce((sum, sample) => sum + sample.failures, 0);
   const pct = (value: number) => `${Math.round(value)}%`;
+  const netOut = data.samples.reduce((sum, sample) => sum + (sample.netTxBytes ?? 0), 0);
+  const netIn = data.samples.reduce((sum, sample) => sum + (sample.netRxBytes ?? 0), 0);
+  const bucketLabel = data.bucketSec >= 3600 ? 'jam' : `${data.bucketSec / 60} menit`;
   const charts: Array<{ title: string; points: TrendPoint[]; format: (value: number) => string; note?: string }> = [
     { title: 'RAM terpakai', points: series((s) => s.ram * 100), format: pct },
     { title: 'Beban CPU', points: series((s) => s.load * 100), format: pct },
@@ -891,6 +890,18 @@ export function SystemHistory() {
       points: series((s) => s.avgMs),
       format: (v) => `${(v / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} dtk`,
       note: `${resolves.toLocaleString('id-ID')} resolve · ${failures.toLocaleString('id-ID')} gagal (${percent(failures, resolves)}) dalam rentang ini. Lagu dari cache tidak perlu resolve.`,
+    },
+    {
+      title: 'Data keluar VM',
+      points: series((s) => s.netTxBytes),
+      format: formatBytes,
+      note: `${formatBytes(netOut)} dalam rentang ini, per ${bucketLabel}. Semua yang dikirim kartu jaringan VM: lagu, video, API, file aplikasi, TLS.`,
+    },
+    {
+      title: 'Data masuk VM',
+      points: series((s) => s.netRxBytes),
+      format: formatBytes,
+      note: `${formatBytes(netIn)} dalam rentang ini, per ${bucketLabel}. Sebagian besar unduhan dari YouTube (lagu yang belum ada di cache disk), gratis.`,
     },
     { title: 'Cache lagu di disk', points: series((s) => s.cacheBytes), format: formatBytes },
     { title: 'Disk terpakai', points: series((s) => (s.disk === null ? null : s.disk * 100)), format: pct },

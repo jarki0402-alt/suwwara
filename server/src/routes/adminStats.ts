@@ -4,7 +4,7 @@ import { listeningNow } from '../connect/connectHub';
 import { sql } from '../db/client';
 import { listPlaybackReports } from '../diagnostics/playbackReports';
 import { flushUsage } from '../metrics/usage';
-import { billingForMonth, PRICING } from '../metrics/billing';
+import { egressForMonth } from '../metrics/egress';
 
 /**
  * The admin console's usage detail (Pemakaian, a person's page, Laporan, Sistem history, Podcast numbers). Read from
@@ -184,7 +184,6 @@ adminStatsRouter.get('/admin/usage', async (req, res) => {
   res.json({
     days: range,
     tz,
-    pricing: PRICING,
     listenSince: since,
     totals,
     series,
@@ -233,7 +232,6 @@ adminStatsRouter.get('/admin/usage/user/:id', async (req, res) => {
   res.json({
     days: range,
     tz,
-    pricing: PRICING,
     user: {
       accountId: user.account_id,
       username: user.username,
@@ -280,7 +278,7 @@ adminStatsRouter.get('/admin/report', async (req, res) => {
     return { totals, activeUsers: active?.users ?? 0, dailyTableBytes: Number(daily?.bytes ?? 0) };
   }
 
-  const [current, previous, series, map, users, months, resolve, gcp] = await Promise.all([
+  const [current, previous, series, map, users, months, resolve, egress] = await Promise.all([
     summary(0),
     summary(-1),
     dailySeries(tz, monthStart(0), null, monthStart(1)),
@@ -295,14 +293,13 @@ adminStatsRouter.get('/admin/report', async (req, res) => {
         round(sum(resolve_avg_ms * resolves)::numeric / nullif(sum(case when resolve_avg_ms is null then 0 else resolves end), 0))::int as avg_ms,
         count(*)::int as samples
       from system_samples where at >= ${monthStart(0)} and at < ${monthStart(1)}`,
-    // The bill for the same month, cut where Google cuts it (Pacific time), not in WIB.
-    billingForMonth(month),
+    // Everything the VM sent that month, cut where Google cuts its free allowance (Pacific time), not in WIB.
+    egressForMonth(month),
   ]);
   res.json({
     month,
     tz,
-    pricing: PRICING,
-    gcp,
+    egress,
     months: months.map((row) => row.month),
     current,
     previous,
@@ -336,6 +333,8 @@ adminStatsRouter.get('/admin/system/history', async (req, res) => {
       failures: string;
       avg_ms: number | null;
       queue: number;
+      net_tx: string | null;
+      net_rx: string | null;
     }[]
   >`
     select to_timestamp(floor(extract(epoch from at) / ${bucketSec}::int) * ${bucketSec}::int) as at,
@@ -350,7 +349,9 @@ adminStatsRouter.get('/admin/system/history', async (req, res) => {
       sum(resolves)::bigint as resolves,
       sum(resolve_failures)::bigint as failures,
       round(sum(resolve_avg_ms * resolves)::numeric / nullif(sum(case when resolve_avg_ms is null then 0 else resolves end), 0))::int as avg_ms,
-      max(queue_pending)::int as queue
+      max(queue_pending)::int as queue,
+      sum(net_tx_bytes)::bigint as net_tx,
+      sum(net_rx_bytes)::bigint as net_rx
     from system_samples where at > now() - make_interval(hours => ${hours}::int)
     group by 1 order by 1`;
   res.json({
@@ -370,6 +371,8 @@ adminStatsRouter.get('/admin/system/history', async (req, res) => {
       failures: Number(row.failures),
       avgMs: row.avg_ms,
       queue: row.queue,
+      netTxBytes: row.net_tx === null ? null : Number(row.net_tx),
+      netRxBytes: row.net_rx === null ? null : Number(row.net_rx),
     })),
   });
 });

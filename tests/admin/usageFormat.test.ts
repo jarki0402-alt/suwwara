@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { costOf, formatListen, formatRupiah, niceStep } from '../../src/views/admin/usageFormat';
+import { formatListen, niceStep, quotaPercent } from '../../src/views/admin/usageFormat';
 
 describe('formatListen', () => {
   it('rounds to whole minutes before splitting into hours, so it never reads "60 m"', () => {
@@ -25,13 +25,13 @@ describe('niceStep', () => {
   });
 });
 
-describe('costOf', () => {
-  const pricing = { rpPerGib: 1450, overhead: 1.08 };
-  it('reproduces the real October 2026 bill from what the server counted, within 2%', () => {
-    // Server counted 3.92 GiB; Google billed Rp 6.068 for the Cloudflare egress that month.
-    expect(Math.abs(costOf(3.92 * 1024 ** 3, pricing) - 6068) / 6068).toBeLessThan(0.02);
+describe('quotaPercent', () => {
+  const free = 200 * 1024 ** 3;
+  it('keeps one decimal while small, so a quiet month does not read 0%', () => {
+    expect(quotaPercent(5 * 1024 ** 3, free)).toBe('2,5%');
+    expect(quotaPercent(0, free)).toBe('0%');
   });
-  it('writes whole rupiah with Indonesian grouping', () => {
-    expect(formatRupiah(26_512.4)).toBe('Rp 26.512');
+  it('drops the decimal from 10% up', () => {
+    expect(quotaPercent(25.4 * 1024 ** 3, free)).toBe('13%');
   });
 });

@@ -215,30 +215,38 @@ export function HourHeatmap({ heatmap, metric = 'listen' }: { heatmap: Heatmap; 
   );
 }
 
-/** One 100% bar: how a total splits over the kinds, with the share written next to each colour. */
-export function KindSplit({ values, format }: { values: Record<UsageKind, number>; format: (value: number) => string }) {
-  const total = KINDS.reduce((sum, kind) => sum + values[kind.id], 0);
+/**
+ * One 100% bar: how a total splits over the kinds, with the share written next to each colour. `other` adds a grey
+ * remainder at the end (the VM's data out that isn't audio or video).
+ */
+export function KindSplit({
+  values,
+  format,
+  other,
+}: {
+  values: Record<UsageKind, number>;
+  format: (value: number) => string;
+  other?: { label: string; value: number };
+}) {
+  const parts = [
+    ...KINDS.map((kind) => ({ id: kind.id as string, label: kind.label, color: kind.color, value: values[kind.id] })),
+    ...(other ? [{ id: 'other', label: other.label, color: 'var(--viz-other)', value: other.value }] : []),
+  ].filter((part) => part.value > 0);
+  const total = parts.reduce((sum, part) => sum + part.value, 0);
   if (total <= 0) return <p className={styles.muted}>Belum ada data.</p>;
   return (
     <div className={styles.viz}>
       <div className={styles.splitBar}>
-        {KINDS.filter((kind) => values[kind.id] > 0).map((kind) => (
-          <span
-            key={kind.id}
-            style={{
-              width: `${(values[kind.id] / total) * 100}%`,
-              background: kind.color,
-            }}
-            title={`${kind.label}: ${format(values[kind.id])}`}
-          />
+        {parts.map((part) => (
+          <span key={part.id} style={{ width: `${(part.value / total) * 100}%`, background: part.color }} title={`${part.label}: ${format(part.value)}`} />
         ))}
       </div>
       <div className={styles.legend}>
-        {KINDS.filter((kind) => values[kind.id] > 0).map((kind) => (
-          <span key={kind.id} className={styles.legendItem}>
-            <span className={styles.swatch} style={{ background: kind.color }} />
-            {kind.label} <strong>{format(values[kind.id])}</strong>
-            <span className={styles.muted}>{Math.round((values[kind.id] / total) * 100)}%</span>
+        {parts.map((part) => (
+          <span key={part.id} className={styles.legendItem}>
+            <span className={styles.swatch} style={{ background: part.color }} />
+            {part.label} <strong>{format(part.value)}</strong>
+            <span className={styles.muted}>{Math.round((part.value / total) * 100)}%</span>
           </span>
         ))}
       </div>

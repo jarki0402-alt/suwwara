@@ -250,6 +250,28 @@ docker compose exec ytdlp-service python -c "import socket; print(socket.getaddr
 ```
 **Peringatan**: image Google Cloud punya `/etc/sysctl.d/60-gce-network-security.conf` berisi `net.ipv4.ip_forward=0`. Setiap `sysctl --system` (atau upgrade paket yang memicunya) menerapkannya ulang dan **semua container putus internet**: lagu baru tak bisa di-resolve, log yt-dlp `[Errno -3] Try again`. File di atas (90-, diterapkan sesudah 60-) mengembalikannya ke 1. Kalau gejala itu muncul: `sysctl net.ipv4.ip_forward` → kalau `0`, pasang file ini lagi.
 
+## 15. Akun YouTube cadangan (opsional)
+
+Untuk lagu yang ditolak YouTube tanpa akun: batas usia ("Sign in to confirm your age") dan saat IP VM dicurigai ("Sign in to confirm you're not a bot"). Tanpa file ini aplikasi tetap jalan; lagu seperti itu hanya dilewati dengan pesan jelas.
+
+1. **Buat akun Google khusus**, jangan akun pribadi: akun yang dipakai yt-dlp dari IP server bisa diblokir. Untuk lagu batas usia, akunnya harus berusia dewasa (kadang YouTube minta verifikasi usia).
+2. Di laptop, buka **jendela Incognito/Private**, masuk YouTube dengan akun itu, buka `https://www.youtube.com/robots.txt` di tab yang sama.
+3. Ekspor cookies tab itu ke format Netscape (`cookies.txt`), misalnya dengan ekstensi "Get cookies.txt LOCALLY" (izinkan di Incognito). **Tutup jendela Incognito tanpa logout**: kalau sesi itu dipakai lagi di browser, YouTube memutar cookies-nya dan file di server cepat mati.
+4. Kirim ke VM dan pasang:
+```bash
+# dari laptop
+gcloud compute scp cookies.txt NAMA_VM:~/cookies.txt --zone ZONA_VM     # atau tombol "Upload file" di SSH browser Google Cloud
+# di VM, dari folder project
+sudo mkdir -p youtube-account && sudo mv ~/cookies.txt youtube-account/cookies.txt && sudo chmod 600 youtube-account/cookies.txt
+```
+Tidak perlu restart: file baru terbaca pada resolve berikutnya. Mengganti cookies = menimpa file yang sama.
+
+5. Cek: Admin → Ringkasan → Pemutaran → **Akun YouTube cadangan** harus "Siaga". Log saat dipakai:
+```bash
+docker compose logs ytdlp-service | grep -E "backup account|refused" | tail
+```
+Kalau kartu menunjukkan **Ditolak** (cookies kedaluwarsa atau akun ditandai), ulangi langkah 2 sampai 4. Pemakaiannya sedikit: akun hanya dipakai setelah penolakan tanpa akun, jadi "0 lagu diselamatkan" adalah keadaan normal.
+
 ## Pulihkan akses admin (lupa sandi)
 
 Dari VPS:
@@ -291,6 +313,7 @@ docker builder prune -f --filter until=720h
 | "Layanan sedang tidak tersedia" saat masuk | Backend/database belum siap atau mati: `docker compose ps`, `docker compose logs backend | tail -40` |
 | "Terlalu banyak percobaan" | 5 kali salah sandi → terkunci 15 menit (per IP+pengguna). Admin bisa membukanya di Dashboard → Keamanan → Buka, atau restart backend |
 | Akun musik kosong padahal punya playlist lama | Playlist lama masih di "akun lama": konsol → Pengguna, buat/ulangi dengan pilihan pustaka lama (akun yang sudah dibuat kosong bisa dihapus dan dibuat ulang) |
+| Banyak lagu "Coba lagi", log yt-dlp "not a bot" | YouTube mencurigai IP VM, biasanya reda sendiri dalam jam. Lagu itu diingat 2 menit (tak ditembak berulang). Pasang akun cadangan (langkah 15) bila sering |
 | Audio tak berbunyi setelah masuk | Cek cookie `suwwara_session` ada; `docker compose logs backend | grep audio | tail` |
 | Semua pengunjung tampak dari satu IP di log Keamanan | Sumber tunnel bukan IP privat: tambahkan rentangnya di blok `geo` `nginx.conf`, rebuild frontend |
 | Build gagal / dibunuh | Kehabisan RAM: swap sementara (langkah 4) |

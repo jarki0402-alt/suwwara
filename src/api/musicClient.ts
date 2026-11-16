@@ -73,6 +73,22 @@ export function prefetchAudioResolveOnly(songId: string, quality: 'high' | 'low'
   });
 }
 
+/**
+ * Why a song just failed, from the server's memory of YouTube's refusals (routes/audio.ts playability): an <audio>
+ * element never tells which status code it got. 'ok' whenever the answer is unknown, so a failed check only means the
+ * player behaves as it did before this existed.
+ */
+export async function fetchPlayability(songId: string): Promise<'unplayable' | 'limited' | 'ok'> {
+  try {
+    const response = await fetch(`/api/audio/${encodeURIComponent(songId)}/playability`, { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) return 'ok';
+    const body = (await response.json()) as { playability?: unknown };
+    return body.playability === 'unplayable' || body.playability === 'limited' ? body.playability : 'ok';
+  } catch {
+    return 'ok';
+  }
+}
+
 // Tracks the one in-flight full-byte prefetch (if any) so a newer target can
 // cancel the previous one instead of letting it keep running unbounded in the
 // background — see prefetchAudioFull's own doc comment for why this matters.

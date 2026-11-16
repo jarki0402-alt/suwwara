@@ -5,6 +5,7 @@ import json
 import logging
 import urllib.request
 import os
+import shutil
 import threading
 import time
 
@@ -113,8 +114,9 @@ def remember_client(video_id: str, attempt: int) -> None:
             while len(_working_client) > MAX_REMEMBERED_CLIENTS:
                 _working_client.pop(next(iter(_working_client)))
 
-def extract(video_id: str, fmt: str, clients):
-    youtube_args = {'player_client': clients}
+def extract(video_id: str, fmt: str, clients, cookiefile=None):
+    # No clients given (the backup account): yt-dlp picks its own for a signed-in session; android/ios refuse cookies.
+    youtube_args = {'player_client': clients} if clients else {}
     ydl_opts = {
         'format': fmt,
         'js_runtimes': {'node': {}},
@@ -126,11 +128,182 @@ def extract(video_id: str, fmt: str, clients):
         'no_warnings': True,
         'socket_timeout': 20,
     }
+    if cookiefile:
+        ydl_opts['cookiefile'] = cookiefile
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
     if not info or not info.get('url'):
         raise Exception("No stream URL found in extracted info")
     return info
+
+
+# ---- Why YouTube said no, and the backup account ----------------------------------------------------------------
+#
+# Three kinds of "no" need different answers (2026-11, a night of "try again" in the logs):
+#  - limited: "Sign in to confirm you're not a bot" / "try again later". YouTube distrusts this VM's IP for a while;
+#    every client is refused at once, so trying the other two only adds requests to an IP already under suspicion.
+#  - account: age-restricted or "Please sign in". The same video fails forever without an account.
+#  - gone: private, removed, members-only, blocked in the VM's country. No account fixes these.
+# The backend remembers the answer (server/src/youtube/stream.ts) so a repeated tap never reaches YouTube again.
+#
+# The backup account (a throwaway Google account's cookies, never the owner's own) is only used after an anonymous
+# refusal, inside the same request, so the listener sees a slightly slower start instead of an error. Anonymous
+# resolving with BotGuard tokens stays the normal path: one account carrying every listener from a datacenter IP is
+# exactly what gets an account flagged, so it carries only what anonymous resolving cannot.
+
+class Refused(Exception):
+    def __init__(self, reason: str, error: Exception):
+        super().__init__(str(error))
+        self.reason = reason
+
+GONE_MARKERS = ('private video', 'has been removed', 'members-only', 'join this channel', 'account associated with this video has been terminated')
+# Also "gone", but one client can say this about a video another client plays (visionos refuses some videos web plays,
+# see CLIENT_ATTEMPTS), so these only count once every client has said it.
+MAYBE_GONE_MARKERS = ('video unavailable', 'video is unavailable', 'not available in your country', 'no longer available', 'is not available')
+LIMITED_MARKERS = ('not a bot', 'try again later')
+ACCOUNT_MARKERS = ('confirm your age', 'age-restricted', 'inappropriate for some users', 'please sign in', 'sign in to view')
+
+def refusal_kind(message: str):
+    text = message.lower()
+    # Before "gone": YouTube's rate limit reads "Video unavailable. This content isn't available, try again later".
+    if any(m in text for m in LIMITED_MARKERS):
+        return 'limited'
+    if any(m in text for m in GONE_MARKERS):
+        return 'gone'
+    if any(m in text for m in ACCOUNT_MARKERS):
+        return 'account'
+    if any(m in text for m in MAYBE_GONE_MARKERS):
+        return 'maybe-gone'
+    return None
+
+# Mounted read-only from ./youtube-account on the host (docker-compose.yml). yt-dlp writes rotated cookies back to the
+# file it was given, so it works on a private copy, refreshed whenever the mounted file is replaced.
+ACCOUNT_COOKIES = '/account/cookies.txt'
+WORKING_COOKIES = '/tmp/youtube-cookies.txt'
+# Two "not a bot" refusals within this window mean the IP itself is distrusted: go to the account first for a while
+# instead of making every listener wait for an anonymous refusal first.
+LIMITED_WINDOW_S = 10 * 60
+ACCOUNT_FIRST_FOR_S = 15 * 60
+# The account refused too (dead cookies, or the account itself flagged): leave it alone for a while, never hammer it.
+ACCOUNT_REST_S = 10 * 60
+MAX_NEEDS_ACCOUNT = 500
+
+_account_lock = threading.Lock()
+_account = {
+    'source_mtime': None,
+    'rest_until': 0.0,
+    'first_until': 0.0,
+    'last_ok_at': None,
+    'last_fail_at': None,
+    'last_error': None,
+    'ok': 0,
+    'failed': 0,
+}
+_limited_at: list[float] = []
+# Videos that only play with the account (age-restricted): their next resolve goes there directly. Bounded.
+_needs_account: dict[str, bool] = {}
+
+def account_cookiefile():
+    """The private working copy, or None when no account is set up (or it is resting)."""
+    try:
+        mtime = os.stat(ACCOUNT_COOKIES).st_mtime
+    except OSError:
+        return None
+    with _account_lock:
+        if mtime != _account['source_mtime']:
+            shutil.copyfile(ACCOUNT_COOKIES, WORKING_COOKIES)
+            _account['source_mtime'] = mtime
+            # New cookies: whatever made the old ones rest no longer applies.
+            _account['rest_until'] = 0.0
+        if time.time() < _account['rest_until']:
+            return None
+    return WORKING_COOKIES
+
+def note_limited() -> None:
+    now = time.time()
+    with _account_lock:
+        _limited_at[:] = [t for t in _limited_at if now - t < LIMITED_WINDOW_S] + [now]
+        if len(_limited_at) >= 2:
+            _account['first_until'] = now + ACCOUNT_FIRST_FOR_S
+
+def remember_needs_account(video_id: str) -> None:
+    with _account_lock:
+        _needs_account.pop(video_id, None)
+        _needs_account[video_id] = True
+        while len(_needs_account) > MAX_NEEDS_ACCOUNT:
+            _needs_account.pop(next(iter(_needs_account)))
+
+def extract_with_account(video_id: str, fmt: str, cookiefile: str):
+    try:
+        info = extract(video_id, fmt, None, cookiefile)
+    except Exception as e:
+        kind = refusal_kind(str(e))
+        with _account_lock:
+            _account['failed'] += 1
+            _account['last_fail_at'] = time.time()
+            _account['last_error'] = str(e)[:300]
+            # Refused as a bot, or asked to sign in while signed in: the cookies are dead or the account is flagged.
+            # An age check the account cannot pass says nothing about the cookies.
+            if kind == 'limited' or (kind == 'account' and 'confirm your age' not in str(e).lower()):
+                _account['rest_until'] = time.time() + ACCOUNT_REST_S
+                logger.error('Backup YouTube account refused (%s); resting it for %ss. Replace youtube-account/cookies.txt if this repeats.', str(e)[:160], ACCOUNT_REST_S)
+        raise
+    with _account_lock:
+        _account['ok'] += 1
+        _account['last_ok_at'] = time.time()
+    return info
+
+def resolve_info(video_id: str, fmt: str, kind: str):
+    """(info, via_account). Raises Refused when YouTube said no in a way the backend should remember."""
+    cookiefile = account_cookiefile()
+    now = time.time()
+    if cookiefile and (now < _account['first_until'] or video_id in _needs_account):
+        try:
+            return extract_with_account(video_id, fmt, cookiefile), True
+        except Exception as e:
+            if refusal_kind(str(e)) in ('gone', 'maybe-gone'):
+                raise Refused('gone', e)
+            # Anything else: the normal order below still gets its chance, without asking the account twice.
+            cookiefile = None
+
+    refused = None
+    order = attempts_for(video_id)
+    for position, attempt in enumerate(order):
+        clients = CLIENT_ATTEMPTS[attempt]
+        try:
+            info = extract(video_id, fmt, clients)
+            remember_client(video_id, attempt)
+            return info, False
+        except Exception as e:
+            why = refusal_kind(str(e))
+            if why == 'gone':
+                raise Refused('gone', e)
+            # With an account to fall back on, the other anonymous clients are skipped: they get the same answer.
+            # Without one, every client is still tried, exactly as before.
+            if why in ('limited', 'account') and cookiefile:
+                refused = (why, e)
+                break
+            if position == len(order) - 1:
+                if why:
+                    refused = ('gone' if why == 'maybe-gone' else why, e)
+                    break
+                raise
+            logger.warning(f"{video_id} ({kind}): client {clients} failed ({str(e)[:160]}), trying {CLIENT_ATTEMPTS[order[position + 1]]}")
+
+    why, error = refused
+    if why == 'limited':
+        note_limited()
+    if cookiefile and why != 'gone':
+        logger.warning(f"{video_id} ({kind}): refused without an account ({why}), trying the backup account")
+        try:
+            info = extract_with_account(video_id, fmt, cookiefile)
+            if why == 'account':
+                remember_needs_account(video_id)
+            return info, True
+        except Exception as e:
+            if refusal_kind(str(e)) in ('gone', 'maybe-gone'):
+                raise Refused('gone', e)
+    raise Refused(why, error)
 
 @app.post("/resolve")
 def resolve_audio(req: ResolveRequest):
@@ -140,18 +313,7 @@ def resolve_audio(req: ResolveRequest):
     with _state_lock:
         _inflight[token] = time.time()
     try:
-        info = None
-        order = attempts_for(req.video_id)
-        for position, attempt in enumerate(order):
-            clients = CLIENT_ATTEMPTS[attempt]
-            try:
-                info = extract(req.video_id, fmt, clients)
-                remember_client(req.video_id, attempt)
-                break
-            except Exception as e:
-                if position == len(order) - 1:
-                    raise
-                logger.warning(f"{req.video_id} ({req.kind}): client {clients} failed ({str(e)[:160]}), trying {CLIENT_ATTEMPTS[order[position + 1]]}")
+        info, via_account = resolve_info(req.video_id, fmt, req.kind)
 
         with _state_lock:
             _infra_failures = 0
@@ -163,7 +325,12 @@ def resolve_audio(req: ResolveRequest):
             "formatId": info.get('format_id'),
             "duration": info.get('duration'),
             "variants": video_variants(info) if req.kind == 'video' else None,
+            "viaAccount": via_account,
         }
+    except Refused as e:
+        # YouTube answered, so nothing is wrong with this service: never counted as a network failure.
+        logger.error(f"yt-dlp refused {req.kind} for {req.video_id} ({e.reason}): {str(e)[:300]}")
+        raise HTTPException(status_code=502, detail={'reason': e.reason, 'message': str(e)[:500]})
     except Exception as e:
         logger.error(f"yt-dlp failed to resolve {req.kind} for {req.video_id}: {str(e)}")
         # Only network-shaped failures count: a private or removed video fails on its own without anything being wrong.
@@ -178,6 +345,28 @@ def resolve_audio(req: ResolveRequest):
     finally:
         with _state_lock:
             _inflight.pop(token, None)
+
+
+@app.get("/account")
+def account_status():
+    """The backup account at a glance, for the admin console (server/src/routes/admin.ts)."""
+    configured = os.path.exists(ACCOUNT_COOKIES)
+    now = time.time()
+    with _account_lock:
+        state = dict(_account)
+        remembered = len(_needs_account)
+    return {
+        'configured': configured,
+        'resting': configured and now < state['rest_until'],
+        'restUntil': state['rest_until'] or None,
+        'firstUntil': state['first_until'] if now < state['first_until'] else None,
+        'lastOkAt': state['last_ok_at'],
+        'lastFailAt': state['last_fail_at'],
+        'lastError': state['last_error'],
+        'ok': state['ok'],
+        'failed': state['failed'],
+        'needsAccount': remembered,
+    }
 
 
 # ---- Podcast episodes: chapters + transcript -------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import { Router, type Response } from 'express';
 import { recordVideo } from '../metrics/usage';
+import { sendRefusal } from '../youtube/refusals';
 import { ResolveAbortedError, type ResolvedStream } from '../youtube/stream';
 import { findMusicVideo, forgetVideo, parseVideoTier, pickVariant, resolveVideoSet, type VideoTier, type VideoVariant } from '../youtube/video';
 import { buildMasterPlaylist, START_TIER } from '../youtube/videoPlaylist';
@@ -205,6 +206,7 @@ videoRouter.get('/video/:videoId/master.m3u8', async (req, res) => {
     res.send(buildMasterPlaylist(videoId, set.variants, max));
   } catch (error) {
     if (error instanceof ResolveAbortedError || gone.signal.aborted) return;
+    if (sendRefusal(res, error)) return;
     res.status(502).json({ error: 'Failed to load the music video.', message: (error as Error).message });
   }
 });
@@ -233,6 +235,7 @@ videoRouter.get('/video/:videoId/hls.m3u8', async (req, res) => {
     res.send(playlist);
   } catch (error) {
     if (error instanceof ResolveAbortedError || gone.signal.aborted) return;
+    if (sendRefusal(res, error)) return;
     res.status(502).json({ error: 'Failed to load the music video.', message: (error as Error).message });
   }
 });
@@ -354,6 +357,7 @@ videoRouter.get('/video/:videoId', async (req, res) => {
       res.destroy();
       return;
     }
+    if (sendRefusal(res, error)) return;
     res.status(502).json({ error: 'Failed to load the music video.', message: (error as Error).message });
   }
 });

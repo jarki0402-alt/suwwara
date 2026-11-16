@@ -60,6 +60,11 @@ export function SleepButton({ className }: { className?: string }) {
     setSleep(minutes ? { endsAt: Date.now() + minutes * 60_000, endOfEpisode: false } : null);
     setOpen(false);
   };
+  // Episodes go on into the next one by themselves now: this is the "stop when this story ends" for falling asleep.
+  const pickEndOfEpisode = () => {
+    setSleep({ endsAt: null, endOfEpisode: true });
+    setOpen(false);
+  };
   return (
     <>
       <button
@@ -68,7 +73,13 @@ export function SleepButton({ className }: { className?: string }) {
         onClick={() => setOpen(true)}
         disabled={inJam}
         title={inJam ? t('Timer tidur tidak berlaku saat Jam') : undefined}
-        aria-label={sleep ? t('Timer tidur, sisa {n} menit', { n: minutesLeft ?? 0 }) : t('Timer tidur')}
+        aria-label={
+          sleep?.endOfEpisode
+            ? t('Timer tidur, berhenti di akhir episode')
+            : sleep
+              ? t('Timer tidur, sisa {n} menit', { n: minutesLeft ?? 0 })
+              : t('Timer tidur')
+        }
       >
         <Icon name="moon" size={22} />
         {minutesLeft !== null && <span className={styles.badge}>{minutesLeft}</span>}
@@ -82,6 +93,9 @@ export function SleepButton({ className }: { className?: string }) {
               {minutes === 60 ? t('1 jam') : t('{n} menit', { n: minutes })}
             </button>
           ))}
+          <button type="button" className={[styles.option, styles.optionWide, sleep?.endOfEpisode ? styles.optionOn : ''].join(' ')} onClick={pickEndOfEpisode}>
+            {t('Akhir episode ini')}
+          </button>
           {sleep && (
             <button type="button" className={[styles.option, styles.optionOff].join(' ')} onClick={() => pick(null)}>
               {t('Matikan timer')}

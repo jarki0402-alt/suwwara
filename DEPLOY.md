@@ -270,7 +270,7 @@ Tidak perlu restart: file baru terbaca pada resolve berikutnya. Mengganti cookie
 ```bash
 docker compose logs ytdlp-service | grep -E "backup account|refused" | tail
 ```
-Kalau kartu menunjukkan **Ditolak** (cookies kedaluwarsa atau akun ditandai), ulangi langkah 2 sampai 4. Pemakaiannya sedikit: tanpa akun tetap jalur utama, akun hanya dipakai untuk video yang baru ditolak tanpa akun, atau untuk semua lagu saat YouTube menolak banyak video sekaligus (berhenti sendiri begitu jalur tanpa akun lolos lagi). Batasnya 200 resolve/jam ("Jatah jam ini habis" di kartu), jadi "0 lagu diselamatkan" adalah keadaan normal.
+Kalau kartu menunjukkan **Cookies kedaluwarsa** (YouTube mengeluarkan sesinya, biasanya karena jendela tempat ekspor tidak langsung ditutup atau akunnya dibuka lagi di browser), akun tidak dipakai sama sekali sampai file diganti: ulangi langkah 2 sampai 4. **Ditolak** (akun ditandai atau diminta masuk lagi) = akun istirahat 10 menit; kalau terus berulang, ulangi juga langkah 2 sampai 4. Pemakaiannya sedikit: tanpa akun tetap jalur utama, akun hanya dipakai untuk video yang baru ditolak tanpa akun, atau untuk semua lagu saat YouTube menolak banyak video sekaligus (berhenti sendiri begitu jalur tanpa akun lolos lagi). Batasnya 200 resolve/jam ("Jatah jam ini habis" di kartu), jadi "0 lagu diselamatkan" adalah keadaan normal.
 
 Akun memakai klien `web_music` (satu-satunya klien yang menerima cookies dan masih memberi link unduhan, dicek 2026-11-18). Cek cepat dari VM bahwa link dari akun bisa dialirkan (sekali, setelah pertama dipasang):
 ```bash

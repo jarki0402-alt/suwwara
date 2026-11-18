@@ -32,6 +32,9 @@ const secondsAgo = (epochSec: number | null) => {
 function AccountStat({ account }: { account: OverviewData['resolve']['account'] }) {
   if (!account) return <Stat icon="users" label="Akun YouTube cadangan" value="Tidak terbaca" sub="ytdlp-service tidak menjawab" />;
   if (!account.configured) return <Stat icon="users" label="Akun YouTube cadangan" value="Belum dipasang" sub="lagu yang ditolak YouTube dilewati" />;
+  // Before "resting": dead cookies never come back on their own, only a new export does (DEPLOY.md §15).
+  if (account.cookiesDead)
+    return <Stat icon="users" label="Akun YouTube cadangan" value="Cookies kedaluwarsa" sub="ekspor ulang dari jendela Incognito, ganti youtube-account/cookies.txt" />;
   const spent = account.perHour !== undefined && account.usedLastHour !== undefined && account.usedLastHour >= account.perHour;
   const value = account.resting ? 'Ditolak' : spent ? 'Jatah jam ini habis' : account.firstUntil ? 'Dipakai duluan' : 'Siaga';
   const hourly = account.perHour !== undefined ? ` · ${account.usedLastHour ?? 0}/${account.perHour} sejam terakhir` : '';

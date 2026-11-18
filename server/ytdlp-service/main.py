@@ -142,14 +142,46 @@ def remember_client(video_id: str, attempt: int) -> None:
             while len(_working_client) > MAX_REMEMBERED_CLIENTS:
                 _working_client.pop(next(iter(_working_client)))
 
-def extract(video_id: str, fmt: str, clients, cookiefile=None):
+POT_PROVIDER = 'http://bgutil-provider:4416'
+# Every client but visionos needs a GVS PO token for its audio URLs (web_music, android and ios all: yt-dlp's
+# GVS_PO_TOKEN_POLICY). Without one yt-dlp drops every adaptive format and the 360p video file is all that is left.
+POT_FREE_CLIENTS = {'visionos'}
+# The plugin gives bgutil-provider 5 s to answer its /ping, then goes on without tokens. On this 1GB VM an idle
+# provider sits in swap (2026-11-18: 1 MB in RAM, 100 MB swapped) and its first ping took 5.9 s: web_music then came
+# back with only the 360p file, for listeners and the backup account alike. One ping of our own with room to page it
+# back in, just before a client that needs it, so the plugin's ping finds it awake (~10 ms when it already is).
+POT_WAKE_TIMEOUT_S = 15
+# A provider that did not answer 15 s is down, not asleep: the next clients of the same resolve (and the next minute's
+# resolves) do not wait for it again, or one resolve could stack 15 s waits into the 45 s watchdog (HUNG_AFTER_S).
+POT_DOWN_SKIP_S = 60
+_pot_down_until = 0.0
+
+def wake_pot_provider(clients) -> None:
+    global _pot_down_until
+    if clients and set(clients) <= POT_FREE_CLIENTS:
+        return
+    if time.time() < _pot_down_until:
+        return
+    started = time.time()
+    try:
+        urllib.request.urlopen(f'{POT_PROVIDER}/ping', timeout=POT_WAKE_TIMEOUT_S).read()
+    except Exception as e:
+        # yt-dlp's own ping says the rest: its warning, then the 360p file. Nothing here should fail a resolve.
+        _pot_down_until = time.time() + POT_DOWN_SKIP_S
+        logger.warning('bgutil-provider did not answer a wake-up ping (%s)', str(e)[:160])
+        return
+    took = time.time() - started
+    if took > 1:
+        logger.info('bgutil-provider took %.1fs to wake up (it was swapped out)', took)
+
+def extract(video_id: str, fmt: str, clients, cookiefile=None, ydl_logger=None):
     youtube_args = {'player_client': clients} if clients else {}
     ydl_opts = {
         'format': fmt,
         'js_runtimes': {'node': {}},
         'extractor_args': {
             'youtube': youtube_args,
-            'youtubepot-bgutilhttp': {'base_url': ['http://bgutil-provider:4416']},
+            'youtubepot-bgutilhttp': {'base_url': [POT_PROVIDER]},
         },
         'quiet': True,
         'no_warnings': True,
@@ -157,6 +189,9 @@ def extract(video_id: str, fmt: str, clients, cookiefile=None):
     }
     if cookiefile:
         ydl_opts['cookiefile'] = cookiefile
+    if ydl_logger:
+        ydl_opts['logger'] = ydl_logger
+    wake_pot_provider(clients)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
     if not info or not info.get('url'):
@@ -249,6 +284,8 @@ _account = {
     # Account resolves in a row that ended without audio for a reason that is not a refusal (no usable format, the
     # client changed): two of them rest the account like a refusal does, so a broken account way never slows songs down.
     'no_audio_streak': 0,
+    # The mtime of the cookies file YouTube logged out (CookiesWatch), so the account sits out until it is replaced.
+    'dead_mtime': None,
 }
 # Video id -> when it was last refused as "limited", for counting distinct videos in LIMITED_WINDOW_S. Bounded by the
 # window: older entries are dropped on every write.
@@ -274,7 +311,7 @@ def account_cookiefile():
             _account['source_mtime'] = mtime
             # New cookies: whatever made the old ones rest no longer applies.
             _account['rest_until'] = 0.0
-        if now < _account['rest_until']:
+        if _account['dead_mtime'] == mtime or now < _account['rest_until']:
             return None
         _account_uses[:] = [t for t in _account_uses if now - t < 3600]
         if len(_account_uses) >= ACCOUNT_PER_HOUR:
@@ -315,12 +352,43 @@ def video_goes_to_account_first(video_id: str) -> bool:
             return False
         return True
 
+class CookiesWatch:
+    """yt-dlp's logger on the account path, listening for one warning: YouTube has logged the cookies out (2026-11-18:
+    exported from a browser that stayed open, they were rotated within hours). yt-dlp then carries on signed out, so
+    every "account" resolve was a slower anonymous one (~3.5 s, ~300MB of Node) and nothing said so. Silent otherwise,
+    as quiet + no_warnings keep the anonymous path."""
+
+    def __init__(self) -> None:
+        self.dead = False
+
+    def warning(self, msg: str) -> None:
+        if 'cookies are no longer valid' in msg:
+            self.dead = True
+
+    def debug(self, msg: str) -> None:
+        pass
+
+    def info(self, msg: str) -> None:
+        pass
+
+    def error(self, msg: str) -> None:
+        pass
+
+def note_cookies_dead() -> None:
+    with _account_lock:
+        if _account['dead_mtime'] != _account['source_mtime']:
+            logger.error('Backup YouTube account cookies are no longer valid (logged out by YouTube): not used until youtube-account/cookies.txt is replaced.')
+        _account['dead_mtime'] = _account['source_mtime']
+
 def extract_with_account(video_id: str, fmt: str, cookiefile: str):
     with _account_lock:
         _account_uses.append(time.time())
+    watch = CookiesWatch()
     try:
-        info = extract(video_id, fmt, ACCOUNT_CLIENTS, cookiefile)
+        info = extract(video_id, fmt, ACCOUNT_CLIENTS, cookiefile, watch)
     except Exception as e:
+        if watch.dead:
+            note_cookies_dead()
         kind = refusal_kind(str(e))
         with _account_lock:
             _account['failed'] += 1
@@ -337,6 +405,10 @@ def extract_with_account(video_id: str, fmt: str, cookiefile: str):
                 _account['no_audio_streak'] = 0
                 logger.error('Backup YouTube account gave no audio twice in a row (%s); resting it for %ss.', str(e)[:160], ACCOUNT_REST_S)
         raise
+    if watch.dead:
+        # It still played, signed out, so the listener keeps it; it just is not the account's doing.
+        note_cookies_dead()
+        return info
     with _account_lock:
         _account['ok'] += 1
         _account['last_ok_at'] = time.time()
@@ -451,7 +523,11 @@ def resolve_audio(req: ResolveRequest):
 @app.get("/account")
 def account_status():
     """The backup account at a glance, for the admin console (server/src/routes/admin.ts)."""
-    configured = os.path.exists(ACCOUNT_COOKIES)
+    try:
+        mtime = os.stat(ACCOUNT_COOKIES).st_mtime
+    except OSError:
+        mtime = None
+    configured = mtime is not None
     now = time.time()
     with _account_lock:
         state = dict(_account)
@@ -459,6 +535,8 @@ def account_status():
         used_last_hour = sum(1 for t in _account_uses if now - t < 3600)
     return {
         'configured': configured,
+        # YouTube logged these cookies out: the file has to be exported again (DEPLOY.md §15). Clears once replaced.
+        'cookiesDead': configured and state['dead_mtime'] == mtime,
         'resting': configured and now < state['rest_until'],
         'restUntil': state['rest_until'] or None,
         'firstUntil': state['first_until'] if now < state['first_until'] else None,

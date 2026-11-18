@@ -316,4 +316,6 @@ export interface YoutubeAccount {
   // Optional: an ytdlp-service older than the backend (during a deploy) does not send them.
   usedLastHour?: number;
   perHour?: number;
+  /** YouTube logged the cookies out: export them again (DEPLOY.md §15). */
+  cookiesDead?: boolean;
 }

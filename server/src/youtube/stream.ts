@@ -404,6 +404,8 @@ export interface YoutubeAccountStatus {
   needsAccount: number;
   usedLastHour: number;
   perHour: number;
+  /** YouTube logged the cookies out; the account sits out until the file is replaced. */
+  cookiesDead: boolean;
 }
 
 /** The backup YouTube account as ytdlp-service sees it (times in epoch seconds), for the admin console. Null when the

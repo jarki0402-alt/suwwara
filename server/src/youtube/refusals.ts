@@ -10,7 +10,10 @@ import type { Response } from 'express';
  *  - gone: private, removed, members-only, blocked in the VM's country. No retry will change it today.
  *  - account: age-restricted / sign-in only, and the backup account could not help (none set up, or it is resting).
  *    Shorter, so a newly added account gets its chance within the hour.
- *  - limited: "not a bot". About the IP, not the song: a short pause, long enough that repeated taps stop feeding it.
+ *  - limited: "not a bot". Often brief, or about a few videos only: it holds back prefetches for a short while, but a
+ *    listener's own tap always gets a fresh try (stream.ts resolveAudio; 2026-11-17, holding taps back too left phones
+ *    silent over refusals that a retry or the backup account would have carried). The warmer's refusals are never
+ *    stored here: it asks without the account, so its "no" says nothing about what a listener would get.
  */
 export type RefusalReason = 'gone' | 'account' | 'limited';
 

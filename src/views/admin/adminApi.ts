@@ -311,5 +311,9 @@ export interface YoutubeAccount {
   lastError: string | null;
   ok: number;
   failed: number;
+  /** Videos that currently go to the account first. */
   needsAccount: number;
+  // Optional: an ytdlp-service older than the backend (during a deploy) does not send them.
+  usedLastHour?: number;
+  perHour?: number;
 }

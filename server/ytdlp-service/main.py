@@ -42,6 +42,8 @@ class ResolveRequest(BaseModel):
     video_id: str
     quality: str  # audio: 'high' or 'low'; video: ignored (every quality comes back, see VIDEO_LADDER)
     kind: str = 'audio'  # 'audio' or 'video'
+    # The server's own warming, nobody waiting on it: never uses the backup account (resolve_info).
+    background: bool = False
 
 EXT_TO_MIME = {
     'm4a': 'audio/mp4',
@@ -144,12 +146,12 @@ def extract(video_id: str, fmt: str, clients, cookiefile=None):
 #    every client is refused at once, so trying the other two only adds requests to an IP already under suspicion.
 #  - account: age-restricted or "Please sign in". The same video fails forever without an account.
 #  - gone: private, removed, members-only, blocked in the VM's country. No account fixes these.
-# The backend remembers the answer (server/src/youtube/stream.ts) so a repeated tap never reaches YouTube again.
+# The backend remembers the answer (server/src/youtube/refusals.ts): gone/account for everyone, "limited" only for
+# prefetches, so a listener's own tap always gets a fresh try (and the account, see resolve_info).
 #
-# The backup account (a throwaway Google account's cookies, never the owner's own) is only used after an anonymous
-# refusal, inside the same request, so the listener sees a slightly slower start instead of an error. Anonymous
-# resolving with BotGuard tokens stays the normal path: one account carrying every listener from a datacenter IP is
-# exactly what gets an account flagged, so it carries only what anonymous resolving cannot.
+# The backup account (a throwaway Google account's cookies, never the owner's own) carries only what anonymous
+# resolving cannot, inside the same request, so the listener sees a slightly slower start instead of an error.
+# Which way goes first is decided per request, see the notes above VIDEO_ACCOUNT_FIRST_S.
 
 class Refused(Exception):
     def __init__(self, reason: str, error: Exception):
@@ -180,60 +182,106 @@ def refusal_kind(message: str):
 # file it was given, so it works on a private copy, refreshed whenever the mounted file is replaced.
 ACCOUNT_COOKIES = '/account/cookies.txt'
 WORKING_COOKIES = '/tmp/youtube-cookies.txt'
-# Two "not a bot" refusals within this window mean the IP itself is distrusted: go to the account first for a while
-# instead of making every listener wait for an anonymous refusal first.
+
+# Which way to ask first is decided per request, from what YouTube said lately (2026-11-17: for 40 minutes YouTube
+# refused four trending songs with "not a bot" on every client while every other song resolved anonymously, so the
+# refusal was about those videos, not the whole IP):
+#  - a video refused anonymously goes to the account first for a while: waiting for its anonymous "no" again only
+#    makes the listener wait ~3 s longer for the same answer;
+#  - refusals on several different videos in a short time mean the IP itself is distrusted: everyone goes to the
+#    account first, until an anonymous resolve works again (a probe every few minutes, or the warmer), not a fixed time;
+#  - otherwise anonymous first, as always: one account carrying every listener from a datacenter IP is exactly what
+#    gets an account flagged, so it carries only what anonymous resolving cannot.
+VIDEO_ACCOUNT_FIRST_S = {'limited': 6 * 60 * 60, 'account': 7 * 24 * 60 * 60}
+MAX_ACCOUNT_FIRST_VIDEOS = 500
 LIMITED_WINDOW_S = 10 * 60
-ACCOUNT_FIRST_FOR_S = 15 * 60
+LIMITED_VIDEOS_FOR_ACCOUNT_FIRST = 3
+# A ceiling, not the expected length: the first anonymous success ends it.
+ACCOUNT_FIRST_FOR_S = 30 * 60
+PROBE_EVERY_S = 5 * 60
 # The account refused too (dead cookies, or the account itself flagged): leave it alone for a while, never hammer it.
 ACCOUNT_REST_S = 10 * 60
-MAX_NEEDS_ACCOUNT = 500
+# Far below yt-dlp's documented ~2000 videos/hour for an account, so even a long night of account-first stays
+# unremarkable. Past it, resolving falls back to anonymous until the hour rolls over.
+ACCOUNT_PER_HOUR = 200
 
 _account_lock = threading.Lock()
 _account = {
     'source_mtime': None,
     'rest_until': 0.0,
     'first_until': 0.0,
+    'last_probe_at': 0.0,
     'last_ok_at': None,
     'last_fail_at': None,
     'last_error': None,
     'ok': 0,
     'failed': 0,
 }
-_limited_at: list[float] = []
-# Videos that only play with the account (age-restricted): their next resolve goes there directly. Bounded.
-_needs_account: dict[str, bool] = {}
+# Video id -> when it was last refused as "limited", for counting distinct videos in LIMITED_WINDOW_S. Bounded by the
+# window: older entries are dropped on every write.
+_limited_at: dict[str, float] = {}
+# Video id -> until when it goes to the account first. Bounded: oldest dropped past the cap.
+_account_first_videos: dict[str, float] = {}
+# When the account was used, within the last hour (at most ACCOUNT_PER_HOUR entries).
+_account_uses: list[float] = []
 
 def account_cookiefile():
-    """The private working copy, or None when no account is set up (or it is resting)."""
+    """The private working copy, or None when no account is set up, it is resting, or its hourly allowance is spent."""
     try:
         mtime = os.stat(ACCOUNT_COOKIES).st_mtime
     except OSError:
         return None
+    now = time.time()
     with _account_lock:
         if mtime != _account['source_mtime']:
             shutil.copyfile(ACCOUNT_COOKIES, WORKING_COOKIES)
             _account['source_mtime'] = mtime
             # New cookies: whatever made the old ones rest no longer applies.
             _account['rest_until'] = 0.0
-        if time.time() < _account['rest_until']:
+        if now < _account['rest_until']:
+            return None
+        _account_uses[:] = [t for t in _account_uses if now - t < 3600]
+        if len(_account_uses) >= ACCOUNT_PER_HOUR:
             return None
     return WORKING_COOKIES
 
-def note_limited() -> None:
+def note_limited(video_id: str) -> None:
     now = time.time()
     with _account_lock:
-        _limited_at[:] = [t for t in _limited_at if now - t < LIMITED_WINDOW_S] + [now]
-        if len(_limited_at) >= 2:
+        for vid in [v for v, t in _limited_at.items() if now - t >= LIMITED_WINDOW_S]:
+            _limited_at.pop(vid, None)
+        _limited_at[video_id] = now
+        if len(_limited_at) >= LIMITED_VIDEOS_FOR_ACCOUNT_FIRST and now >= _account['first_until']:
             _account['first_until'] = now + ACCOUNT_FIRST_FOR_S
+            logger.warning('%s different videos refused as "not a bot" within %ss: the backup account goes first until anonymous resolving works again.', len(_limited_at), LIMITED_WINDOW_S)
 
-def remember_needs_account(video_id: str) -> None:
+def note_anonymous_ok() -> None:
     with _account_lock:
-        _needs_account.pop(video_id, None)
-        _needs_account[video_id] = True
-        while len(_needs_account) > MAX_NEEDS_ACCOUNT:
-            _needs_account.pop(next(iter(_needs_account)))
+        if _account['first_until'] > time.time():
+            logger.info('Anonymous resolving works again: back to anonymous first.')
+        _account['first_until'] = 0.0
+        _limited_at.clear()
+
+def remember_account_first(video_id: str, why: str) -> None:
+    with _account_lock:
+        _account_first_videos.pop(video_id, None)
+        _account_first_videos[video_id] = time.time() + VIDEO_ACCOUNT_FIRST_S[why]
+        while len(_account_first_videos) > MAX_ACCOUNT_FIRST_VIDEOS:
+            _account_first_videos.pop(next(iter(_account_first_videos)))
+
+def video_goes_to_account_first(video_id: str) -> bool:
+    with _account_lock:
+        until = _account_first_videos.get(video_id)
+        if until is None:
+            return False
+        if until <= time.time():
+            _account_first_videos.pop(video_id, None)
+            return False
+        return True
 
 def extract_with_account(video_id: str, fmt: str, cookiefile: str):
+    with _account_lock:
+        _account_uses.append(time.time())
     try:
         info = extract(video_id, fmt, None, cookiefile)
     except Exception as e:
@@ -253,18 +301,28 @@ def extract_with_account(video_id: str, fmt: str, cookiefile: str):
         _account['last_ok_at'] = time.time()
     return info
 
-def resolve_info(video_id: str, fmt: str, kind: str):
-    """(info, via_account). Raises Refused when YouTube said no in a way the backend should remember."""
-    cookiefile = account_cookiefile()
-    now = time.time()
-    if cookiefile and (now < _account['first_until'] or video_id in _needs_account):
-        try:
-            return extract_with_account(video_id, fmt, cookiefile), True
-        except Exception as e:
-            if refusal_kind(str(e)) in ('gone', 'maybe-gone'):
-                raise Refused('gone', e)
-            # Anything else: the normal order below still gets its chance, without asking the account twice.
-            cookiefile = None
+def resolve_info(video_id: str, fmt: str, kind: str, background: bool = False):
+    """(info, via_account). Raises Refused when YouTube said no in a way the backend should remember.
+
+    background: the server's own warming (resolveWarmer.ts), which nobody is waiting on: never spends the account."""
+    cookiefile = None if background else account_cookiefile()
+    if cookiefile:
+        now = time.time()
+        video_first = video_goes_to_account_first(video_id)
+        everyone_first = now < _account['first_until']
+        if everyone_first and not video_first and now - _account['last_probe_at'] >= PROBE_EVERY_S:
+            # One listener in a few minutes goes the anonymous way so the mode can end. If it is still refused, that
+            # costs one client's "no" (~1-3 s): the loop below stops at the first refusal when the account is there.
+            with _account_lock:
+                _account['last_probe_at'] = now
+        elif video_first or everyone_first:
+            try:
+                return extract_with_account(video_id, fmt, cookiefile), True
+            except Exception as e:
+                if refusal_kind(str(e)) in ('gone', 'maybe-gone'):
+                    raise Refused('gone', e)
+                # Anything else: the anonymous order below still gets its chance, without asking the account twice.
+                cookiefile = None
 
     refused = None
     order = attempts_for(video_id)
@@ -273,6 +331,7 @@ def resolve_info(video_id: str, fmt: str, kind: str):
         try:
             info = extract(video_id, fmt, clients)
             remember_client(video_id, attempt)
+            note_anonymous_ok()
             return info, False
         except Exception as e:
             why = refusal_kind(str(e))
@@ -292,14 +351,13 @@ def resolve_info(video_id: str, fmt: str, kind: str):
 
     why, error = refused
     if why == 'limited':
-        note_limited()
+        note_limited(video_id)
+    if why in ('limited', 'account'):
+        remember_account_first(video_id, why)
     if cookiefile and why != 'gone':
         logger.warning(f"{video_id} ({kind}): refused without an account ({why}), trying the backup account")
         try:
-            info = extract_with_account(video_id, fmt, cookiefile)
-            if why == 'account':
-                remember_needs_account(video_id)
-            return info, True
+            return extract_with_account(video_id, fmt, cookiefile), True
         except Exception as e:
             if refusal_kind(str(e)) in ('gone', 'maybe-gone'):
                 raise Refused('gone', e)
@@ -313,7 +371,7 @@ def resolve_audio(req: ResolveRequest):
     with _state_lock:
         _inflight[token] = time.time()
     try:
-        info, via_account = resolve_info(req.video_id, fmt, req.kind)
+        info, via_account = resolve_info(req.video_id, fmt, req.kind, req.background)
 
         with _state_lock:
             _infra_failures = 0
@@ -354,7 +412,8 @@ def account_status():
     now = time.time()
     with _account_lock:
         state = dict(_account)
-        remembered = len(_needs_account)
+        now_first = sum(1 for until in _account_first_videos.values() if until > now)
+        used_last_hour = sum(1 for t in _account_uses if now - t < 3600)
     return {
         'configured': configured,
         'resting': configured and now < state['rest_until'],
@@ -365,7 +424,10 @@ def account_status():
         'lastError': state['last_error'],
         'ok': state['ok'],
         'failed': state['failed'],
-        'needsAccount': remembered,
+        # Videos that currently go to the account first (refused anonymously lately, or age-restricted).
+        'needsAccount': now_first,
+        'usedLastHour': used_last_hour,
+        'perHour': ACCOUNT_PER_HOUR,
     }
 
 

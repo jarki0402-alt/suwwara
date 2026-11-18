@@ -32,10 +32,12 @@ const secondsAgo = (epochSec: number | null) => {
 function AccountStat({ account }: { account: OverviewData['resolve']['account'] }) {
   if (!account) return <Stat icon="users" label="Akun YouTube cadangan" value="Tidak terbaca" sub="ytdlp-service tidak menjawab" />;
   if (!account.configured) return <Stat icon="users" label="Akun YouTube cadangan" value="Belum dipasang" sub="lagu yang ditolak YouTube dilewati" />;
-  const value = account.resting ? 'Ditolak' : account.firstUntil ? 'Dipakai duluan' : 'Siaga';
+  const spent = account.perHour !== undefined && account.usedLastHour !== undefined && account.usedLastHour >= account.perHour;
+  const value = account.resting ? 'Ditolak' : spent ? 'Jatah jam ini habis' : account.firstUntil ? 'Dipakai duluan' : 'Siaga';
+  const hourly = account.perHour !== undefined ? ` · ${account.usedLastHour ?? 0}/${account.perHour} sejam terakhir` : '';
   const sub = account.resting
     ? `gagal ${secondsAgo(account.lastFailAt)}, istirahat sampai ${new Date((account.restUntil as number) * 1000).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
-    : `${account.ok} lagu diselamatkan · terakhir ${secondsAgo(account.lastOkAt)}`;
+    : `${account.ok} lagu diselamatkan · terakhir ${secondsAgo(account.lastOkAt)}${hourly}`;
   return <Stat icon="users" label="Akun YouTube cadangan" value={value} sub={sub} />;
 }
 

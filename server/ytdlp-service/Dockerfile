@@ -8,8 +8,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Ensure we get the latest yt-dlp and pot provider plugin since YouTube changes frequently
-RUN pip install --no-cache-dir -U yt-dlp bgutil-ytdlp-pot-provider
+# yt-dlp follows YouTube's changes, so it is always the latest at build time. The PO token plugin is NOT upgraded
+# here: it must stay the exact version of the bgutil-provider container (requirements.txt, docker-compose.yml). A
+# mismatch silently kills the tokens and YouTube then hands out 360p video files as "audio" (2026-11).
+RUN pip install --no-cache-dir -U yt-dlp
 
 COPY main.py .
 

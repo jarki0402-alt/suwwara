@@ -201,13 +201,13 @@ export function resolveQueueState(): { pending: number; active: number } {
   return { pending: limit.pendingCount, active: limit.activeCount };
 }
 
-function startJob(videoId: string, quality: AudioQuality, priority: ResolvePriority): ResolveJob {
+function startJob(videoId: string, quality: AudioQuality, priority: ResolvePriority, background: boolean): ResolveJob {
   const key = `${videoId}:${quality}`;
   const startedAt = Date.now();
   // eslint-disable-next-line no-console
   console.log(`[audio] ${videoId} (${quality}): CACHE MISS, queued for yt-dlp (priority: ${priority}, queue depth: ${limit.pendingCount}, active: ${limit.activeCount})`);
 
-  const { promise: raw, handle } = limit.schedule(priority, () => callResolver(videoId, quality, 'audio'));
+  const { promise: raw, handle } = limit.schedule(priority, () => callResolver(videoId, quality, 'audio', { background }));
   const promise = raw
     .then(async (audio) => {
       const expiresAt = cacheExpiryMs(audio.url);
@@ -250,12 +250,16 @@ function startJob(videoId: string, quality: AudioQuality, priority: ResolvePrior
  *
  * `signal` is the caller's own liveness: abort it when the HTTP request that
  * wanted this track is gone, and a resolve still waiting in line is dropped.
+ *
+ * `background`: the server's own warming (resolveWarmer.ts). It never spends the backup YouTube account and its
+ * refusals are not remembered for anyone else, see callResolver.
  */
 export async function resolveAudio(
   videoId: string,
   quality: AudioQuality,
   priority: ResolvePriority = 'high',
   signal?: AbortSignal,
+  { background = false }: { background?: boolean } = {},
 ): Promise<ResolvedAudio> {
   const key = `${videoId}:${quality}`;
 
@@ -268,9 +272,15 @@ export async function resolveAudio(
     return cached.audio;
   }
   if (signal?.aborted) throw new ResolveAbortedError();
-  // Refused moments ago: answered here, without a place in the yt-dlp queue or a request to YouTube.
+  // Refused moments ago: answered here, without a place in the yt-dlp queue or a request to YouTube. Except a listener's
+  // own tap after a "limited" (2026-11-17): that refusal is often brief or about one video, and the backup account may
+  // carry it, so a tap always gets a fresh try. Only prefetches (low) are held back by it.
   const refused = refusalFor(videoId);
-  if (refused) throw new ResolveRefusedError(refused, `${videoId} was refused by YouTube recently (${refused})`);
+  if (refused && (refused !== 'limited' || priority === 'low')) {
+    // eslint-disable-next-line no-console
+    console.log(`[audio] ${videoId} (${quality}): not asked, YouTube refused it recently (${refused}, priority: ${priority})`);
+    throw new ResolveRefusedError(refused, `${videoId} was refused by YouTube recently (${refused})`);
+  }
 
   let job = inFlight.get(key);
   if (job) {
@@ -278,7 +288,7 @@ export async function resolveAudio(
     console.log(`[audio] ${videoId} (${quality}): joined in-flight resolve already running`);
     if (priority === 'high') job.handle.promote();
   } else {
-    job = startJob(videoId, quality, priority);
+    job = startJob(videoId, quality, priority, background);
     inFlight.set(key, job);
   }
 
@@ -322,10 +332,16 @@ export interface ResolvedVideoVariant {
  * Using a constantly running Python microservice avoids the massive multi-second
  * cold-start penalty of spawning the yt-dlp CLI and Python VM from scratch for every request.
  */
-export async function callResolver(videoId: string, quality: string, kind: 'audio' | 'video'): Promise<ResolvedStream> {
-  // Checked again here for the music video's resolves (video.ts), which come straight to this function.
+export async function callResolver(
+  videoId: string,
+  quality: string,
+  kind: 'audio' | 'video',
+  { background = false }: { background?: boolean } = {},
+): Promise<ResolvedStream> {
+  // Checked again here for the music video's resolves (video.ts), which come straight to this function. Only the final
+  // answers: a "limited" is resolveAudio's call (prefetches wait it out, taps try again), and a music video is a tap.
   const known = refusalFor(videoId);
-  if (known) throw new ResolveRefusedError(known, `${videoId} was refused by YouTube recently (${known})`);
+  if (known && known !== 'limited') throw new ResolveRefusedError(known, `${videoId} was refused by YouTube recently (${known})`);
   if (Date.now() < breakerOpenUntil) {
     throw new Error(`yt-dlp resolver paused after repeated failures for ${videoId}`);
   }
@@ -335,7 +351,7 @@ export async function callResolver(videoId: string, quality: string, kind: 'audi
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ video_id: videoId, quality, kind }),
+      body: JSON.stringify({ video_id: videoId, quality, kind, background }),
       signal: AbortSignal.timeout(RESOLVE_TIMEOUT_MS),
     });
 
@@ -346,7 +362,8 @@ export async function callResolver(videoId: string, quality: string, kind: 'audi
         // YouTube answered and the service is fine: not a failure for the breaker, which would otherwise pause every
         // other song's resolve after three private videos in a row.
         consecutiveFailures = 0;
-        rememberRefusal(videoId, refusal.reason);
+        // The warmer's refusals came without the backup account, so they say nothing about what a listener would get.
+        if (!background) rememberRefusal(videoId, refusal.reason);
         // eslint-disable-next-line no-console
         console.error(`[${kind}] ${videoId} (${quality}): YouTube refused (${refusal.reason}): ${refusal.message.slice(0, 200)}`);
         throw new ResolveRefusedError(refusal.reason, `YouTube refused ${videoId} (${refusal.reason})`);
@@ -383,7 +400,10 @@ export interface YoutubeAccountStatus {
   lastError: string | null;
   ok: number;
   failed: number;
+  /** Videos that currently go to the account first. */
   needsAccount: number;
+  usedLastHour: number;
+  perHour: number;
 }
 
 /** The backup YouTube account as ytdlp-service sees it (times in epoch seconds), for the admin console. Null when the

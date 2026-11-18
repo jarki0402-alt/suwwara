@@ -512,9 +512,11 @@ export function usePlaybackController() {
     // timer must not be tied to the effect (its cleanup would cancel the retry on the
     // second run), and the duplicate must be ignored while a retry is pending.
     //
-    // First the server is asked why (2026-11): when YouTube refused the song, a retry is pointless (and, for a "not a
-    // bot" refusal, adds to the suspicion), so the same error comes back with a clearer message and goes straight to
-    // the toast below. The check runs alongside the usual 800 ms wait, so a plain failure retries no later than before.
+    // First the server is asked why (2026-11): when YouTube will never let this song play here (private, removed,
+    // age-restricted), a retry is pointless, so the same error comes back with a clearer message and goes straight to
+    // the toast below. A "limited" ("not a bot") still gets the retry, as before 2026-11 (2026-11-17: skipping it left
+    // listeners in silence over refusals that were brief, and the retry may go through the backup account). The check
+    // runs alongside the usual 800 ms wait, so a plain failure retries no later than before.
     if (!isTimeout && retriedSongIdRef.current !== songToRetry.id) {
       retriedSongIdRef.current = songToRetry.id;
       retryPendingRef.current = true;
@@ -524,17 +526,10 @@ export function usePlaybackController() {
           retryPendingRef.current = false;
           return; // the user moved on to something else
         }
-        if (verdict !== 'ok') {
+        if (verdict === 'unplayable') {
           retryPendingRef.current = false;
-          if (verdict === 'unplayable') unplayableSongIdRef.current = songToRetry.id;
-          setPlaybackStatus({
-            isPlaying: false,
-            isBuffering: false,
-            error:
-              verdict === 'unplayable'
-                ? msg('Lagu ini tidak bisa diputar karena dibatasi YouTube.')
-                : msg('YouTube sedang membatasi server. Coba lagi sebentar lagi.'),
-          });
+          unplayableSongIdRef.current = songToRetry.id;
+          setPlaybackStatus({ isPlaying: false, isBuffering: false, error: msg('Lagu ini tidak bisa diputar karena dibatasi YouTube.') });
           return;
         }
         setTimeout(

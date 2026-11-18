@@ -270,7 +270,13 @@ Tidak perlu restart: file baru terbaca pada resolve berikutnya. Mengganti cookie
 ```bash
 docker compose logs ytdlp-service | grep -E "backup account|refused" | tail
 ```
-Kalau kartu menunjukkan **Ditolak** (cookies kedaluwarsa atau akun ditandai), ulangi langkah 2 sampai 4. Pemakaiannya sedikit: akun hanya dipakai setelah penolakan tanpa akun, jadi "0 lagu diselamatkan" adalah keadaan normal.
+Kalau kartu menunjukkan **Ditolak** (cookies kedaluwarsa atau akun ditandai), ulangi langkah 2 sampai 4. Pemakaiannya sedikit: tanpa akun tetap jalur utama, akun hanya dipakai untuk video yang baru ditolak tanpa akun, atau untuk semua lagu saat YouTube menolak banyak video sekaligus (berhenti sendiri begitu jalur tanpa akun lolos lagi). Batasnya 200 resolve/jam ("Jatah jam ini habis" di kartu), jadi "0 lagu diselamatkan" adalah keadaan normal.
+
+Cek cepat dari VM bahwa link dari akun bisa dialirkan (sekali, setelah pertama dipasang):
+```bash
+docker compose logs --since 1h ytdlp-service | grep -E "backup account|goes first|works again" | tail
+docker compose exec postgres psql -U suwwara -d suwwara -c "select substring(url from 'itag=([0-9]+)') itag, count(*) from audio_cache where expires_at > now() group by 1"   # 139/140, bukan 18
+```
 
 ## Pulihkan akses admin (lupa sandi)
 

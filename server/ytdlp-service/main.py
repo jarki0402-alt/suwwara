@@ -96,7 +96,33 @@ def format_selector(quality: str, kind: str) -> str:
 # resolve. The android/ios pair used to be the only setting, but YouTube's SABR-only experiment strips their adaptive
 # URLs, leaving just the 360p video+audio file, which this service then handed out as "audio"; it stays as the last
 # resort so something always plays.
-CLIENT_ATTEMPTS = (['visionos'], ['web'], ['android', 'ios'])
+# web_music replaced web as the second attempt (2026-11-18): YouTube now forces SABR on the web client, so it returned
+# no downloadable formats at all and every visionos refusal fell through to the 360p file. web_music (YouTube Music's
+# own client) still gets plain m4a URLs, ~3 s with its JavaScript challenge solved in Node (yt-dlp-ejs, Dockerfile).
+CLIENT_ATTEMPTS = (['visionos'], ['web_music'], ['android', 'ios'])
+# The backup account's client. visionos and android/ios take no cookies; of the clients that do, web/web_safari get
+# SABR only (no formats), tv is refused ("The page needs to be reloaded"), mweb's URLs answer 403. Tested 2026-11-18.
+ACCOUNT_CLIENTS = ['web_music']
+# web_music's JavaScript challenge is solved in Node, ~300MB for a few seconds, once per YouTube player version (then
+# cached, docker-compose.yml). On this 1GB VM that is only taken when RAM + swap can absorb it; otherwise the client is
+# skipped (the anonymous order goes on to android/ios, the account waits), never risking the OOM killer.
+JS_CLIENTS = {'web_music'}
+MIN_FREE_FOR_JS_MB = 600
+
+def enough_memory_for(clients) -> bool:
+    if not JS_CLIENTS.intersection(clients or []):
+        return True
+    try:
+        # A container's /proc/meminfo shows the VM's own figures (no per-container view is set up here).
+        with open('/proc/meminfo') as f:
+            info = {line.split(':')[0]: int(line.split()[1]) for line in f}
+        free_mb = (info.get('MemAvailable', 0) + info.get('SwapFree', 0)) // 1024
+    except (OSError, ValueError, IndexError):
+        return True
+    if free_mb < MIN_FREE_FOR_JS_MB:
+        logger.warning('Skipping %s: only %sMB of RAM + swap free, its JavaScript challenge may need ~300MB.', clients, free_mb)
+        return False
+    return True
 
 # Which attempt worked last time for a video, so its next resolve (a music video's picture right after its sound, a
 # re-resolve hours later) starts there instead of paying for the clients that already failed it (~4.5s instead of
@@ -117,7 +143,6 @@ def remember_client(video_id: str, attempt: int) -> None:
                 _working_client.pop(next(iter(_working_client)))
 
 def extract(video_id: str, fmt: str, clients, cookiefile=None):
-    # No clients given (the backup account): yt-dlp picks its own for a signed-in session; android/ios refuse cookies.
     youtube_args = {'player_client': clients} if clients else {}
     ydl_opts = {
         'format': fmt,
@@ -161,12 +186,17 @@ class Refused(Exception):
 GONE_MARKERS = ('private video', 'has been removed', 'members-only', 'join this channel', 'account associated with this video has been terminated')
 # Also "gone", but one client can say this about a video another client plays (visionos refuses some videos web plays,
 # see CLIENT_ATTEMPTS), so these only count once every client has said it.
-MAYBE_GONE_MARKERS = ('video unavailable', 'video is unavailable', 'not available in your country', 'no longer available', 'is not available')
+# Never a bare "is not available": yt-dlp's own "Requested format is not available" (a client with no usable format)
+# matched it and marked playable songs gone for 24 hours (2026-11-18).
+MAYBE_GONE_MARKERS = ('video unavailable', 'video is unavailable', 'video is not available', 'available in your country', 'no longer available')
 LIMITED_MARKERS = ('not a bot', 'try again later')
 ACCOUNT_MARKERS = ('confirm your age', 'age-restricted', 'inappropriate for some users', 'please sign in', 'sign in to view')
 
 def refusal_kind(message: str):
     text = message.lower()
+    # yt-dlp's own words, not YouTube's: this client found no format we can use. Says nothing about the video.
+    if 'requested format is not available' in text:
+        return None
     # Before "gone": YouTube's rate limit reads "Video unavailable. This content isn't available, try again later".
     if any(m in text for m in LIMITED_MARKERS):
         return 'limited'
@@ -216,6 +246,9 @@ _account = {
     'last_error': None,
     'ok': 0,
     'failed': 0,
+    # Account resolves in a row that ended without audio for a reason that is not a refusal (no usable format, the
+    # client changed): two of them rest the account like a refusal does, so a broken account way never slows songs down.
+    'no_audio_streak': 0,
 }
 # Video id -> when it was last refused as "limited", for counting distinct videos in LIMITED_WINDOW_S. Bounded by the
 # window: older entries are dropped on every write.
@@ -226,7 +259,10 @@ _account_first_videos: dict[str, float] = {}
 _account_uses: list[float] = []
 
 def account_cookiefile():
-    """The private working copy, or None when no account is set up, it is resting, or its hourly allowance is spent."""
+    """The private working copy, or None when no account is set up, it is resting, its hourly allowance is spent, or
+    the VM has no room for its client right now (enough_memory_for)."""
+    if not enough_memory_for(ACCOUNT_CLIENTS):
+        return None
     try:
         mtime = os.stat(ACCOUNT_COOKIES).st_mtime
     except OSError:
@@ -283,22 +319,28 @@ def extract_with_account(video_id: str, fmt: str, cookiefile: str):
     with _account_lock:
         _account_uses.append(time.time())
     try:
-        info = extract(video_id, fmt, None, cookiefile)
+        info = extract(video_id, fmt, ACCOUNT_CLIENTS, cookiefile)
     except Exception as e:
         kind = refusal_kind(str(e))
         with _account_lock:
             _account['failed'] += 1
             _account['last_fail_at'] = time.time()
             _account['last_error'] = str(e)[:300]
+            _account['no_audio_streak'] = _account['no_audio_streak'] + 1 if kind is None else 0
             # Refused as a bot, or asked to sign in while signed in: the cookies are dead or the account is flagged.
             # An age check the account cannot pass says nothing about the cookies.
             if kind == 'limited' or (kind == 'account' and 'confirm your age' not in str(e).lower()):
                 _account['rest_until'] = time.time() + ACCOUNT_REST_S
                 logger.error('Backup YouTube account refused (%s); resting it for %ss. Replace youtube-account/cookies.txt if this repeats.', str(e)[:160], ACCOUNT_REST_S)
+            elif _account['no_audio_streak'] >= 2:
+                _account['rest_until'] = time.time() + ACCOUNT_REST_S
+                _account['no_audio_streak'] = 0
+                logger.error('Backup YouTube account gave no audio twice in a row (%s); resting it for %ss.', str(e)[:160], ACCOUNT_REST_S)
         raise
     with _account_lock:
         _account['ok'] += 1
         _account['last_ok_at'] = time.time()
+        _account['no_audio_streak'] = 0
     return info
 
 def resolve_info(video_id: str, fmt: str, kind: str, background: bool = False):
@@ -326,6 +368,7 @@ def resolve_info(video_id: str, fmt: str, kind: str, background: bool = False):
 
     refused = None
     order = attempts_for(video_id)
+    order = [attempt for attempt in order if enough_memory_for(CLIENT_ATTEMPTS[attempt])]
     for position, attempt in enumerate(order):
         clients = CLIENT_ATTEMPTS[attempt]
         try:
@@ -486,7 +529,7 @@ def episode_extras(req: ExtrasRequest):
         _inflight[token] = time.time()
     try:
         info = None
-        order = attempts_for(req.video_id)
+        order = [attempt for attempt in attempts_for(req.video_id) if enough_memory_for(CLIENT_ATTEMPTS[attempt])]
         for position, attempt in enumerate(order):
             try:
                 info = extract(req.video_id, format_selector('low', 'audio'), CLIENT_ATTEMPTS[attempt])

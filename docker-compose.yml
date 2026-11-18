@@ -91,6 +91,9 @@ services:
       # YouTube refuses an anonymous resolve, see main.py. An empty folder simply means no account. Read-only: the
       # service works on its own copy, and replacing the file is picked up without a restart.
       - ./youtube-account:/account:ro
+      # yt-dlp's solved JavaScript challenges (a few KB per YouTube player version). Solving one runs Node at ~300MB
+      # for a few seconds; kept across deploys, that happens once per player version instead of after every deploy.
+      - suwwara-ytdlp-cache:/root/.cache/yt-dlp
 
   bgutil-provider:
     logging: *default-logging
@@ -119,3 +122,4 @@ services:
 volumes:
   suwwara-postgres-data:
   suwwara-audio-cache:
+  suwwara-ytdlp-cache:
